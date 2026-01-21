@@ -107,6 +107,24 @@
 - *标准*：@gb7714
 - *网络资源*：@typst2024docs
 
+== 需要 `mark` 字段的文献类型
+
+部分 BibTeX 类型（如 `@standard`、`@newspaper`、`@legislation`）不被 citegeist 识别。对于这些类型，使用 `@misc` 并添加 `mark` 字段：
+
+```bib
+@misc{gb7714,
+  mark      = {S},
+  title     = {信息与文献参考文献著录规则},
+  number    = {GB/T 7714—2015},
+  publisher = {中国标准出版社},
+  year      = {2015},
+}
+```
+
+常用标识码：`S`=标准、`N`=报纸、`LEGISLATION`=法律法规、`LEGAL_CASE`=司法案例。
+
+注：使用 `@online` 而非 `@webpage`——citegeist 支持前者但不支持后者。
+
 = 自定义渲染
 
 `csl-bibliography` 支持 `full-control` 参数，允许完全自定义参考文献列表的渲染方式：

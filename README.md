@@ -138,6 +138,47 @@ This library includes support for key CSL-M (CSL Multilingual) extensions:
 10 languages with automatic fallback:
 `en-US`, `zh-CN`, `zh-TW`, `de-DE`, `fr-FR`, `es-ES`, `ja-JP`, `ko-KR`, `pt-BR`, `ru-RU`
 
+## Entry Type Handling
+
+This library uses [citegeist](https://typst.app/universe/package/citegeist/) to parse BibTeX files. Most standard entry types are supported, but some extended types are not recognized by citegeist.
+
+### Supported Types (auto-detected)
+
+`article`, `book`, `booklet`, `inbook`, `incollection`, `inproceedings`, `conference`, `manual`, `mastersthesis`, `phdthesis`, `proceedings`, `techreport`, `unpublished`, `misc`, `online`, `patent`, `thesis`, `report`, `dataset`, `software`, `periodical`, `collection`
+
+### Unsupported Types (require `mark` field)
+
+For types not recognized by citegeist, use `@misc` with a `mark` field:
+
+| Type        | Mark          | Notes                       |
+| ----------- | ------------- | --------------------------- |
+| Standard    | `S`           | `@standard` not recognized  |
+| Newspaper   | `N`           | `@newspaper` not recognized |
+| Legislation | `LEGISLATION` | CSL-M legal type            |
+| Legal case  | `LEGAL_CASE`  | CSL-M legal type            |
+| Regulation  | `REGULATION`  | CSL-M legal type            |
+
+Note: Use `@online` instead of `@webpage` — citegeist supports `@online` but not `@webpage`.
+
+Example:
+
+```bib
+@misc{gb7714,
+  mark      = {S},
+  title     = {Information and documentation — Rules for bibliographic references},
+  number    = {GB/T 7714—2015},
+  publisher = {Standards Press of China},
+  year      = {2015},
+}
+```
+
+The `mark` field follows GB/T 7714 document type codes:
+
+- `M` — Book, `C` — Conference, `N` — Newspaper, `J` — Journal
+- `D` — Thesis, `R` — Report, `S` — Standard, `P` — Patent
+- `G` — Collection, `EB` — Electronic resource, `DB` — Database
+- `A` — Analytic (chapter), `Z` — Other
+
 ## Related Projects
 
 - [citegeist](https://typst.app/universe/package/citegeist/) — BibTeX parser for Typst

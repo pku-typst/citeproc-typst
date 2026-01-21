@@ -6,7 +6,7 @@
 //     read("refs.bib"),
 //     read("style.csl"),
 //   )
-//   正文中使用 @key 引用...
+//   Use @key in text to cite...
 //   #csl-bibliography()
 
 #import "src/parser.typ": parse-csl, parse-locale-file

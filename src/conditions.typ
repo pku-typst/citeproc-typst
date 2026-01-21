@@ -27,7 +27,7 @@
   "online": "webpage",
   "webpage": "webpage",
   "patent": "patent",
-  "standard": "legislation",
+  "standard": "standard",
   "dataset": "dataset",
   "software": "software",
   "periodical": "periodical",
@@ -47,12 +47,60 @@
   "gazette": "gazette",
 )
 
-/// Check if entry type matches
-#let check-type(ctx, type-list) = {
-  let entry-type = ctx.entry-type
-  let csl-type = _type-map.at(entry-type, default: entry-type)
+// Map user-specified `mark` field to CSL types
+// Users can set mark = {S} in bib file to override type detection
+//
+// GB/T 7714 document type codes:
+//   M - book, C - conference, N - newspaper, J - journal,
+//   D - thesis, R - report, S - standard, P - patent,
+//   G - collection, EB - online, DB - database, etc.
+//
+// CSL-M legal types can also be specified directly.
+#let _mark-map = (
+  // GB/T 7714 codes
+  "M": "book",
+  "C": "paper-conference",
+  "N": "article-newspaper",
+  "J": "article-journal",
+  "D": "thesis",
+  "R": "report",
+  "S": "standard",
+  "P": "patent",
+  "G": "book", // collection -> book
+  "EB": "webpage",
+  "DB": "dataset",
+  "CP": "software",
+  "A": "chapter", // analytic (chapter in book)
+  "Z": "document", // other/miscellaneous
+  // CSL-M legal types (use type name directly)
+  "LEGISLATION": "legislation",
+  "LEGAL_CASE": "legal_case",
+  "REGULATION": "regulation",
+  "BILL": "bill",
+  "HEARING": "hearing",
+  "TREATY": "treaty",
+)
 
-  // Split type list and check - only check mapped CSL type
+/// Check if entry type matches
+/// Priority: mark field > BibTeX type mapping > raw type
+#let check-type(ctx, type-list) = {
+  let fields = ctx.fields
+
+  // 1. Check for user-specified mark field (highest priority)
+  let mark = fields.at("mark", default: none)
+  let csl-type = if mark != none {
+    _mark-map.at(upper(str(mark)), default: none)
+  } else {
+    none
+  }
+
+  // 2. Fall back to BibTeX type mapping
+  if csl-type == none {
+    let entry-type = ctx.entry-type
+    csl-type = _type-map.at(entry-type, default: entry-type)
+  }
+
+  // Split type list and check
   let types = type-list.split(" ")
   types.any(t => t == csl-type)
 }

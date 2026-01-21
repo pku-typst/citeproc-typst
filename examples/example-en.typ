@@ -104,6 +104,23 @@ The library handles various entry types:
 - *Conference papers*: @vaswani2017attention
 - *Web resources*: @typst2024docs
 
+== Entry Types Requiring `mark` Field
+
+Some BibTeX types (like `@standard`, `@newspaper`, `@legislation`) are not recognized by citegeist. For these, use `@misc` with a `mark` field:
+
+```bib
+@misc{iso690,
+  mark      = {S},
+  title     = {Information and documentation — Guidelines for bibliographic references},
+  number    = {ISO 690:2021},
+  year      = {2021},
+}
+```
+
+Common mark codes: `S`=Standard, `N`=Newspaper, `LEGISLATION`=Legislation, `LEGAL_CASE`=Legal case.
+
+Note: Use `@online` instead of `@webpage` — citegeist supports `@online` but not `@webpage`.
+
 = Custom Rendering
 
 The `csl-bibliography` function accepts a `full-control` parameter for completely custom bibliography rendering:

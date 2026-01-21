@@ -10,14 +10,33 @@
 #import "disambiguation.typ": apply-disambiguation
 
 /// Check if a CSL AST node contains a reference to citation-number variable
-#let uses-citation-number-var(node) = {
+/// Also checks macro references that might use citation-number
+#let uses-citation-number-var(node, macros: (:)) = {
   if type(node) != dictionary { return false }
-  if node.at("tag", default: "") == "text" {
-    let var = node.at("attrs", default: (:)).at("variable", default: "")
+
+  let tag = node.at("tag", default: "")
+  let attrs = node.at("attrs", default: (:))
+
+  // Direct variable reference
+  if tag == "text" {
+    let var = attrs.at("variable", default: "")
     if var == "citation-number" { return true }
+
+    // Macro reference - check if the macro uses citation-number
+    let macro-name = attrs.at("macro", default: "")
+    if macro-name != "" and macro-name in macros {
+      let macro-def = macros.at(macro-name)
+      if macro-def.children.any(c => uses-citation-number-var(
+        c,
+        macros: macros,
+      )) {
+        return true
+      }
+    }
   }
+
   let children = node.at("children", default: ())
-  children.any(c => uses-citation-number-var(c))
+  children.any(c => uses-citation-number-var(c, macros: macros))
 }
 
 // =============================================================================
@@ -271,7 +290,10 @@
   let uses-citation-number = (
     bib-layouts.len() > 0
       and bib-layouts.any(layout => {
-        layout.children.any(c => uses-citation-number-var(c))
+        layout.children.any(c => uses-citation-number-var(
+          c,
+          macros: style.macros,
+        ))
       })
   )
 
