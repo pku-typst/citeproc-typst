@@ -50,7 +50,8 @@ jobs:
           # Test each CSL file
           while IFS= read -r csl_file; do
             NAME=$(basename "$csl_file" .csl)
-            SAFE_NAME=$(echo "$NAME" | tr ' /' '__' | head -c 80)
+            # Replace problematic characters (space and slash) for URL safety
+            SAFE_NAME=$(echo "$NAME" | tr ' /' '__')
 
             # Run typst compile and save PDF
             if typst compile tests/test-csl-compatibility.typ "docs/results/${SAFE_NAME}.pdf" \

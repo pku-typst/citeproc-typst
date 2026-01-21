@@ -97,12 +97,7 @@
   if delimiter == "" { return parts.join() }
 
   let delim-first = delimiter.first()
-  let is-punct-delim = (
-    delim-first == "."
-      or delim-first == ","
-      or delim-first == ";"
-      or delim-first == ":"
-  )
+  let is-punct-delim = delim-first in (".", ",", ";", ":")
 
   if not is-punct-delim {
     return parts.join(delimiter)
@@ -121,107 +116,92 @@
   result
 }
 
+// Minor words for title case (defined once, not per call)
+#let _minor-words = (
+  "a",
+  "an",
+  "the",
+  "and",
+  "but",
+  "or",
+  "for",
+  "nor",
+  "on",
+  "at",
+  "to",
+  "from",
+  "by",
+  "of",
+  "in",
+)
+
 /// Apply CSL formatting attributes to content
+/// Optimized: extract all attrs at once, avoid repeated dictionary lookups
 #let apply-formatting(content, attrs) = {
   if content == [] or content == "" { return content }
+  if attrs.len() == 0 { return content }
 
   let result = content
 
-  // font-style: normal, italic, oblique
-  if "font-style" in attrs {
-    let style = attrs.at("font-style")
-    if style == "italic" or style == "oblique" {
-      result = emph(result)
-    }
+  // Extract all formatting attrs at once (single dict traversal)
+  let font-style = attrs.at("font-style", default: none)
+  let font-weight = attrs.at("font-weight", default: none)
+  let text-decoration = attrs.at("text-decoration", default: none)
+  let font-variant = attrs.at("font-variant", default: none)
+  let vertical-align = attrs.at("vertical-align", default: none)
+  let text-case = attrs.at("text-case", default: none)
+
+  // Apply formatting in order
+  if font-style == "italic" or font-style == "oblique" {
+    result = emph(result)
   }
 
-  // font-weight: normal, bold, light
-  if "font-weight" in attrs {
-    let weight = attrs.at("font-weight")
-    if weight == "bold" {
-      result = strong(result)
-    } else if weight == "light" {
-      result = text(weight: "light", result)
-    }
+  if font-weight == "bold" {
+    result = strong(result)
+  } else if font-weight == "light" {
+    result = text(weight: "light", result)
   }
 
-  // text-decoration: none, underline
-  if "text-decoration" in attrs {
-    let decoration = attrs.at("text-decoration")
-    if decoration == "underline" {
-      result = underline(result)
-    }
+  if text-decoration == "underline" {
+    result = underline(result)
   }
 
-  // font-variant: normal, small-caps
-  if "font-variant" in attrs {
-    let variant = attrs.at("font-variant")
-    if variant == "small-caps" {
-      result = smallcaps(result)
-    }
+  if font-variant == "small-caps" {
+    result = smallcaps(result)
   }
 
-  // vertical-align: sup, sub, baseline
-  if "vertical-align" in attrs {
-    let align = attrs.at("vertical-align")
-    if align == "sup" {
-      result = super(result)
-    } else if align == "sub" {
-      result = sub(result)
-    }
+  if vertical-align == "sup" {
+    result = super(result)
+  } else if vertical-align == "sub" {
+    result = sub(result)
   }
 
-  // text-case: lowercase, uppercase, capitalize-first, capitalize-all, sentence, title
-  if "text-case" in attrs and type(result) == str {
-    let text-case = attrs.at("text-case")
+  // text-case only works on strings
+  if text-case != none and type(result) == str {
     if text-case == "lowercase" {
       result = lower(result)
     } else if text-case == "uppercase" {
       result = upper(result)
-    } else if text-case == "capitalize-first" {
-      if result.len() > 0 {
-        result = capitalize-first-char(result)
-      }
+    } else if text-case == "capitalize-first" and result.len() > 0 {
+      result = capitalize-first-char(result)
     } else if text-case == "capitalize-all" {
       result = result
         .split(" ")
-        .map(w => {
-          if w.len() > 0 { capitalize-first-char(w) } else { w }
-        })
+        .map(w => if w.len() > 0 { capitalize-first-char(w) } else { w })
         .join(" ")
     } else if text-case == "title" {
-      let minor-words = (
-        "a",
-        "an",
-        "the",
-        "and",
-        "but",
-        "or",
-        "for",
-        "nor",
-        "on",
-        "at",
-        "to",
-        "from",
-        "by",
-        "of",
-        "in",
-      )
       result = result
         .split(" ")
         .enumerate()
         .map(((i, w)) => {
           let lower-w = lower(w)
-          if i == 0 or lower-w not in minor-words {
+          if i == 0 or lower-w not in _minor-words {
             if w.len() > 0 { capitalize-first-char(w) } else { w }
           } else { lower-w }
         })
         .join(" ")
     }
   }
-
-  // Note: quotes="true" is handled by the caller (handle-text)
-  // using apply-quotes() for proper locale-aware quote marks
 
   result
 }
@@ -629,6 +609,14 @@
   } else { [] }
 }
 
+/// Safely parse an integer from a string (returns none on failure)
+#let safe-int(s) = {
+  let s = str(s)
+  // Extract leading digits only
+  let m = s.match(regex("^-?\d+"))
+  if m != none { int(m.text) } else { none }
+}
+
 /// Handle <number> element
 #let handle-number(node, ctx, interpret) = {
   let attrs = node.at("attrs", default: (:))
@@ -637,9 +625,9 @@
 
   if not is-empty(val) {
     let form = attrs.at("form", default: "numeric")
+    let num = safe-int(val)
 
     let result = if form == "ordinal" {
-      let num = int(val)
       if num != none {
         let ordinal-key = "ordinal-" + zero-pad(calc.rem(num, 100), 2)
         let suffix = lookup-term(ctx, ordinal-key, form: "long", plural: false)
@@ -651,7 +639,6 @@
         }
       } else { val }
     } else if form == "long-ordinal" {
-      let num = int(val)
       if num != none and num >= 1 and num <= 10 {
         lookup-term(
           ctx,
@@ -661,32 +648,9 @@
         )
       } else { val }
     } else if form == "roman" {
-      let num = int(val)
-      if num != none {
-        let romans = (
-          (1000, "m"),
-          (900, "cm"),
-          (500, "d"),
-          (400, "cd"),
-          (100, "c"),
-          (90, "xc"),
-          (50, "l"),
-          (40, "xl"),
-          (10, "x"),
-          (9, "ix"),
-          (5, "v"),
-          (4, "iv"),
-          (1, "i"),
-        )
-        let result = ""
-        let n = num
-        for (value, numeral) in romans {
-          while n >= value {
-            result += numeral
-            n -= value
-          }
-        }
-        result
+      if num != none and num > 0 {
+        // Use Typst's built-in numbering for roman numerals
+        numbering("i", num)
       } else { val }
     } else {
       // numeric (default)

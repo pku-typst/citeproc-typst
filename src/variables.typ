@@ -3,51 +3,55 @@
 // Functions for accessing entry variables/fields
 // Includes CSL-M legal variable extensions
 
+// =============================================================================
+// Module-level constants (avoid recreating on each call)
+// =============================================================================
+
+// Direct field mappings (including CSL-M legal variables)
+#let _field-map = (
+  // Standard CSL variables
+  "title": "title",
+  "publisher-place": "address",
+  "page": "pages",
+  "volume": "volume",
+  "issue": "number",
+  "URL": "url",
+  "DOI": "doi",
+  "ISBN": "isbn",
+  "ISSN": "issn",
+  "edition": "edition",
+  "note": "note",
+  "abstract": "abstract",
+  "archive": "archive",
+  "archive_location": "archiveprefix",
+  "number": "number",
+  "genre": "type",
+  "event-title": "eventtitle",
+  "collection-title": "series",
+  "number-of-volumes": "volumes",
+  // CSL-M legal variables
+  "authority": "authority",
+  "jurisdiction": "jurisdiction",
+  "committee": "committee",
+  "document-name": "document-name",
+  "hereinafter": "hereinafter",
+  "supplement": "supplement",
+  "division": "division",
+  "gazette-flag": "gazette-flag",
+  "volume-title": "volume-title",
+  "publication-number": "publication-number",
+  "locator-extra": "locator-extra",
+  "references": "references",
+  "chapter-number": "chapter",
+  "section": "section",
+  "article": "article",
+)
+
 /// Get variable value from context
 /// Handles CSL variable names and maps to BibTeX fields
 #let get-variable(ctx, name) = {
   let fields = ctx.fields
   let entry-type = ctx.entry-type
-
-  // Direct field mappings (including CSL-M legal variables)
-  let field-map = (
-    // Standard CSL variables
-    "title": "title",
-    "publisher-place": "address",
-    "page": "pages",
-    "volume": "volume",
-    "issue": "number",
-    "URL": "url",
-    "DOI": "doi",
-    "ISBN": "isbn",
-    "ISSN": "issn",
-    "edition": "edition",
-    "note": "note",
-    "abstract": "abstract",
-    "archive": "archive",
-    "archive_location": "archiveprefix",
-    "number": "number",
-    "genre": "type",
-    "event-title": "eventtitle",
-    "collection-title": "series",
-    "number-of-volumes": "volumes",
-    // CSL-M legal variables
-    "authority": "authority",
-    "jurisdiction": "jurisdiction",
-    "committee": "committee",
-    "document-name": "document-name",
-    "hereinafter": "hereinafter",
-    "supplement": "supplement",
-    "division": "division",
-    "gazette-flag": "gazette-flag",
-    "volume-title": "volume-title",
-    "publication-number": "publication-number",
-    "locator-extra": "locator-extra",
-    "references": "references",
-    "chapter-number": "chapter",
-    "section": "section",
-    "article": "article",
-  )
 
   // Handle special variables
   if name == "citation-number" {
@@ -159,7 +163,7 @@
   }
 
   // Standard mapping
-  let field-name = field-map.at(name, default: name)
+  let field-name = _field-map.at(name, default: name)
   fields.at(field-name, default: "")
 }
 

@@ -25,6 +25,23 @@
 #import "src/locales.typ": detect-language
 #import "src/collapsing.typ": apply-collapse, collapse-numeric-ranges
 
+// =============================================================================
+// Precomputation Cache (Performance Optimization)
+// =============================================================================
+// Instead of each @key recomputing all citations and year suffixes O(N) times,
+// we precompute once at document end and store as queryable metadata.
+
+/// Query precomputed citation data
+/// Returns: (citations: ..., suffixes: ...) or none if not yet computed
+#let _get-precomputed() = {
+  let results = query(<citeproc-precomputed>)
+  if results.len() > 0 {
+    results.first().value
+  } else {
+    none
+  }
+}
+
 /// Load and parse an external CSL locale file
 ///
 /// - locale-content: Locale XML content (use `read("locales-en-US.xml")`)
@@ -95,22 +112,28 @@
     // Step occurrence counter to track which citation this is
     _cite-occurrence.step()
 
-    // Render citation
+    // Render citation using precomputed data (O(1) lookup instead of O(N) recomputation)
     context {
       let bib = _bib-data.get()
       let style = _csl-style.get()
-      let citations = collect-citations()
       let entry = bib.at(key, default: none)
 
-      // Get current occurrence index (0-based)
-      let occurrence-idx = _cite-occurrence.get().first() - 1
+      if entry == none {
+        text(fill: red, "[??" + key + "??]")
+      } else {
+        // Query precomputed data (computed once at document end)
+        let precomputed = _get-precomputed()
 
-      if entry != none {
-        // Get citation info
+        // Get citation info from precomputed cache
+        let citations = precomputed.citations
+        let suffixes = precomputed.suffixes
+
         let cite-number = citations.order.at(key, default: citations.count + 1)
 
+        // Get current occurrence index (0-based)
+        let occurrence-idx = _cite-occurrence.get().first() - 1
+
         // Position tracking for subsequent/ibid
-        // Find the position entry matching our occurrence index
         let all-positions = citations.positions.at(key, default: ())
         let position = all-positions.find(p => (
           p.at("index", default: -1) == occurrence-idx
@@ -120,22 +143,10 @@
         } else if all-positions.len() == 0 {
           "first"
         } else {
-          // Fallback: first occurrence is "first", rest are "subsequent"
           if all-positions.len() <= 1 { "first" } else { "subsequent" }
         }
 
-        // Compute year suffix for disambiguation
-        let entries-ir = citations
-          .order
-          .pairs()
-          .map(((k, order)) => {
-            let e = bib.at(k, default: none)
-            if e == none { return none }
-            (key: k, entry: e, order: order)
-          })
-          .filter(x => x != none)
-
-        let suffixes = compute-year-suffixes(entries-ir, style)
+        // Get year suffix from precomputed cache (O(1) lookup)
         let year-suffix = suffixes.at(key, default: "")
 
         let result = render-citation(
@@ -157,8 +168,6 @@
         } else {
           link(label("citeproc-ref-" + key), result)
         }
-      } else {
-        text(fill: red, "[??" + key + "??]")
       }
     }
   }
@@ -166,11 +175,38 @@
   doc
 
   // Hidden bibliography for @key syntax (at end to avoid blank page)
-  // Using show rule to suppress output instead of hide()
   {
     set bibliography(title: none)
     show bibliography: none
     bibliography(bytes(bib))
+  }
+
+  // Precompute citation data ONCE at document end
+  // This is queried by each @key citation via _get-precomputed()
+  // Performance: O(N) once instead of O(N²) across all citations
+  context {
+    let bib = _bib-data.get()
+    let style = _csl-style.get()
+    let citations = collect-citations()
+
+    // Compute year suffixes once for all entries
+    let entries-ir = citations
+      .order
+      .pairs()
+      .map(((k, order)) => {
+        let e = bib.at(k, default: none)
+        if e == none { return none }
+        (key: k, entry: e, order: order)
+      })
+      .filter(x => x != none)
+
+    let suffixes = compute-year-suffixes(entries-ir, style)
+
+    // Store as queryable metadata
+    [#metadata((
+      citations: citations,
+      suffixes: suffixes,
+    ))<citeproc-precomputed>]
   }
 }
 
@@ -204,7 +240,10 @@
 #let get-cited-entries() = {
   let bib = _bib-data.get()
   let style = _csl-style.get()
-  let citations = collect-citations()
+
+  // Use precomputed data when available
+  let precomputed = _get-precomputed()
+  let citations = precomputed.citations
 
   // Process entries through IR pipeline
   let rendered-entries = get-rendered-entries(bib, citations, style)
@@ -254,7 +293,10 @@
   context {
     let bib = _bib-data.get()
     let style = _csl-style.get()
-    let citations = collect-citations()
+
+    // Use precomputed data
+    let precomputed = _get-precomputed()
+    let citations = precomputed.citations
 
     // Auto title based on style locale
     let references-term = style.locale.terms.at("references", default: none)
@@ -323,7 +365,11 @@
   context {
     let bib = _bib-data.get()
     let style = _csl-style.get()
-    let citations = collect-citations()
+
+    // Use precomputed data (O(1) lookup)
+    let precomputed = _get-precomputed()
+    let citations = precomputed.citations
+    let suffixes = precomputed.suffixes
 
     // Detect style class
     let is-note-style = style.class == "note"
@@ -373,18 +419,7 @@
       // Get collapse mode from citation style
       let collapse-mode = style.citation.at("collapse", default: none)
 
-      // Compute year suffixes for disambiguation
-      let entries-ir = citations
-        .order
-        .pairs()
-        .map(((key, order)) => {
-          let entry = bib.at(key, default: none)
-          if entry == none { return none }
-          (key: key, entry: entry, order: order)
-        })
-        .filter(x => x != none)
-
-      let suffixes = compute-year-suffixes(entries-ir, style)
+      // Use precomputed suffixes (O(1) lookup instead of O(N) recomputation)
 
       // Build items with author, year, suffix
       let cite-items = normalized

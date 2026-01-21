@@ -2,6 +2,37 @@
 //
 // Uses Typst's native datetime for formatting
 
+// =============================================================================
+// Module-level constants (avoid recreating on each call)
+// =============================================================================
+
+// Month name to number mapping
+#let _month-map = (
+  "january": 1,
+  "february": 2,
+  "march": 3,
+  "april": 4,
+  "may": 5,
+  "june": 6,
+  "july": 7,
+  "august": 8,
+  "september": 9,
+  "october": 10,
+  "november": 11,
+  "december": 12,
+  "jan": 1,
+  "feb": 2,
+  "mar": 3,
+  "apr": 4,
+  "jun": 6,
+  "jul": 7,
+  "aug": 8,
+  "sep": 9,
+  "oct": 10,
+  "nov": 11,
+  "dec": 12,
+)
+
 /// Parse a date string into a datetime object
 ///
 /// Handles formats like:
@@ -41,37 +72,11 @@
   }
 
   // Try "Month Year" or "Month Day, Year"
-  let month-map = (
-    "january": 1,
-    "february": 2,
-    "march": 3,
-    "april": 4,
-    "may": 5,
-    "june": 6,
-    "july": 7,
-    "august": 8,
-    "september": 9,
-    "october": 10,
-    "november": 11,
-    "december": 12,
-    "jan": 1,
-    "feb": 2,
-    "mar": 3,
-    "apr": 4,
-    "jun": 6,
-    "jul": 7,
-    "aug": 8,
-    "sep": 9,
-    "oct": 10,
-    "nov": 11,
-    "dec": 12,
-  )
-
   let text-match = s.match(regex("^([A-Za-z]+)\s+(?:(\d{1,2}),?\s+)?(\d{4})$"))
   if text-match != none {
     let captures = text-match.captures
     let month-name = lower(captures.at(0))
-    let month = month-map.at(month-name, default: none)
+    let month = _month-map.at(month-name, default: none)
     if month != none {
       let year = int(captures.at(2))
       let day = if captures.at(1) != none { int(captures.at(1)) } else { 1 }
@@ -114,33 +119,8 @@
   let month-str = fields.at("month", default: "")
   if month-str != "" {
     // Month might be name or number
-    let month-map = (
-      "january": 1,
-      "february": 2,
-      "march": 3,
-      "april": 4,
-      "may": 5,
-      "june": 6,
-      "july": 7,
-      "august": 8,
-      "september": 9,
-      "october": 10,
-      "november": 11,
-      "december": 12,
-      "jan": 1,
-      "feb": 2,
-      "mar": 3,
-      "apr": 4,
-      "jun": 6,
-      "jul": 7,
-      "aug": 8,
-      "sep": 9,
-      "oct": 10,
-      "nov": 11,
-      "dec": 12,
-    )
     let lower-month = lower(str(month-str))
-    let month-num = month-map.at(lower-month, default: none)
+    let month-num = _month-map.at(lower-month, default: none)
     if month-num != none {
       month = month-num
     } else {

@@ -5,49 +5,52 @@
 
 #import "variables.typ": get-variable, has-variable
 
+// =============================================================================
+// Module-level constants (avoid recreating on each call)
+// =============================================================================
+
+// Map BibTeX types to CSL types (including CSL-M legal types)
+#let _type-map = (
+  // Standard CSL types
+  "article": "article-journal",
+  "book": "book",
+  "inbook": "chapter",
+  "incollection": "chapter",
+  "inproceedings": "paper-conference",
+  "conference": "paper-conference",
+  "phdthesis": "thesis",
+  "mastersthesis": "thesis",
+  "thesis": "thesis",
+  "techreport": "report",
+  "report": "report",
+  "misc": "document",
+  "online": "webpage",
+  "webpage": "webpage",
+  "patent": "patent",
+  "standard": "legislation",
+  "dataset": "dataset",
+  "software": "software",
+  "periodical": "periodical",
+  "collection": "book",
+  // CSL-M legal types
+  "legal_case": "legal_case",
+  "case": "legal_case",
+  "legislation": "legislation",
+  "statute": "legislation",
+  "bill": "bill",
+  "hearing": "hearing",
+  "regulation": "regulation",
+  "treaty": "treaty",
+  "classic": "classic",
+  "video": "video",
+  "legal_commentary": "legal_commentary",
+  "gazette": "gazette",
+)
+
 /// Check if entry type matches
 #let check-type(ctx, type-list) = {
   let entry-type = ctx.entry-type
-
-  // Map BibTeX types to CSL types (including CSL-M legal types)
-  let type-map = (
-    // Standard CSL types
-    "article": "article-journal",
-    "book": "book",
-    "inbook": "chapter",
-    "incollection": "chapter",
-    "inproceedings": "paper-conference",
-    "conference": "paper-conference",
-    "phdthesis": "thesis",
-    "mastersthesis": "thesis",
-    "thesis": "thesis",
-    "techreport": "report",
-    "report": "report",
-    "misc": "document",
-    "online": "webpage",
-    "webpage": "webpage",
-    "patent": "patent",
-    "standard": "legislation",
-    "dataset": "dataset",
-    "software": "software",
-    "periodical": "periodical",
-    "collection": "book",
-    // CSL-M legal types
-    "legal_case": "legal_case",
-    "case": "legal_case",
-    "legislation": "legislation",
-    "statute": "legislation",
-    "bill": "bill",
-    "hearing": "hearing",
-    "regulation": "regulation",
-    "treaty": "treaty",
-    "classic": "classic",
-    "video": "video",
-    "legal_commentary": "legal_commentary",
-    "gazette": "gazette",
-  )
-
-  let csl-type = type-map.at(entry-type, default: entry-type)
+  let csl-type = _type-map.at(entry-type, default: entry-type)
 
   // Split type list and check - only check mapped CSL type
   let types = type-list.split(" ")
@@ -61,16 +64,11 @@
 }
 
 /// Check if value is numeric
-/// CSL spec: numeric if it contains only numeric digits, or starts with numeric digits
-/// (e.g., "206–210", "1st", "2nd" are all considered numeric)
+/// CSL spec: numeric if it starts with a digit
 #let check-is-numeric(ctx, var-name) = {
   let val = get-variable(ctx, var-name)
   if val == "" { return false }
-
-  // CSL considers a value numeric if it starts with a digit
-  // Examples: "206", "206–210", "1st", "5a" are all numeric
-  let first-char = val.first()
-  first-char.match(regex("^[0-9]$")) != none
+  val.starts-with(regex("\d"))
 }
 
 /// Evaluate a CSL condition
@@ -146,47 +144,32 @@
   if "position" in attrs {
     let pos-value = attrs.at("position")
     let current-pos = ctx.at("position", default: "first")
-
-    // Check if current position matches any of the specified positions
     let positions = pos-value.split(" ")
+
+    // Pre-compute note distance if needed (avoid repeated lookups)
+    let note-distance = if (
+      positions.any(p => p == "near-note" or p == "far-note")
+    ) {
+      let last-note = ctx.at("last-note-number", default: none)
+      let current-note = ctx.at("note-number", default: none)
+      if last-note != none and current-note != none {
+        current-note - last-note
+      } else { none }
+    } else { none }
+    let near-note-threshold = ctx.style.at("near-note-distance", default: 5)
+
     let matches = positions.any(p => {
-      if p == "first" { current-pos == "first" } else if p == "subsequent" {
-        (
-          current-pos == "subsequent"
-            or current-pos == "ibid"
-            or current-pos == "ibid-with-locator"
-        )
-      } else if p == "ibid" { current-pos == "ibid" } else if (
-        p == "ibid-with-locator"
-      ) { current-pos == "ibid-with-locator" } else if p == "near-note" {
-        // near-note: true if previous citation to same item is within near-note-distance
-        let near-note-distance = ctx.style.at(
-          "near-note-distance",
-          default: 5,
-        )
-        let last-note = ctx.at("last-note-number", default: none)
-        let current-note = ctx.at("note-number", default: none)
-        if last-note != none and current-note != none {
-          let distance = current-note - last-note
-          distance <= near-note-distance
-        } else {
-          false
-        }
+      if p == current-pos {
+        true
+      } else if p == "subsequent" {
+        current-pos in ("subsequent", "ibid", "ibid-with-locator")
+      } else if p == "near-note" {
+        note-distance != none and note-distance <= near-note-threshold
       } else if p == "far-note" {
-        // CSL-M extension: far-note is the opposite of near-note
-        let near-note-distance = ctx.style.at(
-          "near-note-distance",
-          default: 5,
-        )
-        let last-note = ctx.at("last-note-number", default: none)
-        let current-note = ctx.at("note-number", default: none)
-        if last-note != none and current-note != none {
-          let distance = current-note - last-note
-          distance > near-note-distance
-        } else {
-          true // No previous citation means far
-        }
-      } else { false }
+        note-distance == none or note-distance > near-note-threshold
+      } else {
+        false
+      }
     })
     conditions.push(matches)
   }
