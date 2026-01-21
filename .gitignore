@@ -1,0 +1,24 @@
+# Build artifacts
+*.pdf
+/build/
+/docs/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Development
+*.log
+
+# Reference materials (too large to commit)
+/references/
+
+# CI temporary directories
+/zotero-styles/

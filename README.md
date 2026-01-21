@@ -1,0 +1,149 @@
+# citeproc-typst
+
+A CSL (Citation Style Language) processor for Typst.
+
+Use standard CSL style files — the same format used by Zotero, Mendeley, and thousands of citation managers — to format your citations and bibliographies in Typst.
+
+## Installation
+
+```typst
+#import "@preview/citeproc-typst:0.1.0": init-csl, csl-bibliography
+```
+
+## Quick Start
+
+```typst
+#import "@preview/citeproc-typst:0.1.0": init-csl, csl-bibliography
+
+#show: init-csl.with(
+  read("references.bib"),
+  read("style.csl"),
+)
+
+As demonstrated by @smith2020, this approach works well.
+
+#csl-bibliography()
+```
+
+## Features
+
+- **Standard CSL support** — Parse and render using CSL 1.0.2 style files
+- **CSL-M extensions** — Multilingual layouts, institutional authors, legal citations
+- **BibTeX input** — Use your existing `.bib` files via [citegeist](https://typst.app/universe/package/citegeist/)
+- **Bilingual support** — Automatic language detection for mixed Chinese/English bibliographies
+- **Citation styles** — Numeric, author-date, and note styles (footnotes auto-generated)
+- **Year disambiguation** — Automatic a/b/c suffixes for same-author-same-year entries
+- **Citation collapsing** — Numeric ranges `[1-4]`, year-suffix `(Smith, 2020a, b)`
+- **Multiple citations** — Combine citations with `multicite()`
+- **Full formatting** — Italics, bold, small-caps, text-case, and more
+
+## Documentation
+
+- [English Documentation](examples/example-en.typ) — Chicago style example
+- [中文文档](examples/example-zh.typ) — GB/T 7714-2025 style example
+
+## API Reference
+
+### `init-csl`
+
+Initialize the CSL processor with bibliography data and style.
+
+```typst
+#show: init-csl.with(
+  bib-content,      // BibTeX file content (string)
+  csl-content,      // CSL style file content (string)
+  locales: (:),     // Optional: external locale files
+)
+```
+
+### `csl-bibliography`
+
+Render the bibliography.
+
+```typst
+#csl-bibliography()
+
+// Custom title:
+#csl-bibliography(title: heading(level: 2)[References])
+
+// Full custom rendering:
+#csl-bibliography(full-control: entries => {
+  for e in entries [
+    [#e.order] #e.rendered-body #e.ref-label
+    #parbreak()
+  ]
+})
+```
+
+### `get-cited-entries`
+
+Low-level API for complete control over bibliography rendering.
+
+```typst
+context {
+  let entries = get-cited-entries()
+  for e in entries {
+    // Each entry provides:
+    // - key, order, year-suffix, lang, entry-type
+    // - fields, parsed-names
+    // - rendered (full), rendered-body (without number)
+    // - ref-label, labeled-rendered
+  }
+}
+```
+
+### `multicite`
+
+Combine multiple citations.
+
+```typst
+#multicite("smith2020", "jones2021", "wang2022")
+
+// With page numbers:
+#multicite(
+  (key: "smith2020", supplement: [p. 42]),
+  "jones2021",
+)
+```
+
+## Supported CSL Elements
+
+| Element    | Status | Element        | Status |
+| ---------- | ------ | -------------- | ------ |
+| `<text>`   | ✅     | `<group>`      | ✅     |
+| `<choose>` | ✅     | `<names>`      | ✅     |
+| `<name>`   | ✅     | `<date>`       | ✅     |
+| `<number>` | ✅     | `<label>`      | ✅     |
+| `<sort>`   | ✅     | `<substitute>` | ✅     |
+
+## CSL-M Support
+
+This library includes support for key CSL-M (CSL Multilingual) extensions:
+
+| Feature               | Description                                                    |
+| --------------------- | -------------------------------------------------------------- |
+| **Multiple layouts**  | `<layout locale="en es de">` for language-specific formatting  |
+| **cs:institution**    | Institutional author handling with subunit parsing             |
+| **cs:conditions**     | Nested condition groups with `match="any/all/nand"`            |
+| **Legal types**       | `legal_case`, `legislation`, `regulation`, `hearing`, `treaty` |
+| **Legal variables**   | `authority`, `jurisdiction`, `country`, `hereinafter`          |
+| **Date conditions**   | `has-day`, `has-year-only`, `has-to-month-or-season`           |
+| **Context condition** | `context="citation"` or `context="bibliography"`               |
+| **Locale matching**   | Prefix matching: `en` matches `en-US`, `en-GB`, etc.           |
+| **suppress-min/max**  | Suppress names by count, or separate personal/institutional    |
+| **require/reject**    | `require="comma-safe"` for locator punctuation safety          |
+
+### Built-in Locales
+
+10 languages with automatic fallback:
+`en-US`, `zh-CN`, `zh-TW`, `de-DE`, `fr-FR`, `es-ES`, `ja-JP`, `ko-KR`, `pt-BR`, `ru-RU`
+
+## Related Projects
+
+- [citegeist](https://typst.app/universe/package/citegeist/) — BibTeX parser for Typst
+- [CSL Styles Repository](https://github.com/citation-style-language/styles) — Thousands of CSL styles
+- [Zotero Chinese Styles](https://github.com/zotero-chinese/styles) — Chinese CSL styles
+
+## License
+
+MIT

@@ -1,0 +1,11 @@
+[package]
+name = "citeproc-typst"
+version = "0.1.0"
+entrypoint = "lib.typ"
+authors = ["pku-typst"]
+license = "MIT"
+description = "CSL (Citation Style Language) processor for Typst"
+repository = "https://github.com/pku-typst/citeproc-typst"
+keywords = ["bibliography", "citation", "csl", "reference"]
+categories = ["utility"]
+compiler = "0.14.0"

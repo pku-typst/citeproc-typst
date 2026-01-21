@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>citeproc-typst CSL 兼容性测试</title>
+    <style>
+      :root {
+        --primary: #1a73e8;
+        --success: #34a853;
+        --warning: #ea4335;
+        --bg: #f8f9fa;
+        --card-bg: #ffffff;
+        --text: #202124;
+        --text-secondary: #5f6368;
+        --border: #dadce0;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC",
+          sans-serif;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+        background: var(--bg);
+        color: var(--text);
+      }
+      h1 {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+      }
+      .subtitle {
+        color: var(--text-secondary);
+        margin-bottom: 2rem;
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin: 1.5rem 0;
+      }
+      .stat {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1.5rem;
+        text-align: center;
+      }
+      .stat-value {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: var(--primary);
+      }
+      .stat-value.success {
+        color: var(--success);
+      }
+      .stat-value.warning {
+        color: var(--warning);
+      }
+      .stat-label {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+      }
+      .search-box {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        margin: 1rem 0;
+      }
+      .search-box:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+      }
+      .styles-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 0.75rem;
+        margin-top: 1rem;
+        max-height: 600px;
+        overflow-y: auto;
+        padding: 0.5rem;
+      }
+      .style-link {
+        display: block;
+        padding: 0.75rem 1rem;
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text);
+        text-decoration: none;
+        font-size: 0.9rem;
+        transition: all 0.15s;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .style-link:hover {
+        border-color: var(--primary);
+        background: #e8f0fe;
+      }
+      .hidden {
+        display: none !important;
+      }
+      footer {
+        margin-top: 2rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border);
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+        text-align: center;
+      }
+      a {
+        color: var(--primary);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🔬 citeproc-typst CSL 兼容性测试</h1>
+    <p class="subtitle">
+      测试
+      <a href="https://github.com/zotero-chinese/styles"
+        >zotero-chinese/styles</a
+      >
+      中的所有 CSL 样式
+    </p>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-value">{{TOTAL}}</div>
+        <div class="stat-label">总样式数</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value success">{{PASSED}}</div>
+        <div class="stat-label">通过</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value warning">{{FAILED}}</div>
+        <div class="stat-label">失败</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">{{RATE}}%</div>
+        <div class="stat-label">通过率</div>
+      </div>
+    </div>
+
+    <input
+      type="text"
+      class="search-box"
+      id="search"
+      placeholder="🔍 搜索样式名称..."
+      oninput="filterStyles()"
+    />
+
+    <div class="styles-grid" id="styles-grid">{{STYLES_LIST}}</div>
+
+    <footer>
+      构建时间: {{BUILD_TIME}} ·
+      <a href="https://github.com/pku-typst/citeproc-typst">GitHub</a>
+    </footer>
+
+    <script>
+      function filterStyles() {
+        const query = document.getElementById("search").value.toLowerCase();
+        const links = document.querySelectorAll(".style-link");
+        links.forEach((link) => {
+          const text = link.textContent.toLowerCase();
+          link.classList.toggle("hidden", !text.includes(query));
+        });
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,308 @@
+// citeproc-typst - Entry and Citation Renderer
+//
+// High-level rendering functions with IR pipeline integration.
+
+#import "interpreter.typ": create-context, interpret-node
+#import "locales.typ": detect-language, locale-matches
+#import "names.typ": format-names
+#import "state.typ": create-entry-ir, get-entry-year, get-first-author-family
+#import "sorting.typ": sort-bibliography-entries
+#import "disambiguation.typ": apply-disambiguation
+
+/// Check if a CSL AST node contains a reference to citation-number variable
+#let uses-citation-number-var(node) = {
+  if type(node) != dictionary { return false }
+  if node.at("tag", default: "") == "text" {
+    let var = node.at("attrs", default: (:)).at("variable", default: "")
+    if var == "citation-number" { return true }
+  }
+  let children = node.at("children", default: ())
+  children.any(c => uses-citation-number-var(c))
+}
+
+// =============================================================================
+// Layout Selection (CSL-M enhanced)
+// =============================================================================
+
+/// Select appropriate layout based on entry language
+///
+/// Supports CSL-M multilingual layout selection where each layout
+/// can specify a locale attribute with space-separated language codes.
+///
+/// Examples:
+///   - <layout locale="en es de"> matches entries in English, Spanish, German
+///   - <layout locale="zh"> matches Chinese entries
+///   - <layout> (no locale) is the default fallback
+///
+/// - layouts: Array of layout nodes from CSL
+/// - entry-lang: The entry's detected language (e.g., "en", "zh-CN")
+/// Returns: Matching layout node or none
+#let select-layout(layouts, entry-lang) = {
+  if layouts.len() == 0 { return none }
+
+  // Try to find locale-specific layout using CSL-M matching
+  let matching = layouts.find(l => {
+    let locale = l.at("locale", default: none)
+    if locale == none { return false }
+    locale-matches(entry-lang, locale)
+  })
+
+  if matching != none { return matching }
+
+  // Fallback to layout without locale (default/last)
+  let default = layouts.find(l => l.at("locale", default: none) == none)
+  if default != none { return default }
+
+  // Last resort: last layout (CSL-M spec: last layout is default)
+  layouts.last()
+}
+
+// =============================================================================
+// Entry Rendering
+// =============================================================================
+
+/// Check if a node uses citation-number variable (for filtering)
+#let _node-uses-citation-number(node) = {
+  if type(node) != dictionary { return false }
+  if node.at("tag", default: "") == "text" {
+    let var = node.at("attrs", default: (:)).at("variable", default: "")
+    if var == "citation-number" { return true }
+  }
+  false
+}
+
+/// Render a bibliography entry
+///
+/// - entry: Bibliography entry from citegeist
+/// - style: Parsed CSL style
+/// - cite-number: Citation number for numeric styles
+/// - year-suffix: Year suffix for disambiguation (e.g., "a", "b")
+/// - include-number: Whether to include citation number in output
+/// Returns: Typst content
+#let render-entry(
+  entry,
+  style,
+  cite-number: none,
+  year-suffix: "",
+  include-number: true,
+) = {
+  let ctx = create-context(style, entry, cite-number: cite-number)
+
+  // Inject year suffix into context for rendering
+  let ctx = (..ctx, year-suffix: year-suffix)
+
+  let entry-lang = detect-language(entry.at("fields", default: (:)))
+
+  // Find matching layout (with null-safety for citation-only styles)
+  let bib = style.at("bibliography", default: none)
+  if bib == none {
+    return text(fill: red, "[No bibliography element in CSL]")
+  }
+
+  let layout = select-layout(bib.at("layouts", default: ()), entry-lang)
+
+  if layout == none {
+    return text(fill: red, "[No bibliography layout defined]")
+  }
+
+  // Filter out citation-number nodes if requested
+  let children = if include-number {
+    layout.children
+  } else {
+    layout.children.filter(node => not _node-uses-citation-number(node))
+  }
+
+  // Interpret layout children
+  let result = children
+    .map(node => interpret-node(node, ctx))
+    .filter(x => x != [] and x != "")
+    .join()
+
+  // Apply layout suffix (usually ".")
+  let layout-suffix = layout.at("suffix", default: ".")
+  [#result#layout-suffix]
+}
+
+/// Render a bibliography entry from an entry IR
+///
+/// - entry-ir: Entry IR with disambig info
+/// - style: Parsed CSL style
+/// - include-number: Whether to include citation number in output
+/// Returns: Typst content
+#let render-entry-ir(entry-ir, style, include-number: true) = {
+  render-entry(
+    entry-ir.entry,
+    style,
+    cite-number: entry-ir.order,
+    year-suffix: entry-ir.disambig.at("year-suffix", default: ""),
+    include-number: include-number,
+  )
+}
+
+// =============================================================================
+// Citation Rendering
+// =============================================================================
+
+/// Render an in-text citation
+///
+/// - entry: Bibliography entry
+/// - style: Parsed CSL style
+/// - form: Citation form (none, "normal", "prose", "author", "year")
+/// - supplement: Page number or other supplement
+/// - cite-number: Citation number (for numeric styles)
+/// - year-suffix: Year suffix for disambiguation
+/// - position: Citation position ("first", "subsequent", "ibid", "ibid-with-locator")
+/// Returns: Typst content
+#let render-citation(
+  entry,
+  style,
+  form: none,
+  supplement: none,
+  cite-number: none,
+  year-suffix: "",
+  position: "first",
+) = {
+  let ctx = create-context(style, entry, cite-number: cite-number)
+  let ctx = (..ctx, year-suffix: year-suffix, position: position)
+
+  let citation = style.citation
+  if citation == none or citation.layout == none {
+    return text(fill: red, "[No citation layout]")
+  }
+
+  let layout = citation.layout
+
+  // Interpret citation layout
+  let result = layout
+    .children
+    .map(node => interpret-node(node, ctx))
+    .filter(x => x != [] and x != "")
+    .join(layout.delimiter)
+
+  // Handle form variations
+  if form == "author" {
+    // Extract author only - use standard name formatter
+    let names = ctx.parsed-names.at("author", default: ())
+    if names.len() > 0 {
+      // Use default name formatting attributes
+      let name-attrs = (
+        form: "long",
+        name-as-sort-order: none,
+        sort-separator: ", ",
+        delimiter: ", ",
+        "and": "text",
+      )
+      format-names(names, name-attrs, ctx)
+    } else {
+      "?"
+    }
+  } else if form == "year" {
+    let year = ctx.fields.at("year", default: "n.d.")
+    str(year) + year-suffix
+  } else if form == "prose" {
+    // Prose form: inline text without superscript/subscript
+    let full-result = if supplement != none {
+      [#result, #supplement]
+    } else {
+      result
+    }
+
+    // Apply prefix/suffix but NOT vertical-align
+    let prefix = layout.prefix
+    let suffix = layout.suffix
+    [#prefix#full-result#suffix]
+  } else {
+    // Default form: apply all formatting
+    let full-result = if supplement != none {
+      [#result, #supplement]
+    } else {
+      result
+    }
+
+    // Apply prefix/suffix
+    let prefix = layout.prefix
+    let suffix = layout.suffix
+    let formatted = [#prefix#full-result#suffix]
+
+    // Apply vertical-align (superscript/subscript)
+    let valign = layout.at("vertical-align", default: none)
+    if valign == "sup" {
+      super(formatted)
+    } else if valign == "sub" {
+      sub(formatted)
+    } else {
+      formatted
+    }
+  }
+}
+
+// =============================================================================
+// IR Pipeline
+// =============================================================================
+
+/// Process entries through the full IR pipeline
+///
+/// Phase 1: Create IRs with order info
+/// Phase 2: Sort entries
+/// Phase 3: Apply disambiguation
+///
+/// - bib-data: Dictionary of key -> entry
+/// - citations: Citation info from collect-citations()
+/// - style: Parsed CSL style
+/// Returns: Array of processed entry IRs, sorted and disambiguated
+#let process-entries(bib-data, citations, style) = {
+  // Phase 1: Create entry IRs
+  let entries = citations
+    .order
+    .pairs()
+    .map(((key, order)) => {
+      let entry = bib-data.at(key, default: none)
+      if entry == none { return none }
+      create-entry-ir(key, entry, order, style)
+    })
+    .filter(x => x != none)
+
+  // Determine if bibliography should be sorted by citation order
+  // Check if any bibliography layout uses citation-number variable
+  let bib = style.at("bibliography", default: none)
+  let bib-layouts = if bib != none { bib.at("layouts", default: ()) } else {
+    ()
+  }
+  let uses-citation-number = (
+    bib-layouts.len() > 0
+      and bib-layouts.any(layout => {
+        layout.children.any(c => uses-citation-number-var(c))
+      })
+  )
+
+  // Phase 2: Sort entries
+  // - If bibliography uses citation-number: sort by citation order
+  // - Otherwise: use CSL <sort> if present
+  let sorted-entries = sort-bibliography-entries(
+    entries,
+    style,
+    by-order: uses-citation-number,
+  )
+
+  // Phase 3: Apply disambiguation
+  let disambig-entries = apply-disambiguation(sorted-entries, style)
+
+  disambig-entries
+}
+
+/// Get rendered bibliography entries
+///
+/// - bib-data: Dictionary of key -> entry
+/// - citations: Citation info from collect-citations()
+/// - style: Parsed CSL style
+/// Returns: Array of (entry-ir, rendered, rendered-body, label) tuples
+#let get-rendered-entries(bib-data, citations, style) = {
+  let entries = process-entries(bib-data, citations, style)
+
+  entries.map(e => (
+    ir: e,
+    rendered: render-entry-ir(e, style, include-number: true),
+    rendered-body: render-entry-ir(e, style, include-number: false),
+    label: label("citeproc-ref-" + e.key),
+  ))
+}
