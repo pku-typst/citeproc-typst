@@ -1,0 +1,35 @@
+{
+  "_comment": "Patches for malformed XML in citeproc-js test fixtures. citeproc-js uses a lenient parser that auto-closes tags; Typst's strict XML parser requires well-formed XML.",
+  "patches": [
+    {
+      "fixture": "abbrevs_TitleMainTitleSub",
+      "description": "Missing </group> before </layout>",
+      "find": "      <text variable=\"title-sub\" prefix=\"sub: \"/>\n    </layout>",
+      "replace": "      <text variable=\"title-sub\" prefix=\"sub: \"/>\n      </group>\n    </layout>"
+    },
+    {
+      "fixture": "condition_Locale",
+      "description": "Missing </choose> before </group>",
+      "find": "          </else>\n      </group>",
+      "replace": "          </else>\n        </choose>\n      </group>"
+    },
+    {
+      "fixture": "language_ConditionSimple",
+      "description": "Missing </choose> before </group>",
+      "find": "        <text variable=\"container-title\"/>       \n      </group>",
+      "replace": "        <text variable=\"container-title\"/>\n        </choose>\n      </group>"
+    },
+    {
+      "fixture": "number_EmbeddedOnlyDefaultsToShort",
+      "description": "Extra </group> closing tag",
+      "find": "        <number variable=\"page\"/>\n\t</group>\n      </group>",
+      "replace": "        <number variable=\"page\"/>\n      </group>"
+    },
+    {
+      "fixture": "range_PageMinimal",
+      "description": "Missing </style> at end",
+      "find": "    </layout>\n  </bibliography>",
+      "replace": "    </layout>\n  </bibliography>\n</style>"
+    }
+  ]
+}

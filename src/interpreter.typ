@@ -19,7 +19,8 @@
 
 /// Create interpretation context
 /// - cite-number: Optional citation number to inject
-#let create-context(style, entry, cite-number: none) = {
+/// - abbreviations: Optional abbreviation lookup table
+#let create-context(style, entry, cite-number: none, abbreviations: (:)) = {
   let fields = entry.at("fields", default: (:))
   let is-csl-json = fields.at("_source", default: "") == "csl-json"
 
@@ -68,6 +69,7 @@
     parsed-names: mapped-names,
     entry-type: entry-type,
     is-csl-json: is-csl-json,
+    abbreviations: abbreviations,
   )
 }
 

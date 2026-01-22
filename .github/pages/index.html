@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>citeproc-typst CSL 兼容性测试</title>
+    <title>citeproc-typst 兼容性测试</title>
     <style>
       :root {
         --primary: #1a73e8;
@@ -31,6 +31,13 @@
       h1 {
         font-size: 2rem;
         margin-bottom: 0.5rem;
+      }
+      h2 {
+        font-size: 1.5rem;
+        margin-top: 2.5rem;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid var(--border);
       }
       .subtitle {
         color: var(--text-secondary);
@@ -107,6 +114,27 @@
       .hidden {
         display: none !important;
       }
+      .category-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 0.5rem;
+        margin-top: 1rem;
+      }
+      .category-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0.75rem;
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        font-size: 0.85rem;
+      }
+      .category-name {
+        font-weight: 500;
+      }
+      .category-count {
+        color: var(--success);
+      }
       footer {
         margin-top: 2rem;
         padding-top: 1rem;
@@ -118,16 +146,68 @@
       a {
         color: var(--primary);
       }
+      .section-description {
+        color: var(--text-secondary);
+        margin-bottom: 1rem;
+      }
     </style>
   </head>
   <body>
-    <h1>🔬 citeproc-typst CSL 兼容性测试</h1>
-    <p class="subtitle">
+    <h1>🔬 citeproc-typst 兼容性测试</h1>
+    <p class="subtitle">CSL (Citation Style Language) 处理器的 Typst 实现</p>
+
+    <!-- citeproc-js Test Suite Section -->
+    <h2>📋 citeproc-js 测试套件</h2>
+    <p class="section-description">
+      使用
+      <a href="https://github.com/Juris-M/citeproc-js">citeproc-js</a>
+      测试套件中的 CSL 样式和数据进行编译测试。
+      <br />
+      <small style="color: var(--text-secondary)">
+        注：编译通过仅表示 citeproc-typst 能够处理该测试用例，不保证输出结果与
+        citeproc-js 完全一致。
+      </small>
+    </p>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-value">{{CITEPROC_TOTAL}}</div>
+        <div class="stat-label">总测试数</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value success">{{CITEPROC_COMPILED}}</div>
+        <div class="stat-label">编译通过</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value warning">{{CITEPROC_ERRORS}}</div>
+        <div class="stat-label">编译错误</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">{{CITEPROC_RATE}}%</div>
+        <div class="stat-label">编译通过率</div>
+      </div>
+    </div>
+
+    <details>
+      <summary style="cursor: pointer; font-weight: 500; margin: 1rem 0">
+        📊 按类别查看
+      </summary>
+      <div class="category-grid">{{CITEPROC_CATEGORIES}}</div>
+    </details>
+
+    <!-- CSL Styles Section -->
+    <h2>📚 CSL 样式兼容性</h2>
+    <p class="section-description">
       测试
       <a href="https://github.com/zotero-chinese/styles"
         >zotero-chinese/styles</a
       >
-      中的所有 CSL 样式
+      中的所有 CSL 样式是否可以正常编译。
+      <br />
+      <small style="color: var(--text-secondary)">
+        注：编译通过仅表示 citeproc-typst
+        能够解析并处理该样式，不保证输出格式完全符合预期。
+      </small>
     </p>
 
     <div class="stats">
@@ -137,15 +217,15 @@
       </div>
       <div class="stat">
         <div class="stat-value success">{{PASSED}}</div>
-        <div class="stat-label">通过</div>
+        <div class="stat-label">编译通过</div>
       </div>
       <div class="stat">
         <div class="stat-value warning">{{FAILED}}</div>
-        <div class="stat-label">失败</div>
+        <div class="stat-label">编译失败</div>
       </div>
       <div class="stat">
         <div class="stat-value">{{RATE}}%</div>
-        <div class="stat-label">通过率</div>
+        <div class="stat-label">编译通过率</div>
       </div>
     </div>
 
@@ -161,7 +241,7 @@
 
     <footer>
       构建时间: {{BUILD_TIME}} ·
-      <a href="https://github.com/pku-typst/citeproc-typst">GitHub</a>
+      <a href="https://github.com/lucifer1004/citeproc-typst">GitHub</a>
     </footer>
 
     <script>

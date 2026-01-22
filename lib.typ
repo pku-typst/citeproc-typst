@@ -24,8 +24,8 @@
   get-rendered-entries, process-entries, render-citation, render-entry,
 )
 #import "src/state.typ": (
-  _bib-data, _config, _csl-style, cite-marker, collect-citations,
-  get-entry-year, get-first-author-family,
+  _abbreviations, _bib-data, _config, _csl-style, cite-marker,
+  collect-citations, get-entry-year, get-first-author-family,
 )
 #import "src/csl-json.typ": (
   _csl-json-data, _csl-json-mode, generate-stub-bib, parse-csl-json,
@@ -167,6 +167,7 @@
           default: none,
         )
 
+        let abbrevs = _abbreviations.get()
         let result = render-citation(
           entry,
           style,
@@ -176,6 +177,7 @@
           year-suffix: year-suffix,
           position: position,
           first-note-number: first-note-number,
+          abbreviations: abbrevs,
         )
 
         // Note styles: wrap in footnote (unless prose/author/year form)
@@ -240,6 +242,7 @@
 /// - show-url: Whether to show URLs in bibliography
 /// - show-doi: Whether to show DOIs in bibliography
 /// - show-accessed: Whether to show access dates in bibliography
+/// - abbreviations: Optional abbreviation lookup table (jurisdiction -> variable -> value -> abbrev)
 /// - doc: Document content
 #let init-csl-json(
   json-data,
@@ -248,12 +251,16 @@
   show-url: true,
   show-doi: true,
   show-accessed: true,
+  abbreviations: (:),
   doc,
 ) = {
   // Parse CSL-JSON and convert to internal format
   let entries = parse-csl-json(json-data)
   _bib-data.update(entries)
   _csl-json-mode.update(true)
+
+  // Store abbreviations
+  _abbreviations.update(abbreviations)
 
   // Generate stub BibTeX immediately (before doc processing)
   let stub-bib = generate-stub-bib(entries)
@@ -322,6 +329,7 @@
           default: none,
         )
 
+        let abbrevs = _abbreviations.get()
         let result = render-citation(
           entry,
           style,
@@ -331,6 +339,7 @@
           year-suffix: year-suffix,
           position: position,
           first-note-number: first-note-number,
+          abbreviations: abbrevs,
         )
 
         // Note styles: wrap in footnote (unless prose/author/year form)
@@ -418,7 +427,13 @@
   let citations = precomputed.citations
 
   // Process entries through IR pipeline
-  let rendered-entries = get-rendered-entries(bib, citations, style)
+  let abbrevs = _abbreviations.get()
+  let rendered-entries = get-rendered-entries(
+    bib,
+    citations,
+    style,
+    abbreviations: abbrevs,
+  )
 
   // Build rich entry data
   rendered-entries.map(e => (

@@ -162,8 +162,14 @@
   cite-number: none,
   year-suffix: "",
   include-number: true,
+  abbreviations: (:),
 ) = {
-  let ctx = create-context(style, entry, cite-number: cite-number)
+  let ctx = create-context(
+    style,
+    entry,
+    cite-number: cite-number,
+    abbreviations: abbreviations,
+  )
 
   // Inject year suffix into context for rendering
   let ctx = (..ctx, year-suffix: year-suffix)
@@ -205,14 +211,21 @@
 /// - entry-ir: Entry IR with disambig info
 /// - style: Parsed CSL style
 /// - include-number: Whether to include citation number in output
+/// - abbreviations: Optional abbreviation lookup table
 /// Returns: Typst content
-#let render-entry-ir(entry-ir, style, include-number: true) = {
+#let render-entry-ir(
+  entry-ir,
+  style,
+  include-number: true,
+  abbreviations: (:),
+) = {
   render-entry(
     entry-ir.entry,
     style,
     cite-number: entry-ir.order,
     year-suffix: entry-ir.disambig.at("year-suffix", default: ""),
     include-number: include-number,
+    abbreviations: abbreviations,
   )
 }
 
@@ -242,8 +255,14 @@
   position: "first",
   suppress-affixes: false,
   first-note-number: none,
+  abbreviations: (:),
 ) = {
-  let ctx = create-context(style, entry, cite-number: cite-number)
+  let ctx = create-context(
+    style,
+    entry,
+    cite-number: cite-number,
+    abbreviations: abbreviations,
+  )
   let ctx = (
     ..ctx,
     year-suffix: year-suffix,
@@ -378,14 +397,25 @@
 /// - bib-data: Dictionary of key -> entry
 /// - citations: Citation info from collect-citations()
 /// - style: Parsed CSL style
+/// - abbreviations: Optional abbreviation lookup table
 /// Returns: Array of (entry-ir, rendered, rendered-body, rendered-number, label) tuples
-#let get-rendered-entries(bib-data, citations, style) = {
+#let get-rendered-entries(bib-data, citations, style, abbreviations: (:)) = {
   let entries = process-entries(bib-data, citations, style)
 
   entries.map(e => (
     ir: e,
-    rendered: render-entry-ir(e, style, include-number: true),
-    rendered-body: render-entry-ir(e, style, include-number: false),
+    rendered: render-entry-ir(
+      e,
+      style,
+      include-number: true,
+      abbreviations: abbreviations,
+    ),
+    rendered-body: render-entry-ir(
+      e,
+      style,
+      include-number: false,
+      abbreviations: abbreviations,
+    ),
     rendered-number: render-citation-number(
       e.entry,
       style,

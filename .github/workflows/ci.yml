@@ -17,7 +17,82 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  # CSL compatibility test with all zotero-chinese/styles
+  # citeproc-js test suite compatibility (runs in parallel with csl-compatibility)
+  citeproc-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Clone citeproc-js
+        run: |
+          mkdir -p references
+          git clone --depth 1 https://github.com/Juris-M/citeproc-js.git references/citeproc-js
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup Typst
+        uses: typst-community/setup-typst@v4
+
+      - name: Run citeproc-js tests
+        id: citeproc-test
+        run: |
+          python scripts/run-citeproc-tests.py
+
+          # Parse results from markdown report
+          TOTAL=$(grep -oP 'Total Tests:\*\* \K\d+' build/citeproc-compatibility-report.md || echo "0")
+          COMPILED=$(grep -oP '\| compiled \| \K\d+' build/citeproc-compatibility-report.md || echo "0")
+          ERRORS=$(grep -oP '\| error \| \K\d+' build/citeproc-compatibility-report.md || echo "0")
+
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+          echo "compiled=$COMPILED" >> $GITHUB_OUTPUT
+          echo "errors=$ERRORS" >> $GITHUB_OUTPUT
+
+          # Extract category breakdown as JSON
+          python3 -c "
+          import re
+          import json
+
+          with open('build/citeproc-compatibility-report.md') as f:
+              content = f.read()
+
+          # Find category table
+          pattern = r'\| (\w+) \| (\d+) \| (\d+) \| (\d+) \| (\d+) \|'
+          categories = []
+          for match in re.finditer(pattern, content):
+              categories.append({
+                  'name': match.group(1),
+                  'total': int(match.group(2)),
+                  'compiled': int(match.group(3))
+              })
+
+          with open('build/citeproc-categories.json', 'w') as f:
+              json.dump(categories, f)
+          "
+
+      - name: Upload compatibility report
+        uses: actions/upload-artifact@v4
+        with:
+          name: citeproc-compatibility-report
+          path: |
+            build/citeproc-compatibility-report.md
+            build/citeproc-categories.json
+
+      - name: Create job summary
+        run: |
+          echo "## citeproc-js Test Suite Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat build/citeproc-compatibility-report.md >> $GITHUB_STEP_SUMMARY
+
+    outputs:
+      total: ${{ steps.citeproc-test.outputs.total }}
+      compiled: ${{ steps.citeproc-test.outputs.compiled }}
+      errors: ${{ steps.citeproc-test.outputs.errors }}
+
+  # CSL compatibility test with all zotero-chinese/styles (runs in parallel with citeproc-tests)
   csl-compatibility:
     runs-on: ubuntu-latest
     steps:
@@ -26,7 +101,7 @@ jobs:
 
       - name: Clone zotero-chinese/styles
         run: |
-          git clone --depth 1 https://github.com/zotero-chinese/styles.git zotero-styles
+          git clone --depth 1 https://github.com/zotero-chinese/styles.git zotero-chinese-styles
 
       - name: Setup Typst
         uses: typst-community/setup-typst@v4
@@ -34,10 +109,10 @@ jobs:
       - name: Run CSL compatibility tests
         id: csl-test
         run: |
-          mkdir -p docs/results
+          mkdir -p build/csl-results
 
           # Find all CSL files
-          CSL_FILES=$(find zotero-styles/src -name "*.csl" | sort)
+          CSL_FILES=$(find zotero-chinese-styles/src -name "*.csl" | sort)
           TOTAL=$(echo "$CSL_FILES" | wc -l | tr -d ' ')
 
           echo "Found $TOTAL CSL files to test"
@@ -54,7 +129,7 @@ jobs:
             SAFE_NAME=$(echo "$NAME" | tr ' /' '__')
 
             # Run typst compile and save PDF
-            if typst compile tests/test-csl-compatibility.typ "docs/results/${SAFE_NAME}.pdf" \
+            if typst compile tests/test-csl-compatibility.typ "build/csl-results/${SAFE_NAME}.pdf" \
                  --root . \
                  --font-path fonts/ \
                  --input "csl=$csl_file" 2>/dev/null; then
@@ -80,31 +155,11 @@ jobs:
             exit 1
           fi
 
-      - name: Generate index page
-        run: |
-          TOTAL=${{ steps.csl-test.outputs.total }}
-          PASSED=${{ steps.csl-test.outputs.passed }}
-          FAILED=${{ steps.csl-test.outputs.failed }}
-          PASS_RATE=$(echo "scale=1; $PASSED * 100 / $TOTAL" | bc)
-          BUILD_TIME=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
-
-          # Copy template
-          cp .github/pages/index.html docs/index.html
-
-          # Generate styles list HTML
-          STYLES_HTML=""
-          for pdf in $(ls docs/results/*.pdf 2>/dev/null | sort); do
-            NAME=$(basename "$pdf" .pdf | tr '_' ' ')
-            STYLES_HTML="${STYLES_HTML}    <a href=\"results/$(basename "$pdf")\" class=\"style-link\">📄 ${NAME}</a>\n"
-          done
-
-          # Replace placeholders
-          sed -i "s/{{TOTAL}}/$TOTAL/g" docs/index.html
-          sed -i "s/{{PASSED}}/$PASSED/g" docs/index.html
-          sed -i "s/{{FAILED}}/$FAILED/g" docs/index.html
-          sed -i "s/{{RATE}}/$PASS_RATE/g" docs/index.html
-          sed -i "s/{{BUILD_TIME}}/$BUILD_TIME/g" docs/index.html
-          sed -i "s|{{STYLES_LIST}}|${STYLES_HTML}|g" docs/index.html
+      - name: Upload CSL test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: csl-test-results
+          path: build/csl-results/
 
       - name: Create job summary
         run: |
@@ -115,6 +170,45 @@ jobs:
           echo "| Total Styles | ${{ steps.csl-test.outputs.total }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Passed | ${{ steps.csl-test.outputs.passed }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Failed | ${{ steps.csl-test.outputs.failed }} |" >> $GITHUB_STEP_SUMMARY
+
+    outputs:
+      total: ${{ steps.csl-test.outputs.total }}
+      passed: ${{ steps.csl-test.outputs.passed }}
+      failed: ${{ steps.csl-test.outputs.failed }}
+
+  # Generate GitHub Pages (after both test jobs complete)
+  generate-pages:
+    needs: [citeproc-tests, csl-compatibility]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Download citeproc results
+        uses: actions/download-artifact@v4
+        with:
+          name: citeproc-compatibility-report
+          path: build/
+
+      - name: Download CSL test results
+        uses: actions/download-artifact@v4
+        with:
+          name: csl-test-results
+          path: docs/results/
+
+      - name: Generate index page
+        run: |
+          python scripts/generate-pages.py \
+            --csl-total ${{ needs.csl-compatibility.outputs.total }} \
+            --csl-passed ${{ needs.csl-compatibility.outputs.passed }} \
+            --csl-failed ${{ needs.csl-compatibility.outputs.failed }} \
+            --citeproc-total ${{ needs.citeproc-tests.outputs.total }} \
+            --citeproc-compiled ${{ needs.citeproc-tests.outputs.compiled }} \
+            --citeproc-errors ${{ needs.citeproc-tests.outputs.errors }} \
+            --results-dir docs/results \
+            --categories-file build/citeproc-categories.json \
+            --template .github/pages/index.html \
+            --output docs/index.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -127,7 +221,7 @@ jobs:
   # Deploy to GitHub Pages (only on main branch push)
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: csl-compatibility
+    needs: generate-pages
     runs-on: ubuntu-latest
     permissions:
       pages: write

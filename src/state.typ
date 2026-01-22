@@ -20,6 +20,10 @@
   show-accessed: true,
 ))
 
+/// Abbreviations data (jurisdiction -> variable -> value -> abbreviated)
+/// Structure: { "default": { "title": { "Full Title": "Abbr" }, ... }, ... }
+#let _abbreviations = state("citeproc-abbreviations", (:))
+
 // =============================================================================
 // Citation Tracking (metadata + query pattern)
 // =============================================================================

@@ -22,6 +22,31 @@ from typing import Optional, List, Dict, Any
 from collections import defaultdict
 
 # =============================================================================
+# XML Patches (for malformed citeproc-js test fixtures)
+# =============================================================================
+
+def load_csl_patches() -> Dict[str, List[Dict[str, str]]]:
+    """Load CSL XML patches from the patches directory."""
+    patches_file = Path(__file__).parent / 'patches' / 'csl-xml-fixes.json'
+    if patches_file.exists():
+        with open(patches_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            # Index by fixture name for O(1) lookup
+            return {p['fixture']: p for p in data.get('patches', [])}
+    return {}
+
+# Load patches once at module level
+CSL_PATCHES = load_csl_patches()
+
+def apply_csl_patch(fixture_name: str, csl_content: str) -> str:
+    """Apply XML patch for a fixture if one exists."""
+    patch = CSL_PATCHES.get(fixture_name)
+    if patch:
+        csl_content = csl_content.replace(patch['find'], patch['replace'])
+    return csl_content
+
+
+# =============================================================================
 # Fixture Parsing
 # =============================================================================
 
@@ -99,7 +124,7 @@ def normalize_csl_json(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 # Typst Test Generation
 # =============================================================================
 
-def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str, csl_content: str = None) -> str:
+def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str, csl_content: str = None, abbrevs_path: str = None) -> str:
     """Generate a Typst test file for a fixture using CSL-JSON directly."""
 
     # Determine citation keys
@@ -121,16 +146,26 @@ def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str, csl
     check_csl = csl_content if csl_content else fixture.csl
     has_bib = '<bibliography' in check_csl
 
+    # Build init-csl-json call with optional abbreviations
+    if abbrevs_path:
+        init_call = f'''#show: init-csl-json.with(
+  read("/{json_path}"),
+  read("/{csl_path}"),
+  abbreviations: json("/{abbrevs_path}"),
+)'''
+    else:
+        init_call = f'''#show: init-csl-json.with(
+  read("/{json_path}"),
+  read("/{csl_path}"),
+)'''
+
     # Use init-csl-json for direct CSL-JSON input (no BibTeX conversion needed)
     return f'''// Auto-generated test for: {fixture.name}
 #import "/lib.typ": csl-bibliography, init-csl-json
 
 #set page(width: auto, height: auto, margin: 1em)
 
-#show: init-csl-json.with(
-  read("/{json_path}"),
-  read("/{csl_path}"),
-)
+{init_call}
 
 {citations}
 
@@ -155,11 +190,7 @@ def run_test(fixture: TestFixture, project_dir: Path, temp_dir: Path) -> Dict[st
         'skipped_reason': None,
     }
 
-    # Check for unsupported features
-    if fixture.abbreviations:
-        result['status'] = 'skipped'
-        result['skipped_reason'] = 'Uses abbreviations (not supported)'
-        return result
+    # Note: Abbreviations are now supported!
 
     # bibliography-nosort mode: just run as normal bibliography test
     # (sorting differences won't cause compile errors)
@@ -171,13 +202,13 @@ def run_test(fixture: TestFixture, project_dir: Path, temp_dir: Path) -> Dict[st
     # For citation-only tests without bibliography, inject a minimal one
     # This allows our architecture to work while still testing citation formatting
     csl_content = fixture.csl
-    
-    # Note: Some citeproc-js fixtures have malformed XML (unclosed tags)
-    # citeproc-js uses a lenient hand-rolled parser that auto-closes tags
-    # Typst uses strict XML parsing, so these tests will fail with XML errors
-    # We accept this as a known limitation (5 fixtures affected)
-    
-    if fixture.mode == 'citation' and '<bibliography' not in fixture.csl:
+
+    # Apply XML patches for malformed fixtures
+    csl_content = apply_csl_patch(fixture.name, csl_content)
+
+    # Handle all citation-like modes (citation, citation-nojuris, etc.)
+    is_citation_mode = fixture.mode.startswith('citation')
+    if is_citation_mode and '<bibliography' not in fixture.csl:
         # Inject minimal bibliography before </style>
         minimal_bib = '''
   <bibliography>
@@ -200,12 +231,20 @@ def run_test(fixture: TestFixture, project_dir: Path, temp_dir: Path) -> Dict[st
         csl_path = temp_dir / f'{fixture.name}.csl'
         csl_path.write_text(csl_content, encoding='utf-8')
 
+        # Write abbreviations file if present
+        abbrevs_path = None
+        if fixture.abbreviations:
+            abbrevs_file = temp_dir / f'{fixture.name}.abbrevs.json'
+            abbrevs_file.write_text(json.dumps(fixture.abbreviations, ensure_ascii=False, indent=2), encoding='utf-8')
+            abbrevs_path = str(abbrevs_file.relative_to(project_dir))
+
         # Generate Typst test file using init-csl-json
         test_content = generate_typst_test(
             fixture,
             str(json_path.relative_to(project_dir)),
             str(csl_path.relative_to(project_dir)),
             csl_content,
+            abbrevs_path=abbrevs_path,
         )
         test_path = temp_dir / f'{fixture.name}.typ'
         test_path.write_text(test_content, encoding='utf-8')

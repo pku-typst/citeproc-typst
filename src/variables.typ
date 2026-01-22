@@ -193,7 +193,25 @@
 
   // Standard mapping
   let field-name = _field-map.at(name, default: name)
-  fields.at(field-name, default: "")
+  let value = fields.at(field-name, default: "")
+
+  // Apply abbreviations if available
+  let abbrevs = ctx.at("abbreviations", default: (:))
+  if abbrevs != (:) and value != "" {
+    // Try jurisdiction-specific first, then default
+    let jurisdiction = fields.at("jurisdiction", default: "default")
+    let lookup = abbrevs.at(jurisdiction, default: none)
+    if lookup == none {
+      lookup = abbrevs.at("default", default: (:))
+    }
+    // Look up abbreviation for this variable
+    let var-abbrevs = lookup.at(name, default: (:))
+    if value in var-abbrevs {
+      return var-abbrevs.at(value)
+    }
+  }
+
+  value
 }
 
 /// Check if variable exists and has value
