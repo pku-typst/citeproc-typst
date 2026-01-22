@@ -27,13 +27,23 @@
     fields.insert("citation-number", str(cite-number))
   }
 
+  // Map CSL name variables to BibTeX name fields
+  let raw-names = entry.at("parsed_names", default: (:))
+  let mapped-names = raw-names
+
+  // Add CSL variable aliases for BibTeX fields
+  // container-author -> bookauthor (for chapters in books)
+  if "bookauthor" in raw-names and "container-author" not in raw-names {
+    mapped-names.insert("container-author", raw-names.at("bookauthor"))
+  }
+
   (
     style: style,
     entry: entry,
     macros: style.macros,
     locale: style.locale,
     fields: fields,
-    parsed-names: entry.at("parsed_names", default: (:)),
+    parsed-names: mapped-names,
     entry-type: entry.at("entry_type", default: "misc"),
   )
 }
@@ -59,6 +69,14 @@
   } else {
     s
   }
+}
+
+/// Strip periods from a string (CSL strip-periods="true")
+/// Only removes periods after letters, preserves periods in numbers (e.g., "2.1.0")
+#let strip-periods-from-str(s) = {
+  if type(s) != str { return s }
+  // Match period that follows a letter (including accented Latin letters)
+  s.replace(regex("([a-zA-Z\u{00C0}-\u{024F}])\\."), m => m.captures.at(0))
 }
 
 /// Check if content is empty (handles strings, arrays, and content)
@@ -150,6 +168,12 @@
   let font-variant = attrs.at("font-variant", default: none)
   let vertical-align = attrs.at("vertical-align", default: none)
   let text-case = attrs.at("text-case", default: none)
+  let strip-periods = attrs.at("strip-periods", default: "false") == "true"
+
+  // Strip periods if requested (CSL strip-periods="true")
+  if strip-periods {
+    result = strip-periods-from-str(result)
+  }
 
   // Apply formatting in order
   if font-style == "italic" or font-style == "oblique" {
@@ -209,9 +233,17 @@
 /// Wrap content with prefix/suffix and apply formatting
 #let finalize(content, attrs) = {
   if is-empty(content) { return [] }
+
+  // Strip periods before wrapping (CSL strip-periods="true")
+  let processed = if attrs.at("strip-periods", default: "false") == "true" {
+    strip-periods-from-str(content)
+  } else {
+    content
+  }
+
   let prefix = attrs.at("prefix", default: "")
   let suffix = attrs.at("suffix", default: "")
-  let result = [#prefix#content#suffix]
+  let result = [#prefix#processed#suffix]
   apply-formatting(result, attrs)
 }
 

@@ -80,15 +80,21 @@
     // Split given names and take initials
     let parts = given.split(regex("[ -]+")).filter(p => p != "")
     let initialize-hyphen = ctx.style.initialize-with-hyphen
-    let separator = if initialize-hyphen and given.contains("-") { "-" } else {
-      ""
+
+    // Build initials with initialize-with after each
+    let initials = parts.map(p => {
+      if p.len() > 0 { upper(p.first()) + initialize-with } else { "" }
+    })
+
+    // Join with hyphen if needed
+    if initialize-hyphen and given.contains("-") {
+      formatted-given = initials.join("-")
+    } else {
+      formatted-given = initials.join("")
     }
 
-    formatted-given = parts
-      .map(p => {
-        if p.len() > 0 { upper(p.first()) + initialize-with.trim() } else { "" }
-      })
-      .join(separator)
+    // Trim trailing space from initialize-with
+    formatted-given = formatted-given.trim(at: end)
   }
 
   // Apply given name part formatting
@@ -105,8 +111,8 @@
     // Chinese: 姓名 (no separator)
     formatted-family + formatted-given
   } else if use-sort-order {
-    // Sort order: Family, Given (with sort-separator)
-    let parts = ()
+    // Sort order: Family Given Suffix (with sort-separator, no comma before suffix)
+    // Per GB/T 7714-2025: "Sodeman W A Jr" not "Sodeman W A, Jr"
 
     // Handle prefix (demote-non-dropping-particle setting)
     let demote = ctx.style.demote-non-dropping-particle
@@ -115,13 +121,16 @@
       formatted-family = prefix + " " + formatted-family
     }
 
-    parts.push(formatted-family)
-
+    // Build name parts
+    let result = formatted-family
     if formatted-given != "" {
-      [#parts.join("")#sort-separator#formatted-given]
-    } else {
-      parts.join("")
+      result = [#result#sort-separator#formatted-given]
     }
+    // Add suffix without comma (per GB/T 7714)
+    if suffix != "" {
+      result = [#result #suffix]
+    }
+    result
   } else {
     // Display order: Given Family
     let parts = ()
