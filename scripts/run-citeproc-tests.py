@@ -81,127 +81,26 @@ def parse_fixture(filepath: Path) -> Optional[TestFixture]:
 
 
 # =============================================================================
-# CSL-JSON to BibTeX Conversion
+# CSL-JSON Handling
 # =============================================================================
 
-def csl_json_to_bibtex(items: List[Dict[str, Any]]) -> str:
-    """Convert CSL-JSON items to BibTeX format."""
-    entries = []
-
-    type_map = {
-        'article': 'article',
-        'article-journal': 'article',
-        'article-magazine': 'article',
-        'article-newspaper': 'article',
-        'book': 'book',
-        'chapter': 'incollection',
-        'paper-conference': 'inproceedings',
-        'thesis': 'phdthesis',
-        'report': 'techreport',
-        'webpage': 'misc',
-        'dataset': 'misc',
-    }
-
+def normalize_csl_json(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Normalize CSL-JSON items (ensure all have IDs)."""
+    normalized = []
     for i, item in enumerate(items):
-        # Handle items without id (auto-generate one)
-        item_id = item.get('id', f'ITEM-{i+1}')
-        item_type = type_map.get(item.get('type', 'book'), 'misc')
-
-        fields = []
-
-        # Title (required - add placeholder if missing to avoid citegeist crash)
-        title = item.get('title', f'Item {item_id}')
-        fields.append(f'  title = {{{title}}}')
-
-        # Authors
-        if 'author' in item:
-            authors = []
-            for a in item['author']:
-                if 'literal' in a:
-                    authors.append(a['literal'])
-                else:
-                    name_parts = []
-                    if a.get('non-dropping-particle'):
-                        name_parts.append(a['non-dropping-particle'])
-                    if a.get('family'):
-                        name_parts.append(a['family'])
-                    family = ' '.join(name_parts) if name_parts else ''
-                    given = a.get('given', '')
-                    suffix = a.get('suffix', '')
-                    if suffix:
-                        authors.append(f'{family}, {suffix}, {given}')
-                    elif given:
-                        authors.append(f'{family}, {given}')
-                    else:
-                        authors.append(family)
-            if authors:
-                fields.append(f'  author = {{{" and ".join(authors)}}}')
-
-        # Editors
-        if 'editor' in item:
-            editors = []
-            for e in item['editor']:
-                if 'literal' in e:
-                    editors.append(e['literal'])
-                else:
-                    family = e.get('family', '')
-                    given = e.get('given', '')
-                    if given:
-                        editors.append(f'{family}, {given}')
-                    else:
-                        editors.append(family)
-            if editors:
-                fields.append(f'  editor = {{{" and ".join(editors)}}}')
-
-        # Date/Year
-        if 'issued' in item:
-            issued = item['issued']
-            if 'date-parts' in issued and issued['date-parts']:
-                date_parts = issued['date-parts'][0]
-                if len(date_parts) >= 1:
-                    fields.append(f'  year = {{{date_parts[0]}}}')
-                if len(date_parts) >= 2:
-                    fields.append(f'  month = {{{date_parts[1]}}}')
-
-        # Container
-        if 'container-title' in item:
-            if item_type == 'article':
-                fields.append(f'  journal = {{{item["container-title"]}}}')
-            else:
-                fields.append(f'  booktitle = {{{item["container-title"]}}}')
-
-        # Volume, Issue, Pages
-        if 'volume' in item:
-            fields.append(f'  volume = {{{item["volume"]}}}')
-        if 'issue' in item:
-            fields.append(f'  number = {{{item["issue"]}}}')
-        if 'page' in item:
-            fields.append(f'  pages = {{{item["page"]}}}')
-
-        # Publisher
-        if 'publisher' in item:
-            fields.append(f'  publisher = {{{item["publisher"]}}}')
-        if 'publisher-place' in item:
-            fields.append(f'  address = {{{item["publisher-place"]}}}')
-
-        # URL/DOI
-        if 'URL' in item:
-            fields.append(f'  url = {{{item["URL"]}}}')
-        if 'DOI' in item:
-            fields.append(f'  doi = {{{item["DOI"]}}}')
-
-        entry = f'@{item_type}{{{item_id},\n' + ',\n'.join(fields) + '\n}'
-        entries.append(entry)
-
-    return '\n\n'.join(entries)
+        item_copy = item.copy()
+        if 'id' not in item_copy:
+            item_copy['id'] = f'ITEM-{i+1}'
+        normalized.append(item_copy)
+    return normalized
 
 
 # =============================================================================
 # Typst Test Generation
 # =============================================================================
 
-def generate_typst_test(fixture: TestFixture, bib_path: str, csl_path: str) -> str:
-    """Generate a Typst test file for a fixture."""
+def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str, csl_content: str = None) -> str:
+    """Generate a Typst test file for a fixture using CSL-JSON directly."""
 
     # Determine citation keys
     if fixture.citation_items:
@@ -218,17 +117,18 @@ def generate_typst_test(fixture: TestFixture, bib_path: str, csl_path: str) -> s
     # Generate citations
     citations = ' '.join([f'@{key}' for key in keys])
 
-    # Always include bibliography if the CSL has one (needed for label references)
-    has_bib = '<bibliography' in fixture.csl
+    # Check if bibliography exists (use modified csl_content if provided)
+    check_csl = csl_content if csl_content else fixture.csl
+    has_bib = '<bibliography' in check_csl
 
-    # Use absolute-style paths with root
+    # Use init-csl-json for direct CSL-JSON input (no BibTeX conversion needed)
     return f'''// Auto-generated test for: {fixture.name}
-#import "/lib.typ": init-csl, csl-bibliography
+#import "/lib.typ": csl-bibliography, init-csl-json
 
 #set page(width: auto, height: auto, margin: 1em)
 
-#show: init-csl.with(
-  read("/{bib_path}"),
+#show: init-csl-json.with(
+  read("/{json_path}"),
   read("/{csl_path}"),
 )
 
@@ -261,38 +161,51 @@ def run_test(fixture: TestFixture, project_dir: Path, temp_dir: Path) -> Dict[st
         result['skipped_reason'] = 'Uses abbreviations (not supported)'
         return result
 
-    if fixture.mode == 'bibliography-nosort':
-        result['status'] = 'skipped'
-        result['skipped_reason'] = 'Uses nosort mode (not supported)'
-        return result
+    # bibliography-nosort mode: just run as normal bibliography test
+    # (sorting differences won't cause compile errors)
 
-    # Check for CSL-M or complex features in CSL
-    if 'xmlns:cs' in fixture.csl or 'csl-m' in fixture.csl.lower():
-        result['status'] = 'skipped'
-        result['skipped_reason'] = 'Uses CSL-M extensions'
-        return result
+    # Note: We have partial CSL-M support, so try running these tests
+    # Only check for truly unsupported CSL-M features
+    # (most CSL-M features like multiple layouts, cs:institution are supported)
 
-    # Check for citation-only mode (no bibliography) - our architecture requires bibliography
+    # For citation-only tests without bibliography, inject a minimal one
+    # This allows our architecture to work while still testing citation formatting
+    csl_content = fixture.csl
+    
+    # Note: Some citeproc-js fixtures have malformed XML (unclosed tags)
+    # citeproc-js uses a lenient hand-rolled parser that auto-closes tags
+    # Typst uses strict XML parsing, so these tests will fail with XML errors
+    # We accept this as a known limitation (5 fixtures affected)
+    
     if fixture.mode == 'citation' and '<bibliography' not in fixture.csl:
-        result['status'] = 'skipped'
-        result['skipped_reason'] = 'Citation-only test (no bibliography in CSL)'
-        return result
+        # Inject minimal bibliography before </style>
+        minimal_bib = '''
+  <bibliography>
+    <layout>
+      <text variable="title"/>
+    </layout>
+  </bibliography>
+'''
+        csl_content = csl_content.replace('</style>', minimal_bib + '</style>')
 
     try:
-        # Convert input to BibTeX
-        bib_content = csl_json_to_bibtex(fixture.input_data)
-        bib_path = temp_dir / f'{fixture.name}.bib'
-        bib_path.write_text(bib_content, encoding='utf-8')
+        # Normalize CSL-JSON (ensure all items have IDs)
+        normalized_items = normalize_csl_json(fixture.input_data)
 
-        # Write CSL file
+        # Write CSL-JSON file directly (no BibTeX conversion!)
+        json_path = temp_dir / f'{fixture.name}.json'
+        json_path.write_text(json.dumps(normalized_items, ensure_ascii=False, indent=2), encoding='utf-8')
+
+        # Write CSL file (may have injected bibliography for citation-only tests)
         csl_path = temp_dir / f'{fixture.name}.csl'
-        csl_path.write_text(fixture.csl, encoding='utf-8')
+        csl_path.write_text(csl_content, encoding='utf-8')
 
-        # Generate Typst test file
+        # Generate Typst test file using init-csl-json
         test_content = generate_typst_test(
             fixture,
-            str(bib_path.relative_to(project_dir)),
+            str(json_path.relative_to(project_dir)),
             str(csl_path.relative_to(project_dir)),
+            csl_content,
         )
         test_path = temp_dir / f'{fixture.name}.typ'
         test_path.write_text(test_content, encoding='utf-8')

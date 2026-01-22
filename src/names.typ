@@ -27,6 +27,24 @@
   result
 }
 
+/// Check if a name is an institutional name (CSL-M extension)
+///
+/// In CSL-M, institutional names are stored with "literal" field or
+/// with only "family" field and no "given" field.
+///
+/// - name: Name dict
+/// Returns: bool
+#let is-institutional-name(name) = {
+  // Check for literal name (explicit institution)
+  if "literal" in name { return true }
+
+  // Check for family-only name (no given name)
+  let family = name.at("family", default: "")
+  let given = name.at("given", default: "")
+
+  family != "" and given == ""
+}
+
 /// Format a single name
 ///
 /// - name: Parsed name dict (family, given, prefix, suffix)
@@ -291,24 +309,6 @@
 // =============================================================================
 // CSL-M Institution Support
 // =============================================================================
-
-/// Check if a name is an institutional name (CSL-M extension)
-///
-/// In CSL-M, institutional names are stored with "literal" field or
-/// with only "family" field and no "given" field.
-///
-/// - name: Name dict
-/// Returns: bool
-#let is-institutional-name(name) = {
-  // Check for literal name (explicit institution)
-  if "literal" in name { return true }
-
-  // Check for family-only name (no given name)
-  let family = name.at("family", default: "")
-  let given = name.at("given", default: "")
-
-  family != "" and given == ""
-}
 
 /// Format an institutional name (CSL-M extension)
 ///

@@ -1,9 +1,18 @@
 // citeproc-typst - CSL (Citation Style Language) processor for Typst
 //
-// Usage:
+// Usage with BibTeX:
 //   #import "@preview/citeproc-typst:0.1.0": init-csl, csl-bibliography
 //   #show: init-csl.with(
 //     read("refs.bib"),
+//     read("style.csl"),
+//   )
+//   Use @key in text to cite...
+//   #csl-bibliography()
+//
+// Usage with CSL-JSON:
+//   #import "@preview/citeproc-typst:0.1.0": init-csl-json, csl-bibliography
+//   #show: init-csl-json.with(
+//     read("refs.json"),
 //     read("style.csl"),
 //   )
 //   Use @key in text to cite...
@@ -17,6 +26,9 @@
 #import "src/state.typ": (
   _bib-data, _config, _csl-style, cite-marker, collect-citations,
   get-entry-year, get-first-author-family,
+)
+#import "src/csl-json.typ": (
+  _csl-json-data, _csl-json-mode, generate-stub-bib, parse-csl-json,
 )
 
 // Counter for tracking citation occurrence index (for ibid detection)
@@ -191,6 +203,159 @@
   // Precompute citation data ONCE at document end
   // This is queried by each @key citation via _get-precomputed()
   // Performance: O(N) once instead of O(N²) across all citations
+  context {
+    let bib = _bib-data.get()
+    let style = _csl-style.get()
+    let citations = collect-citations()
+
+    // Compute year suffixes once for all entries
+    let entries-ir = citations
+      .order
+      .pairs()
+      .map(((k, order)) => {
+        let e = bib.at(k, default: none)
+        if e == none { return none }
+        (key: k, entry: e, order: order)
+      })
+      .filter(x => x != none)
+
+    let suffixes = compute-year-suffixes(entries-ir, style)
+
+    // Store as queryable metadata
+    [#metadata((
+      citations: citations,
+      suffixes: suffixes,
+    ))<citeproc-precomputed>]
+  }
+}
+
+/// Initialize the CSL citation system with CSL-JSON input
+///
+/// CSL-JSON is the native format for CSL processors. Properties map directly
+/// to CSL variables, avoiding translation losses from BibTeX.
+///
+/// - json-data: CSL-JSON content (use `read("refs.json")`)
+/// - style: CSL file content (use `read("style.csl")`)
+/// - locales: Optional dict of lang -> locale content for external locales
+/// - show-url: Whether to show URLs in bibliography
+/// - show-doi: Whether to show DOIs in bibliography
+/// - show-accessed: Whether to show access dates in bibliography
+/// - doc: Document content
+#let init-csl-json(
+  json-data,
+  style,
+  locales: (:),
+  show-url: true,
+  show-doi: true,
+  show-accessed: true,
+  doc,
+) = {
+  // Parse CSL-JSON and convert to internal format
+  let entries = parse-csl-json(json-data)
+  _bib-data.update(entries)
+  _csl-json-mode.update(true)
+
+  // Generate stub BibTeX immediately (before doc processing)
+  let stub-bib = generate-stub-bib(entries)
+
+  // Parse CSL style with external locales
+  let csl-style = load-csl(style, locales: locales)
+  _csl-style.update(csl-style)
+
+  // Set display config
+  _config.update((
+    show-url: show-url,
+    show-doi: show-doi,
+    show-accessed: show-accessed,
+  ))
+
+  // Intercept cite elements (same logic as init-csl)
+  show cite: it => {
+    let key = str(it.key)
+
+    // Place citation marker for collection
+    cite-marker(key, locator: it.supplement)
+
+    // Step occurrence counter to track which citation this is
+    _cite-occurrence.step()
+
+    // Render citation using precomputed data (O(1) lookup instead of O(N) recomputation)
+    context {
+      let bib = _bib-data.get()
+      let style = _csl-style.get()
+      let entry = bib.at(key, default: none)
+
+      if entry == none {
+        text(fill: red, "[??" + key + "??]")
+      } else {
+        // Query precomputed data (computed once at document end)
+        let precomputed = _get-precomputed()
+
+        // Get citation info from precomputed cache
+        let citations = precomputed.citations
+        let suffixes = precomputed.suffixes
+
+        let cite-number = citations.order.at(key, default: citations.count + 1)
+
+        // Get current occurrence index (0-based)
+        let occurrence-idx = _cite-occurrence.get().first() - 1
+
+        // Position tracking for subsequent/ibid
+        let all-positions = citations.positions.at(key, default: ())
+        let position = all-positions.find(p => (
+          p.at("index", default: -1) == occurrence-idx
+        ))
+        let position = if position != none {
+          position.at("position", default: "first")
+        } else if all-positions.len() == 0 {
+          "first"
+        } else {
+          if all-positions.len() <= 1 { "first" } else { "subsequent" }
+        }
+
+        // Get year suffix from precomputed cache (O(1) lookup)
+        let year-suffix = suffixes.at(key, default: "")
+
+        // Get first note number for ibid/subsequent citations
+        let first-note-number = citations.first-note-numbers.at(
+          key,
+          default: none,
+        )
+
+        let result = render-citation(
+          entry,
+          style,
+          form: it.form,
+          supplement: it.supplement,
+          cite-number: cite-number,
+          year-suffix: year-suffix,
+          position: position,
+          first-note-number: first-note-number,
+        )
+
+        // Note styles: wrap in footnote (unless prose/author/year form)
+        let is-note-style = style.class == "note"
+        let is-inline-form = it.form in ("prose", "author", "year")
+
+        if is-note-style and not is-inline-form {
+          footnote(link(label("citeproc-ref-" + key), result))
+        } else {
+          link(label("citeproc-ref-" + key), result)
+        }
+      }
+    }
+  }
+
+  doc
+
+  // Hidden bibliography for @key syntax (at end to avoid blank page)
+  {
+    set bibliography(title: none)
+    show bibliography: none
+    bibliography(bytes(stub-bib))
+  }
+
+  // Precompute citation data ONCE at document end
   context {
     let bib = _bib-data.get()
     let style = _csl-style.get()

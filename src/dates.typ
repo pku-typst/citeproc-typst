@@ -57,7 +57,16 @@
     } else { none }
 
     if month != none and day != none {
-      return datetime(year: year, month: month, day: day)
+      // Validate day using Typst's native datetime arithmetic
+      // Get last day of month by going to first of next month minus 1 day
+      let (next-year, next-month) = if month == 12 { (year + 1, 1) } else {
+        (year, month + 1)
+      }
+      let last-day-of-month = (
+        datetime(year: next-year, month: next-month, day: 1) - duration(days: 1)
+      ).day()
+      let safe-day = calc.min(day, last-day-of-month)
+      return datetime(year: year, month: month, day: safe-day)
     } else if month != none {
       return datetime(year: year, month: month, day: 1)
     } else {

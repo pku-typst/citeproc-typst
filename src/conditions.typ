@@ -82,16 +82,24 @@
 )
 
 /// Check if entry type matches
-/// Priority: mark field > BibTeX type mapping > raw type
+/// Priority: CSL-JSON type > mark field > BibTeX type mapping > raw type
 #let check-type(ctx, type-list) = {
   let fields = ctx.fields
+  let is-csl-json = ctx.at("is-csl-json", default: false)
 
-  // 1. Check for user-specified mark field (highest priority)
-  let mark = fields.at("mark", default: none)
-  let csl-type = if mark != none {
-    _mark-map.at(upper(str(mark)), default: none)
-  } else {
-    none
+  let csl-type = none
+
+  // 0. For CSL-JSON, use the csl-type field directly (already in CSL format)
+  if is-csl-json and "csl-type" in fields {
+    csl-type = fields.at("csl-type")
+  }
+
+  // 1. Check for user-specified mark field (highest priority for BibTeX)
+  if csl-type == none {
+    let mark = fields.at("mark", default: none)
+    if mark != none {
+      csl-type = _mark-map.at(upper(str(mark)), default: none)
+    }
   }
 
   // 2. Fall back to BibTeX type mapping

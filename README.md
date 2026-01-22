@@ -30,6 +30,7 @@ As demonstrated by @smith2020, this approach works well.
 - **Standard CSL support** — Parse and render using CSL 1.0.2 style files
 - **CSL-M extensions** — Multilingual layouts, institutional authors, legal citations
 - **BibTeX input** — Use your existing `.bib` files via [citegeist](https://typst.app/universe/package/citegeist/)
+- **CSL-JSON input** — Native CSL-JSON format for lossless data transfer
 - **Bilingual support** — Automatic language detection for mixed Chinese/English bibliographies
 - **Citation styles** — Numeric, author-date, and note styles (footnotes auto-generated)
 - **Year disambiguation** — Automatic a/b/c suffixes for same-author-same-year entries
@@ -46,7 +47,7 @@ As demonstrated by @smith2020, this approach works well.
 
 ### `init-csl`
 
-Initialize the CSL processor with bibliography data and style.
+Initialize the CSL processor with BibTeX bibliography data and style.
 
 ```typst
 #show: init-csl.with(
@@ -55,6 +56,50 @@ Initialize the CSL processor with bibliography data and style.
   locales: (:),     // Optional: external locale files
 )
 ```
+
+### `init-csl-json`
+
+Initialize the CSL processor with CSL-JSON bibliography data. CSL-JSON is the native format for CSL processors — properties map directly to CSL variables, avoiding translation losses from BibTeX.
+
+```typst
+#import "@preview/citeproc-typst:0.1.0": init-csl-json, csl-bibliography
+
+#show: init-csl-json.with(
+  read("references.json"),   // CSL-JSON file content
+  read("style.csl"),         // CSL style file content
+  locales: (:),              // Optional: external locale files
+)
+
+As shown by @smith2023...
+
+#csl-bibliography()
+```
+
+CSL-JSON format example:
+
+```json
+[
+  {
+    "id": "smith2023",
+    "type": "article-journal",
+    "title": "Example Article",
+    "author": [{ "family": "Smith", "given": "John" }],
+    "container-title": "Journal of Examples",
+    "volume": "42",
+    "page": "1-10",
+    "issued": { "date-parts": [[2023, 5, 15]] },
+    "DOI": "10.1234/example"
+  }
+]
+```
+
+**Advantages of CSL-JSON over BibTeX:**
+
+- Properties map 1:1 to CSL variables (no translation needed)
+- Names are pre-structured (`{"family": "...", "given": "..."}`)
+- Dates use standard CSL format (`{"date-parts": [[2023, 5, 15]]}`)
+- All CSL types supported directly
+- Better for CSL-M extensions (`original-author`, `container-author`, etc.)
 
 ### `csl-bibliography`
 
