@@ -179,6 +179,20 @@ The `mark` field follows GB/T 7714 document type codes:
 - `G` — Collection, `EB` — Electronic resource, `DB` — Database
 - `A` — Analytic (chapter), `Z` — Other
 
+## Known Limitations
+
+### Bilingual Styles (CSL-M `original-*` variables)
+
+Some Chinese citation styles (e.g., "原子核物理评论") require bilingual output with both Chinese and English metadata. These styles use CSL-M extension variables like `original-author`, `original-title` which map to BibTeX fields with `-en` suffix (`author-en`, `title-en`, etc.).
+
+**Current status:**
+
+- `original-title`, `original-container-title`, `original-publisher`, `original-publisher-place` — ✅ Supported
+- `display="block"` attribute — ✅ Supported (creates line breaks)
+- `original-author`, `original-editor` — ❌ Not supported (requires citegeist to parse `author-en` into `parsed_names`)
+
+**Workaround:** Wait for citegeist to add support for parsing `-en` suffix name fields into `parsed_names`.
+
 ## Related Projects
 
 - [citegeist](https://typst.app/universe/package/citegeist/) — BibTeX parser for Typst

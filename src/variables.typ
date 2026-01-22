@@ -113,6 +113,30 @@
     return fields.at("origdate", default: "")
   }
 
+  // CSL-M original-* variables (for bilingual entries)
+  // These map to BibTeX fields with -en suffix
+  if name == "original-title" {
+    return fields.at("title-en", default: "")
+  }
+
+  if name == "original-container-title" {
+    // For journal articles, use journal-en; for book chapters, use booktitle-en
+    let journal-en = fields.at("journal-en", default: "")
+    if journal-en != "" { return journal-en }
+    return fields.at("booktitle-en", default: "")
+  }
+
+  if name == "original-publisher" {
+    return fields.at("publisher-en", default: "")
+  }
+
+  if name == "original-publisher-place" {
+    return fields.at("address-en", default: fields.at(
+      "location-en",
+      default: "",
+    ))
+  }
+
   // CSL-M special variables
 
   // Country (virtual variable from jurisdiction)

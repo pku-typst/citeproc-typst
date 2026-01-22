@@ -37,6 +37,15 @@
     mapped-names.insert("container-author", raw-names.at("bookauthor"))
   }
 
+  // CSL-M original-* name variables (for bilingual entries)
+  // Maps to BibTeX -en suffix fields if parsed by citegeist
+  if "author-en" in raw-names and "original-author" not in raw-names {
+    mapped-names.insert("original-author", raw-names.at("author-en"))
+  }
+  if "editor-en" in raw-names and "original-editor" not in raw-names {
+    mapped-names.insert("original-editor", raw-names.at("editor-en"))
+  }
+
   (
     style: style,
     entry: entry,
@@ -225,6 +234,20 @@
         })
         .join(" ")
     }
+  }
+
+  // CSL-M display attribute: "block" creates a new line
+  let display = attrs.at("display", default: none)
+  if display == "block" {
+    result = [#linebreak()#result]
+  } else if display == "indent" {
+    result = [#h(2em)#result]
+  } else if display == "left-margin" {
+    // Left margin display (used in some bibliography layouts)
+    result = [#result]
+  } else if display == "right-inline" {
+    // Right inline (continuation after left-margin)
+    result = [#result]
   }
 
   result
