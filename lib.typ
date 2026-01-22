@@ -149,6 +149,12 @@
         // Get year suffix from precomputed cache (O(1) lookup)
         let year-suffix = suffixes.at(key, default: "")
 
+        // Get first note number for ibid/subsequent citations
+        let first-note-number = citations.first-note-numbers.at(
+          key,
+          default: none,
+        )
+
         let result = render-citation(
           entry,
           style,
@@ -157,6 +163,7 @@
           cite-number: cite-number,
           year-suffix: year-suffix,
           position: position,
+          first-note-number: first-note-number,
         )
 
         // Note styles: wrap in footnote (unless prose/author/year form)

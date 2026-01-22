@@ -63,6 +63,11 @@
     return ctx.at("year-suffix", default: "")
   }
 
+  if name == "first-reference-note-number" {
+    // The note number where this citation first appeared (for ibid/subsequent)
+    return ctx.at("first-reference-note-number", default: "")
+  }
+
   if name == "publisher" {
     // For thesis, use school; otherwise use publisher
     if (

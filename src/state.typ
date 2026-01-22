@@ -44,6 +44,7 @@
 /// - positions: key -> array of position info
 /// - by-location: array of (key, index) in document order
 /// - count: total unique citations
+/// - first-note-numbers: key -> note number of first occurrence (for note styles)
 #let collect-citations() = {
   let cites = query(<citeproc-cite>)
 
@@ -52,18 +53,23 @@
     positions: (:),
     by-location: (),
     count: 0,
+    first-note-numbers: (:),
   )
 
   let n = 0
+  let note-number = 0 // Track note numbers (each citation in note style = one footnote)
   for c in cites {
     let info = c.value
     let key = info.key
+    note-number += 1
 
     // Track first occurrence order
     if key not in result.order {
       n += 1
       result.order.insert(key, n)
       result.positions.insert(key, ())
+      // Record the note number where this key first appears
+      result.first-note-numbers.insert(key, note-number)
     }
 
     // Track each occurrence's position
@@ -89,6 +95,7 @@
         index: result.by-location.len(),
         position: position,
         locator: info.locator,
+        note-number: note-number,
       ))
 
     result.by-location.push((key: key, index: result.by-location.len()))

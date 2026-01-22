@@ -230,6 +230,7 @@
 /// - year-suffix: Year suffix for disambiguation
 /// - position: Citation position ("first", "subsequent", "ibid", "ibid-with-locator")
 /// - suppress-affixes: If true, don't apply prefix/suffix (for multi-cite contexts)
+/// - first-note-number: Note number where this citation first appeared (for ibid/subsequent)
 /// Returns: Typst content
 #let render-citation(
   entry,
@@ -240,9 +241,17 @@
   year-suffix: "",
   position: "first",
   suppress-affixes: false,
+  first-note-number: none,
 ) = {
   let ctx = create-context(style, entry, cite-number: cite-number)
-  let ctx = (..ctx, year-suffix: year-suffix, position: position)
+  let ctx = (
+    ..ctx,
+    year-suffix: year-suffix,
+    position: position,
+    first-reference-note-number: if first-note-number != none {
+      str(first-note-number)
+    } else { "" },
+  )
 
   let citation = style.citation
   if citation == none or citation.layout == none {
