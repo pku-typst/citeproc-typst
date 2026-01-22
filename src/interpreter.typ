@@ -243,7 +243,14 @@
 
   let prefix = attrs.at("prefix", default: "")
   let suffix = attrs.at("suffix", default: "")
-  let result = [#prefix#processed#suffix]
+
+  // Combine prefix + content + suffix without extra spacing
+  // If content is a string, concatenate directly to avoid Typst inserting spaces
+  let result = if type(processed) == str {
+    prefix + processed + suffix
+  } else {
+    [#prefix#processed#suffix]
+  }
   apply-formatting(result, attrs)
 }
 

@@ -81,13 +81,46 @@
 // =============================================================================
 
 /// Check if a node uses citation-number variable (for filtering)
+/// Handles both direct <text variable="citation-number"> and <text macro="citation-number">
 #let _node-uses-citation-number(node) = {
   if type(node) != dictionary { return false }
   if node.at("tag", default: "") == "text" {
-    let var = node.at("attrs", default: (:)).at("variable", default: "")
+    let attrs = node.at("attrs", default: (:))
+    let var = attrs.at("variable", default: "")
     if var == "citation-number" { return true }
+    // Also check for macro named "citation-number" (common pattern)
+    let macro-name = attrs.at("macro", default: "")
+    if macro-name == "citation-number" { return true }
   }
   false
+}
+
+/// Render only the citation number for an entry
+///
+/// - entry: Bibliography entry from citegeist
+/// - style: Parsed CSL style
+/// - cite-number: Citation number for numeric styles
+/// Returns: Typst content (just the formatted number, e.g., "〔1〕")
+#let render-citation-number(entry, style, cite-number: none) = {
+  let ctx = create-context(style, entry, cite-number: cite-number)
+  let entry-lang = detect-language(entry.at("fields", default: (:)))
+
+  let bib = style.at("bibliography", default: none)
+  if bib == none { return [] }
+
+  let layout = select-layout(bib.at("layouts", default: ()), entry-lang)
+  if layout == none { return [] }
+
+  // Find and render only the citation-number node
+  let number-nodes = layout.children.filter(node => _node-uses-citation-number(
+    node,
+  ))
+  if number-nodes.len() > 0 {
+    number-nodes.map(node => interpret-node(node, ctx)).join()
+  } else {
+    // Fallback: simple bracketed number
+    [[#cite-number]]
+  }
 }
 
 /// Render a bibliography entry
@@ -317,7 +350,7 @@
 /// - bib-data: Dictionary of key -> entry
 /// - citations: Citation info from collect-citations()
 /// - style: Parsed CSL style
-/// Returns: Array of (entry-ir, rendered, rendered-body, label) tuples
+/// Returns: Array of (entry-ir, rendered, rendered-body, rendered-number, label) tuples
 #let get-rendered-entries(bib-data, citations, style) = {
   let entries = process-entries(bib-data, citations, style)
 
@@ -325,6 +358,11 @@
     ir: e,
     rendered: render-entry-ir(e, style, include-number: true),
     rendered-body: render-entry-ir(e, style, include-number: false),
+    rendered-number: render-citation-number(
+      e.entry,
+      style,
+      cite-number: e.order,
+    ),
     label: label("citeproc-ref-" + e.key),
   ))
 }

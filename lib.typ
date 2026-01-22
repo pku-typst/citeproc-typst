@@ -259,6 +259,7 @@
     parsed-names: e.ir.entry.at("parsed_names", default: (:)),
     rendered: e.rendered,
     rendered-body: e.rendered-body, // Without citation number (for custom rendering)
+    rendered-number: e.rendered-number, // Just the citation number (for alignment)
     ref-label: e.label,
     labeled-rendered: [#e.rendered #e.label],
   ))
@@ -327,11 +328,54 @@
     if full-control != none {
       full-control(entries)
     } else {
-      // Default rendering
-      set par(hanging-indent: 2em, first-line-indent: 0em)
-      for e in entries {
-        e.labeled-rendered
-        parbreak()
+      // Check for second-field-align setting
+      let bib-settings = style.at("bibliography", default: (:))
+      let second-field-align = bib-settings.at(
+        "second-field-align",
+        default: none,
+      )
+
+      if second-field-align == "flush" {
+        // Flush mode: number at margin, text follows inline
+        // Wrapped lines indent to align with text start
+        let max-order = entries.fold(0, (acc, e) => calc.max(acc, e.order))
+        let digit-count = str(max-order).len()
+        let num-width = 2em + digit-count * 0.6em
+        let indent = num-width + 0.5em
+
+        set par(first-line-indent: 0em, hanging-indent: indent, spacing: 0.65em)
+        for e in entries {
+          box(width: num-width, align(right, e.rendered-number))
+          h(0.5em)
+          [#e.rendered-body #e.ref-label]
+          parbreak()
+        }
+      } else if second-field-align == "margin" {
+        // Margin mode: number in left margin, text starts at margin
+        // All lines (including first) start at the same position
+        let max-order = entries.fold(0, (acc, e) => calc.max(acc, e.order))
+        let digit-count = str(max-order).len()
+        let num-width = 2em + digit-count * 0.6em + 0.5em
+
+        set par(
+          first-line-indent: -num-width,
+          hanging-indent: 0em,
+          spacing: 0.65em,
+        )
+        pad(left: num-width)[
+          #for e in entries {
+            box(width: num-width, align(right, e.rendered-number))
+            [#e.rendered-body #e.ref-label]
+            parbreak()
+          }
+        ]
+      } else {
+        // Default: simple hanging indent
+        set par(hanging-indent: 2em, first-line-indent: 0em)
+        for e in entries {
+          e.labeled-rendered
+          parbreak()
+        }
       }
     }
   }
