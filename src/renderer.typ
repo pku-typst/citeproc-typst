@@ -9,34 +9,59 @@
 #import "sorting.typ": sort-bibliography-entries
 #import "disambiguation.typ": apply-disambiguation
 
-/// Check if a CSL AST node contains a reference to citation-number variable
-/// Also checks macro references that might use citation-number
-#let uses-citation-number-var(node, macros: (:)) = {
-  if type(node) != dictionary { return false }
-
-  let tag = node.at("tag", default: "")
-  let attrs = node.at("attrs", default: (:))
-
-  // Direct variable reference
-  if tag == "text" {
-    let var = attrs.at("variable", default: "")
-    if var == "citation-number" { return true }
-
-    // Macro reference - check if the macro uses citation-number
-    let macro-name = attrs.at("macro", default: "")
-    if macro-name != "" and macro-name in macros {
-      let macro-def = macros.at(macro-name)
-      if macro-def.children.any(c => uses-citation-number-var(
-        c,
-        macros: macros,
-      )) {
-        return true
+/// Check if style uses citation-number variable
+/// Uses simple string search on macro definitions instead of recursive AST traversal
+/// This avoids stack overflow on deeply nested CSL structures
+#let style-uses-citation-number(style) = {
+  // Check if any macro definition contains citation-number reference
+  let macros = style.at("macros", default: (:))
+  for (name, macro-def) in macros {
+    // Check children of macro for text variable="citation-number"
+    let children = macro-def.at("children", default: ())
+    for child in children {
+      if type(child) == dictionary {
+        let tag = child.at("tag", default: "")
+        let attrs = child.at("attrs", default: (:))
+        if (
+          tag == "text"
+            and attrs.at("variable", default: "") == "citation-number"
+        ) {
+          return true
+        }
       }
     }
   }
 
-  let children = node.at("children", default: ())
-  children.any(c => uses-citation-number-var(c, macros: macros))
+  // Check bibliography layouts directly (first level only)
+  let bib = style.at("bibliography", default: none)
+  if bib != none {
+    let layouts = bib.at("layouts", default: ())
+    for layout in layouts {
+      let children = layout.at("children", default: ())
+      for child in children {
+        if type(child) == dictionary {
+          let tag = child.at("tag", default: "")
+          let attrs = child.at("attrs", default: (:))
+          // Direct citation-number reference
+          if (
+            tag == "text"
+              and attrs.at("variable", default: "") == "citation-number"
+          ) {
+            return true
+          }
+          // Macro named "citation-number" (common pattern)
+          if (
+            tag == "text"
+              and attrs.at("macro", default: "") == "citation-number"
+          ) {
+            return true
+          }
+        }
+      }
+    }
+  }
+
+  false
 }
 
 // =============================================================================
@@ -315,20 +340,8 @@
     .filter(x => x != none)
 
   // Determine if bibliography should be sorted by citation order
-  // Check if any bibliography layout uses citation-number variable
-  let bib = style.at("bibliography", default: none)
-  let bib-layouts = if bib != none { bib.at("layouts", default: ()) } else {
-    ()
-  }
-  let uses-citation-number = (
-    bib-layouts.len() > 0
-      and bib-layouts.any(layout => {
-        layout.children.any(c => uses-citation-number-var(
-          c,
-          macros: style.macros,
-        ))
-      })
-  )
+  // Check if style uses citation-number variable
+  let uses-citation-number = style-uses-citation-number(style)
 
   // Phase 2: Sort entries
   // - If bibliography uses citation-number: sort by citation order

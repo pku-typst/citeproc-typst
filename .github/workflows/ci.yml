@@ -76,7 +76,8 @@ jobs:
           echo "========================================"
 
           if [ "$FAILED" -gt 0 ]; then
-            echo "::warning::$FAILED CSL styles failed compatibility test"
+            echo "::error::$FAILED CSL styles failed compatibility test"
+            exit 1
           fi
 
       - name: Generate index page
