@@ -437,6 +437,8 @@
       // Wrap in footnote unless using prose/author/year form
       import "src/renderer.typ": render-citation
 
+      let is-multicite = normalized.len() > 1
+
       let cite-parts = normalized.map(item => {
         let entry = bib.at(item.key, default: none)
         if entry == none { return [] }
@@ -445,10 +447,21 @@
           style,
           supplement: item.supplement,
           form: if form != none { form } else { "full" },
+          // Suppress affixes for individual citations in multi-cite context
+          // (affixes applied once at the end)
+          suppress-affixes: is-multicite,
         )
       })
 
-      let result = cite-parts.filter(p => p != []).join(delimiter)
+      let joined = cite-parts.filter(p => p != []).join(delimiter)
+
+      // For multi-cite, apply suffix once at the end
+      let result = if is-multicite {
+        [#prefix#joined#suffix]
+      } else {
+        joined
+      }
+
       let linked = link(label("citeproc-ref-" + first-key), result)
 
       // Wrap in footnote unless using inline forms

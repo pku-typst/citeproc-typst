@@ -88,7 +88,13 @@
 
     // Join with hyphen if needed
     if initialize-hyphen and given.contains("-") {
-      formatted-given = initials.join("-")
+      // For hyphenated names, trim trailing space from each initial before joining
+      // So "J. " + "-" + "P. " becomes "J.-P." not "J. -P."
+      formatted-given = initials.map(i => i.trim(at: end)).join("-")
+      // Add back trailing space if initialize-with ends with space
+      if initialize-with.ends-with(" ") {
+        formatted-given = formatted-given + " "
+      }
     } else {
       formatted-given = initials.join("")
     }

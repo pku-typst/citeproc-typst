@@ -229,6 +229,7 @@
 /// - cite-number: Citation number (for numeric styles)
 /// - year-suffix: Year suffix for disambiguation
 /// - position: Citation position ("first", "subsequent", "ibid", "ibid-with-locator")
+/// - suppress-affixes: If true, don't apply prefix/suffix (for multi-cite contexts)
 /// Returns: Typst content
 #let render-citation(
   entry,
@@ -238,6 +239,7 @@
   cite-number: none,
   year-suffix: "",
   position: "first",
+  suppress-affixes: false,
 ) = {
   let ctx = create-context(style, entry, cite-number: cite-number)
   let ctx = (..ctx, year-suffix: year-suffix, position: position)
@@ -284,10 +286,14 @@
       result
     }
 
-    // Apply prefix/suffix but NOT vertical-align
-    let prefix = layout.prefix
-    let suffix = layout.suffix
-    [#prefix#full-result#suffix]
+    // Apply prefix/suffix but NOT vertical-align (unless suppressed for multi-cite)
+    if suppress-affixes {
+      full-result
+    } else {
+      let prefix = layout.prefix
+      let suffix = layout.suffix
+      [#prefix#full-result#suffix]
+    }
   } else {
     // Default form: apply all formatting
     let full-result = if supplement != none {
@@ -296,9 +302,9 @@
       result
     }
 
-    // Apply prefix/suffix
-    let prefix = layout.prefix
-    let suffix = layout.suffix
+    // Apply prefix/suffix (unless suppressed for multi-cite)
+    let prefix = if suppress-affixes { "" } else { layout.prefix }
+    let suffix = if suppress-affixes { "" } else { layout.suffix }
     let formatted = [#prefix#full-result#suffix]
 
     // Apply vertical-align (superscript/subscript)

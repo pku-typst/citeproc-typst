@@ -20,6 +20,13 @@
   ))
 }
 
+/// Filter valid CSL element children (exclude whitespace text nodes and comment nodes)
+#let filter-element-children(children) = {
+  children.filter(c => (
+    type(c) == dictionary and c.at("tag", default: "") != ""
+  ))
+}
+
 /// Get text content from a node (handles nested text)
 #let get-text-content(node) = {
   if type(node) == str { return node }
@@ -218,7 +225,7 @@
         prefix: layout.attrs.at("prefix", default: ""),
         suffix: layout.attrs.at("suffix", default: ""),
         vertical-align: layout.attrs.at("vertical-align", default: none),
-        children: layout.at("children", default: ()),
+        children: filter-element-children(layout.at("children", default: ())),
       )
     } else { none },
     // Sort
