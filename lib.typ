@@ -85,7 +85,7 @@
   show-accessed: true,
   doc,
 ) = {
-  import "@preview/citegeist:0.2.0": load-bibliography
+  import "@preview/citegeist:0.2.1": load-bibliography
 
   // Load bibliography data
   let bib-data = load-bibliography(bib)
