@@ -226,6 +226,8 @@
 /// Returns: Typst content (just the formatted number, e.g., "〔1〕")
 #let render-citation-number(entry, style, cite-number: none) = {
   let ctx = create-context(style, entry, cite-number: cite-number)
+  // CSL-M: Set render-context (citation-number is used in bibliography)
+  let ctx = (..ctx, render-context: "bibliography")
   let entry-lang = detect-language(entry.at("fields", default: (:)))
 
   let bib = style.at("bibliography", default: none)
@@ -274,11 +276,13 @@
   )
 
   // Inject year suffix and disambiguation info into context for rendering
+  // CSL-M: Set render-context for context condition
   let ctx = (
     ..ctx,
     year-suffix: year-suffix,
     names-expanded: names-expanded,
     givenname-level: givenname-level,
+    render-context: "bibliography",
   )
 
   let entry-lang = detect-language(entry.at("fields", default: (:)))
@@ -397,6 +401,7 @@
     cite-number: cite-number,
     abbreviations: abbreviations,
   )
+  // CSL-M: Set render-context for context condition
   let ctx = (
     ..ctx,
     year-suffix: year-suffix,
@@ -407,6 +412,7 @@
     // Disambiguation state for name rendering
     names-expanded: names-expanded,
     givenname-level: givenname-level,
+    render-context: "citation",
   )
 
   let citation = style.citation

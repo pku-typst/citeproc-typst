@@ -226,6 +226,19 @@ The `mark` field follows GB/T 7714 document type codes:
 
 ## Known Limitations
 
+### Standard CSL 1.0.2 Features Not Yet Implemented
+
+The following standard CSL features are parsed but not yet fully implemented:
+
+| Feature                             | Description                                            | Status                  |
+| ----------------------------------- | ------------------------------------------------------ | ----------------------- |
+| `subsequent-author-substitute`      | Replace repeated authors in bibliography               | Parsed, not rendered    |
+| `subsequent-author-substitute-rule` | Control substitution behavior                          | Parsed, not used        |
+| `et-al-subsequent-min/use-first`    | Et-al settings for subsequent cites                    | Not parsed              |
+| `et-al-use-last`                    | Show ellipsis and last author (e.g., "Doe, ... Smith") | Parsed, not implemented |
+| `names-min/use-first/use-last`      | Override et-al in sort keys                            | Not implemented         |
+| `cs:name-part` formatting           | Name-part specific formatting                          | Partially implemented   |
+
 ### Bilingual Styles (CSL-M `original-*` variables)
 
 Some Chinese citation styles (e.g., "原子核物理评论") require bilingual output with both Chinese and English metadata. These styles use CSL-M extension variables like `original-author`, `original-title` which map to BibTeX fields with `-en` suffix (`author-en`, `title-en`, etc.).
@@ -239,6 +252,22 @@ Some Chinese citation styles (e.g., "原子核物理评论") require bilingual o
 | `display="block"` attribute                                                                    | ✅       | ✅     |
 
 **BibTeX limitation:** `original-author` and `original-editor` require citegeist to parse `author-en`/`editor-en` fields into `parsed_names`. Use CSL-JSON input for full bilingual name support.
+
+### CSL-M Extensions Not Implemented
+
+The following CSL-M (Juris-M/Multilingual Zotero) extensions are **not supported**:
+
+| Feature                                       | Description                                       |
+| --------------------------------------------- | ------------------------------------------------- |
+| `parallel-first` / `parallel-last`            | Parallel citation suppression for legal documents |
+| `form="imperial"`                             | Japanese Imperial calendar date format            |
+| `commenter` / `contributor`                   | Additional name variables                         |
+| `cs:court-class`                              | Court classification element                      |
+| `track-containers` / `consolidate-containers` | Container tracking for legal citations            |
+| `subgroup-delimiter`                          | Publisher/publisher-place grouping                |
+| `year-range-format`                           | Separate year range collapsing format             |
+
+These features are primarily used for legal citation styles (Jurism). Standard academic CSL styles work correctly.
 
 ## Related Projects
 
