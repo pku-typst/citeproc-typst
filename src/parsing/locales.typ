@@ -632,12 +632,14 @@
 // Term Lookup
 // =============================================================================
 
-/// Look up a term from locale with entry-language awareness
+/// Look up a term from locale
 ///
-/// When the entry is English but the style locale is Chinese,
-/// this function returns English terms for a better reading experience.
+/// Per CSL spec, terms are looked up from the style's locale (ctx.locale),
+/// which is determined by the style's default-locale attribute.
+/// For multilingual output, use CSL-M's <layout locale="..."> mechanism
+/// to select different layouts for different entry languages.
 ///
-/// - ctx: Context with .locale and .style
+/// - ctx: Context with .locale
 /// - name: Term name (e.g., "page", "editor", "et-al")
 /// - form: Term form ("long", "short", "verb", "verb-short", "symbol")
 /// - plural: Whether to use plural form
@@ -645,30 +647,11 @@
 #let lookup-term(ctx, name, form: "long", plural: false) = {
   let key = if form == "long" { name } else { name + "-" + form }
 
-  // Determine if we should use English terms
-  // (entry is English but style locale is Chinese)
-  let style-is-chinese = ctx.style.default-locale.starts-with("zh")
-  let entry-is-english = not is-chinese-entry(ctx)
-  let use-english-fallback = entry-is-english and style-is-chinese
-
-  let term-value = none
-
-  // Try English fallback for mixed-language scenarios
-  if use-english-fallback {
-    let en-locale = _builtin-locales.at("en-US")
-    term-value = en-locale.terms.at(key, default: none)
-    if term-value == none {
-      term-value = en-locale.terms.at(name, default: none)
-    }
-  }
-
-  // Fall back to context locale
+  // Look up term from context locale (per CSL spec)
+  let term-value = ctx.locale.terms.at(key, default: none)
   if term-value == none {
-    term-value = ctx.locale.terms.at(key, default: none)
-    if term-value == none {
-      // Return empty string if term not found (not the literal name)
-      term-value = ctx.locale.terms.at(name, default: "")
-    }
+    // Try without form suffix
+    term-value = ctx.locale.terms.at(name, default: "")
   }
 
   // Handle single/multiple forms

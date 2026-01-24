@@ -185,7 +185,7 @@
 #let parse-citation(citation-node) = {
   if citation-node == none { return none }
 
-  let layout = find-child(citation-node, "layout")
+  let layouts = find-children(citation-node, "layout")
   let sort = find-child(citation-node, "sort")
 
   (
@@ -222,16 +222,15 @@
       default: "false",
     )
       == "true",
-    // Layout
-    layout: if layout != none {
-      (
-        delimiter: layout.attrs.at("delimiter", default: ", "),
-        prefix: layout.attrs.at("prefix", default: ""),
-        suffix: layout.attrs.at("suffix", default: ""),
-        vertical-align: layout.attrs.at("vertical-align", default: none),
-        children: filter-element-children(layout.at("children", default: ())),
-      )
-    } else { none },
+    // Layouts (CSL-M: may have locale-specific variants)
+    layouts: layouts.map(l => (
+      locale: l.attrs.at("locale", default: none),
+      delimiter: l.attrs.at("delimiter", default: ", "),
+      prefix: l.attrs.at("prefix", default: ""),
+      suffix: l.attrs.at("suffix", default: ""),
+      vertical-align: l.attrs.at("vertical-align", default: none),
+      children: filter-element-children(l.at("children", default: ())),
+    )),
     // Sort
     sort: if sort != none {
       find-children(sort, "key").map(k => (
@@ -348,13 +347,30 @@
     base-locale = create-fallback-locale(default-locale)
   }
 
-  // Parse and merge inline locales
-  let inline-locales = find-children(root, "locale")
+  // Parse inline locales and organize by language
+  // CSL-M: locales dict stores language-specific locales for layout-based switching
+  let inline-locale-nodes = find-children(root, "locale")
+  let locales = (:)
   let merged-locale = base-locale
-  for loc-node in inline-locales {
+
+  for loc-node in inline-locale-nodes {
     let parsed = parse-locale(loc-node)
+    // XML parser converts xml:lang to lang
+    let lang = loc-node.attrs.at("lang", default: none)
+
+    if lang != none {
+      // Store language-specific locale (merge with built-in for that language)
+      let lang-base = create-fallback-locale(lang)
+      let lang-locale = merge-locales(lang-base, parsed)
+      locales.insert(lang, lang-locale)
+    }
+
+    // Also merge into default locale (CSL fallback behavior)
     merged-locale = merge-locales(merged-locale, parsed)
   }
+
+  // Ensure default locale is in the locales dict
+  locales.insert(default-locale, merged-locale)
 
   // Parse macros
   let macro-nodes = find-children(root, "macro")
@@ -389,6 +405,7 @@
     // Parsed components
     title: title,
     locale: merged-locale,
+    locales: locales, // CSL-M: language-specific locales for layout switching
     macros: macros,
     citation: citation,
     bibliography: bibliography,

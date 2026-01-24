@@ -23,8 +23,9 @@
 #import "src/interpreter/mod.typ": create-context, interpret-node
 #import "src/output/mod.typ": (
   collapse-punctuation, get-rendered-entries, process-entries, render-citation,
-  render-entry, render-names-for-grouping,
+  render-entry, render-names-for-grouping, select-layout,
 )
+#import "src/parsing/locales.typ": detect-language
 #import "src/core/mod.typ": (
   _abbreviations, _bib-data, _config, _csl-style, cite-marker,
   collect-citations, get-entry-year, get-first-author-family,
@@ -528,22 +529,32 @@
     let citations = precomputed.citations
     let suffixes = precomputed.suffixes
 
+    let first-key = normalized.first().key
+
+    // CSL-M: Select layout based on first entry's language (for global formatting)
+    let first-entry = bib.at(first-key, default: none)
+    let first-entry-lang = if first-entry != none {
+      detect-language(first-entry.at("fields", default: (:)))
+    } else { "en" }
+    let layout = select-layout(
+      style.citation.at("layouts", default: ()),
+      first-entry-lang,
+    )
+
     // Detect style class
     let is-note-style = style.class == "note"
     let is-author-date = (
       style.class == "in-text"
         and (
           style.citation.at("disambiguate-add-year-suffix", default: false)
-            or style.citation.layout.prefix == "("
+            or layout.at("prefix", default: "") == "("
         )
     )
 
     // Get layout config
-    let prefix = style.citation.layout.prefix
-    let suffix = style.citation.layout.suffix
-    let delimiter = style.citation.layout.delimiter
-
-    let first-key = normalized.first().key
+    let prefix = layout.at("prefix", default: "")
+    let suffix = layout.at("suffix", default: "")
+    let delimiter = layout.at("delimiter", default: ", ")
 
     if is-note-style {
       // Note/footnote style: render each citation fully and join with delimiter
@@ -638,7 +649,7 @@
         default: none,
       )
       if year-suffix-delim == none {
-        year-suffix-delim = style.citation.layout.at("delimiter", default: ", ")
+        year-suffix-delim = layout.at("delimiter", default: ", ")
       }
       // after-collapse-delimiter defaults to layout delimiter if not set
       let after-collapse-delim = style.citation.at(
@@ -646,7 +657,7 @@
         default: none,
       )
       if after-collapse-delim == none {
-        after-collapse-delim = style.citation.layout.at(
+        after-collapse-delim = layout.at(
           "delimiter",
           default: "; ",
         )
@@ -710,7 +721,7 @@
       }
 
       // Apply vertical-align (superscript/subscript)
-      let valign = style.citation.layout.at("vertical-align", default: none)
+      let valign = layout.at("vertical-align", default: none)
 
       if form == "prose" {
         // Prose: no outer parentheses
@@ -762,7 +773,7 @@
       )
 
       // Apply vertical-align (superscript/subscript)
-      let valign = style.citation.layout.at("vertical-align", default: none)
+      let valign = layout.at("vertical-align", default: none)
       let formatted = [#prefix#result#suffix]
       let final-result = if valign == "sup" {
         super(formatted)

@@ -232,11 +232,13 @@ Some Chinese citation styles (e.g., "原子核物理评论") require bilingual o
 
 **Current status:**
 
-- `original-title`, `original-container-title`, `original-publisher`, `original-publisher-place` — ✅ Supported
-- `display="block"` attribute — ✅ Supported (creates line breaks)
-- `original-author`, `original-editor` — ❌ Not supported (requires citegeist to parse `author-en` into `parsed_names`)
+| Variable                                                                                       | CSL-JSON | BibTeX |
+| ---------------------------------------------------------------------------------------------- | -------- | ------ |
+| `original-title`, `original-container-title`, `original-publisher`, `original-publisher-place` | ✅       | ✅     |
+| `original-author`, `original-editor`                                                           | ✅       | ❌     |
+| `display="block"` attribute                                                                    | ✅       | ✅     |
 
-**Workaround:** Wait for citegeist to add support for parsing `-en` suffix name fields into `parsed_names`.
+**BibTeX limitation:** `original-author` and `original-editor` require citegeist to parse `author-en`/`editor-en` fields into `parsed_names`. Use CSL-JSON input for full bilingual name support.
 
 ## Related Projects
 

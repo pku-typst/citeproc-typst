@@ -6,5 +6,5 @@
 
 #import "renderer.typ": (
   get-rendered-entries, process-entries, render-citation, render-entry,
-  render-names-for-grouping,
+  render-names-for-grouping, select-layout,
 )

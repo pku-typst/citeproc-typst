@@ -4,7 +4,9 @@
 
 #import "../interpreter/mod.typ": create-context, interpret-node
 #import "punctuation.typ": collapse-punctuation
-#import "../parsing/locales.typ": detect-language, locale-matches
+#import "../parsing/locales.typ": (
+  create-fallback-locale, detect-language, locale-matches,
+)
 #import "../text/names.typ": format-names
 #import "../core/state.typ": (
   create-entry-ir, get-entry-year, get-first-author-family,
@@ -293,6 +295,25 @@
     return text(fill: red, "[No bibliography layout defined]")
   }
 
+  // CSL-M: Switch locale if layout has explicit locale attribute
+  let layout-locale = layout.at("locale", default: none)
+  if layout-locale != none {
+    let locales = style.at("locales", default: (:))
+    let locale-code = layout-locale.split(" ").first()
+    // Try exact match, then prefix match
+    let target-locale = locales.at(locale-code, default: none)
+    if target-locale == none {
+      let prefix = if locale-code.len() >= 2 { locale-code.slice(0, 2) } else {
+        locale-code
+      }
+      target-locale = locales.at(prefix, default: none)
+    }
+    if target-locale != none {
+      ctx = (..ctx, locale: target-locale)
+    }
+  }
+  // Fallback layout (no locale attr) uses style's default-locale (ctx.locale unchanged)
+
   // Filter out citation-number nodes if requested
   let children = if include-number {
     layout.children
@@ -389,11 +410,30 @@
   )
 
   let citation = style.citation
-  if citation == none or citation.layout == none {
+  if citation == none or citation.at("layouts", default: ()).len() == 0 {
     return text(fill: red, "[No citation layout]")
   }
 
-  let layout = citation.layout
+  // CSL-M: Select layout based on entry language
+  let entry-lang = detect-language(entry.at("fields", default: (:)))
+  let layout = select-layout(citation.layouts, entry-lang)
+
+  // CSL-M: Switch locale if layout has explicit locale attribute
+  let layout-locale = layout.at("locale", default: none)
+  if layout-locale != none {
+    let locales = style.at("locales", default: (:))
+    let locale-code = layout-locale.split(" ").first()
+    let target-locale = locales.at(locale-code, default: none)
+    if target-locale == none {
+      let prefix = if locale-code.len() >= 2 { locale-code.slice(0, 2) } else {
+        locale-code
+      }
+      target-locale = locales.at(prefix, default: none)
+    }
+    if target-locale != none {
+      ctx = (..ctx, locale: target-locale)
+    }
+  }
 
   // Interpret citation layout
   let result = layout

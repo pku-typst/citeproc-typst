@@ -343,6 +343,7 @@
     "illustrator",
     "interviewer",
     "original-author",
+    "original-editor",
     "recipient",
     "reviewed-author",
   )
