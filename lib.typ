@@ -20,7 +20,7 @@
 
 // Import from new modular structure
 #import "src/parsing/mod.typ": parse-csl, parse-locale-file
-#import "src/interpreter/mod.typ": create-context, interpret-node
+#import "src/interpreter/mod.typ": create-context
 #import "src/output/mod.typ": (
   collapse-punctuation, get-rendered-entries, process-entries, render-citation,
   render-entry, render-names-for-citation-display, render-names-for-grouping,

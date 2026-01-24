@@ -8,7 +8,8 @@
 )
 
 /// Handle <date> element
-#let handle-date(node, ctx, interpret) = {
+/// The third parameter is ignored (kept for dispatch table compatibility)
+#let handle-date(node, ctx, .._rest) = {
   let attrs = node.at("attrs", default: (:))
   let children = node.at("children", default: ())
   let variable = attrs.at("variable", default: "issued")

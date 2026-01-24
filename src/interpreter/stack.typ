@@ -1,14 +1,16 @@
 // citeproc-typst - Stack-based Interpreter with Memoization
 //
+// This is the PRODUCTION interpreter for CSL AST interpretation.
 // Uses an explicit stack instead of recursion to enable mutable macro cache.
 // This reduces O(calls * depth) to O(unique macros) for macro expansion.
+//
+// For a clearer recursive reference implementation, see mod.typ.
 
 #import "../core/mod.typ": finalize, is-empty
 #import "../data/variables.typ": get-variable
 #import "../parsing/locales.typ": lookup-term
 #import "../text/ranges.typ": format-page-range
 #import "../text/quotes.typ": apply-quotes
-#import "mod.typ": interpret-node
 #import "names.typ": handle-names
 #import "date.typ": handle-date
 #import "number.typ": handle-label, handle-number
@@ -54,11 +56,11 @@
   } else if tag == "label" {
     handle-label(node, ctx, n => [])
   } else if tag == "names" {
-    // Names is complex, use existing handler with recursive interpret
-    handle-names(node, ctx, interpret-node)
+    // Names handler uses stack interpreter internally
+    handle-names(node, ctx)
   } else if tag == "date" {
-    // Date is complex, use existing handler with recursive interpret
-    handle-date(node, ctx, interpret-node)
+    // Date handler doesn't need interpreter
+    handle-date(node, ctx)
   } else {
     []
   }

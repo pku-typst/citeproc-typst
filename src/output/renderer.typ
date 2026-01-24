@@ -2,7 +2,7 @@
 //
 // High-level rendering functions with IR pipeline integration.
 
-#import "../interpreter/mod.typ": create-context, interpret-node
+#import "../interpreter/mod.typ": create-context
 #import "../interpreter/stack.typ": interpret-children-stack
 #import "punctuation.typ": collapse-punctuation
 #import "../parsing/locales.typ": (
@@ -210,8 +210,8 @@
     citation-et-al-use-first: citation.at("et-al-use-first", default: none),
   )
 
-  // Render the names node
-  let rendered = interpret-node(names-node, ctx)
+  // Render the names node using stack interpreter
+  let rendered = interpret-children-stack((names-node,), ctx)
 
   // Convert content to string for comparison
   content-to-string(rendered)
@@ -260,7 +260,7 @@
       citation-et-al-min: citation.at("et-al-min", default: none),
       citation-et-al-use-first: citation.at("et-al-use-first", default: none),
     )
-    return interpret-node(names-node, ctx)
+    return interpret-children-stack((names-node,), ctx)
   }
 
   // Render the text node that calls the macro (this interprets the macro fully)
@@ -274,7 +274,7 @@
     citation-et-al-use-first: citation.at("et-al-use-first", default: none),
   )
 
-  interpret-node(macro-info.text-node, ctx)
+  interpret-children-stack((macro-info.text-node,), ctx)
 }
 
 /// Get the first cs:names node in bibliography layout
@@ -322,8 +322,8 @@
     render-context: "bibliography",
   )
 
-  // Render the names node
-  let rendered = interpret-node(names-node, ctx)
+  // Render the names node using stack interpreter
+  let rendered = interpret-children-stack((names-node,), ctx)
 
   // Convert content to string for comparison
   content-to-string(rendered)

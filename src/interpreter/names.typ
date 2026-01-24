@@ -7,7 +7,11 @@
 #import "../parsing/locales.typ": lookup-term
 
 /// Handle <names> element
-#let handle-names(node, ctx, interpret) = {
+/// Uses stack-based interpreter internally for substitute processing
+/// The third parameter is ignored (kept for dispatch table compatibility)
+#let handle-names(node, ctx, .._rest) = {
+  // Import here to avoid circular dependency at module level
+  import "stack.typ": interpret-children-stack
   let attrs = node.at("attrs", default: (:))
   let children = node.at("children", default: ())
   let var-names = attrs.at("variable", default: "author").split(" ")
@@ -32,7 +36,7 @@
     if substitute != none {
       let sub-result = []
       for sub-child in substitute.at("children", default: ()) {
-        let rendered = interpret(sub-child, ctx)
+        let rendered = interpret-children-stack((sub-child,), ctx)
         if not is-empty(rendered) {
           sub-result = rendered
           break // Use first non-empty result only
