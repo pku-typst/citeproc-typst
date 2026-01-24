@@ -5,6 +5,7 @@
 #import "variables.typ": get-variable  // Same directory
 #import "../interpreter/mod.typ": create-context
 #import "../interpreter/stack.typ": interpret-children-stack
+#import "../output/helpers.typ": content-to-string
 
 // =============================================================================
 // Sort Key Extraction
@@ -41,10 +42,7 @@
     if macro-def != none {
       let rendered = interpret-children-stack(macro-def.children, ctx)
       // Convert to string for sorting
-      if type(rendered) == str { rendered } else if type(rendered) == content {
-        // Extract text from content (simplified)
-        repr(rendered).replace("[", "").replace("]", "")
-      } else { "" }
+      content-to-string(rendered)
     } else { "" }
   } else if key-spec.at("variable", default: "") != "" {
     // Get variable value directly

@@ -6,6 +6,21 @@
 // Node Traversal Helpers
 // =============================================================================
 
+/// Get macro definition from a text node if it references one
+///
+/// - node: Node to check (must be a text node)
+/// - macros: Dictionary of macro definitions
+/// Returns: (macro-name, macro-def) tuple or none
+#let _get-macro-ref(node, macros) = {
+  let macro-name = node.at("attrs", default: (:)).at("macro", default: none)
+  if macro-name == none { return none }
+
+  let macro-def = macros.at(macro-name, default: none)
+  if macro-def == none { return none }
+
+  (name: macro-name, def: macro-def)
+}
+
 /// Find first cs:names element in a node tree (recursive)
 ///
 /// CSL spec: "The comparison is limited to the output of the (first) cs:names element"
@@ -22,22 +37,16 @@
 
   // Handle macro references: <text macro="name"/>
   if tag == "text" {
-    let macro-name = node.at("attrs", default: (:)).at("macro", default: none)
-    if macro-name != none {
-      let macro-def = macros.at(macro-name, default: none)
-      if macro-def != none {
-        // Search inside the macro's children
-        let macro-children = macro-def.at("children", default: ())
-        for child in macro-children {
-          let found = find-first-names-node(child, macros: macros)
-          if found != none { return found }
-        }
+    let macro-ref = _get-macro-ref(node, macros)
+    if macro-ref != none {
+      for child in macro-ref.def.at("children", default: ()) {
+        let found = find-first-names-node(child, macros: macros)
+        if found != none { return found }
       }
     }
   }
 
-  let children = node.at("children", default: ())
-  for child in children {
+  for child in node.at("children", default: ()) {
     let found = find-first-names-node(child, macros: macros)
     if found != none { return found }
   }
@@ -59,25 +68,20 @@
 
   // Handle macro references: <text macro="name"/>
   if tag == "text" {
-    let macro-name = node.at("attrs", default: (:)).at("macro", default: none)
-    if macro-name != none {
-      let macro-def = macros.at(macro-name, default: none)
-      if macro-def != none {
-        // Check if this macro contains names
-        let macro-children = macro-def.at("children", default: ())
-        for child in macro-children {
-          let found = find-first-names-node(child, macros: macros)
-          if found != none {
-            // This macro contains names - return the macro name and the text node
-            return (macro-name: macro-name, text-node: node)
-          }
+    let macro-ref = _get-macro-ref(node, macros)
+    if macro-ref != none {
+      // Check if this macro contains names
+      for child in macro-ref.def.at("children", default: ()) {
+        let found = find-first-names-node(child, macros: macros)
+        if found != none {
+          // This macro contains names - return the macro name and the text node
+          return (macro-name: macro-ref.name, text-node: node)
         }
       }
     }
   }
 
-  let children = node.at("children", default: ())
-  for child in children {
+  for child in node.at("children", default: ()) {
     let found = find-first-names-macro(child, macros: macros)
     if found != none { return found }
   }
@@ -127,26 +131,40 @@
 // Citation Number Detection
 // =============================================================================
 
+/// Check if a node uses citation-number variable (for filtering)
+/// Handles both direct <text variable="citation-number"> and <text macro="citation-number">
+#let node-uses-citation-number(node) = {
+  if type(node) != dictionary { return false }
+  if node.at("tag", default: "") != "text" { return false }
+
+  let attrs = node.at("attrs", default: (:))
+  (
+    attrs.at("variable", default: "") == "citation-number"
+      or attrs.at(
+        "macro",
+        default: "",
+      )
+        == "citation-number"
+  )
+}
+
+/// Check if any child in a list uses citation-number
+#let _children-use-citation-number(children) = {
+  for child in children {
+    if node-uses-citation-number(child) { return true }
+  }
+  false
+}
+
 /// Check if style uses citation-number variable
-/// Uses simple string search on macro definitions instead of recursive AST traversal
+/// Uses simple search on macro definitions instead of recursive AST traversal
 /// This avoids stack overflow on deeply nested CSL structures
 #let style-uses-citation-number(style) = {
   // Check if any macro definition contains citation-number reference
   let macros = style.at("macros", default: (:))
   for (name, macro-def) in macros {
-    // Check children of macro for text variable="citation-number"
-    let children = macro-def.at("children", default: ())
-    for child in children {
-      if type(child) == dictionary {
-        let tag = child.at("tag", default: "")
-        let attrs = child.at("attrs", default: (:))
-        if (
-          tag == "text"
-            and attrs.at("variable", default: "") == "citation-number"
-        ) {
-          return true
-        }
-      }
+    if _children-use-citation-number(macro-def.at("children", default: ())) {
+      return true
     }
   }
 
@@ -155,44 +173,11 @@
   if bib != none {
     let layouts = bib.at("layouts", default: ())
     for layout in layouts {
-      let children = layout.at("children", default: ())
-      for child in children {
-        if type(child) == dictionary {
-          let tag = child.at("tag", default: "")
-          let attrs = child.at("attrs", default: (:))
-          // Direct citation-number reference
-          if (
-            tag == "text"
-              and attrs.at("variable", default: "") == "citation-number"
-          ) {
-            return true
-          }
-          // Macro named "citation-number" (common pattern)
-          if (
-            tag == "text"
-              and attrs.at("macro", default: "") == "citation-number"
-          ) {
-            return true
-          }
-        }
+      if _children-use-citation-number(layout.at("children", default: ())) {
+        return true
       }
     }
   }
 
-  false
-}
-
-/// Check if a node uses citation-number variable (for filtering)
-/// Handles both direct <text variable="citation-number"> and <text macro="citation-number">
-#let node-uses-citation-number(node) = {
-  if type(node) != dictionary { return false }
-  if node.at("tag", default: "") == "text" {
-    let attrs = node.at("attrs", default: (:))
-    let var = attrs.at("variable", default: "")
-    if var == "citation-number" { return true }
-    // Also check for macro named "citation-number" (common pattern)
-    let macro-name = attrs.at("macro", default: "")
-    if macro-name == "citation-number" { return true }
-  }
   false
 }
