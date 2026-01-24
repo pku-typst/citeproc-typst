@@ -721,29 +721,56 @@
         "cite-group-delimiter",
         default: ", ",
       )
+      // year-suffix-delimiter defaults to layout delimiter if not set
       let year-suffix-delim = style.citation.at(
         "year-suffix-delimiter",
-        default: ", ",
+        default: none,
       )
+      if year-suffix-delim == none {
+        year-suffix-delim = style.citation.layout.at("delimiter", default: ", ")
+      }
+      // after-collapse-delimiter defaults to layout delimiter if not set
       let after-collapse-delim = style.citation.at(
         "after-collapse-delimiter",
-        default: "; ",
+        default: none,
+      )
+      if after-collapse-delim == none {
+        after-collapse-delim = style.citation.layout.at(
+          "delimiter",
+          default: "; ",
+        )
+      }
+
+      // Check if cite-group-delimiter is explicitly set (triggers grouping)
+      let has-cite-group-delim = (
+        style.citation.at(
+          "cite-group-delimiter",
+          default: none,
+        )
+          != none
       )
 
-      // Apply collapsing (year, year-suffix, or year-suffix-ranged)
+      // Enable grouping if collapse is set OR cite-group-delimiter is set
+      let enable-grouping = (
+        collapse-mode != none or has-cite-group-delim
+      )
+
+      // Apply collapsing/grouping
       let result = if (
         collapse-mode in ("year", "year-suffix", "year-suffix-ranged")
+          or enable-grouping
       ) {
         apply-collapse(
           cite-items,
           collapse-mode,
+          enable-grouping: enable-grouping,
           delimiter: "; ",
           cite-group-delimiter: cite-group-delim,
           year-suffix-delimiter: year-suffix-delim,
           after-collapse-delimiter: after-collapse-delim,
         )
       } else {
-        // No collapsing or unknown mode - format each citation separately
+        // No collapsing or grouping - format each citation separately
         let parts = cite-items.map(it => {
           let year-str = str(it.year) + it.suffix
           if it.supplement != none {

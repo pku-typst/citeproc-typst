@@ -205,10 +205,56 @@
   [#base-year#parts.join(delimiter)]
 }
 
+/// Apply cite grouping to reorder items
+///
+/// CSL spec: "Grouped cites maintain their relative order, and are moved
+/// to the original location of the first cite of the group."
+///
+/// Example: (Doe 1999; Smith 2002; Doe 2006) → (Doe 1999, 2006; Smith 2002)
+///
+/// - items: Array of citation items with author field
+/// Returns: Reordered items array
+#let apply-cite-grouping(items) = {
+  if items.len() <= 1 { return items }
+
+  // Track first occurrence position of each author
+  let author-first-pos = (:)
+  for (i, item) in items.enumerate() {
+    let author = item.at("author", default: "")
+    if author not in author-first-pos {
+      author-first-pos.insert(author, i)
+    }
+  }
+
+  // Group items by author while preserving relative order within groups
+  let by-author = (:)
+  for item in items {
+    let author = item.at("author", default: "")
+    if author not in by-author {
+      by-author.insert(author, ())
+    }
+    by-author.at(author).push(item)
+  }
+
+  // Build result: authors ordered by their first occurrence
+  let author-order = author-first-pos.pairs().sorted(key: ((k, v)) => v)
+
+  let result = ()
+  for (author, _) in author-order {
+    let author-items = by-author.at(author)
+    for item in author-items {
+      result.push(item)
+    }
+  }
+
+  result
+}
+
 /// Apply collapsing to a list of citations based on CSL collapse mode
 ///
 /// - items: Array of citation items with (key, order, author, year, suffix, supplement)
 /// - collapse-mode: CSL collapse attribute value
+/// - enable-grouping: Whether cite grouping is enabled (via cite-group-delimiter or collapse)
 /// - delimiter: Normal delimiter
 /// - cite-group-delimiter: Delimiter for grouped items (same author)
 /// - year-suffix-delimiter: Delimiter for year suffixes
@@ -217,14 +263,62 @@
 #let apply-collapse(
   items,
   collapse-mode,
+  enable-grouping: false,
   delimiter: ", ",
   cite-group-delimiter: ", ",
   year-suffix-delimiter: ", ",
   after-collapse-delimiter: none,
 ) = {
-  if collapse-mode == none or items.len() <= 1 {
-    // No collapsing
-    return items
+  // Apply cite grouping if enabled (reorder items)
+  let grouped-items = if enable-grouping or collapse-mode != none {
+    apply-cite-grouping(items)
+  } else {
+    items
+  }
+
+  if collapse-mode == none {
+    // Grouping only (no collapsing) - still need to format with group delimiter
+    if enable-grouping and grouped-items.len() > 1 {
+      // Group by author and format
+      let by-author = (:)
+      for item in grouped-items {
+        let author = item.at("author", default: "")
+        if author not in by-author {
+          by-author.insert(author, ())
+        }
+        by-author.at(author).push(item)
+      }
+
+      // Preserve order based on first occurrence
+      let author-first-pos = (:)
+      for (i, item) in grouped-items.enumerate() {
+        let author = item.at("author", default: "")
+        if author not in author-first-pos {
+          author-first-pos.insert(author, i)
+        }
+      }
+      let author-order = author-first-pos.pairs().sorted(key: ((k, v)) => v)
+
+      let author-parts = ()
+      for (author, _) in author-order {
+        let author-items = by-author.at(author)
+        let years = author-items.map(it => {
+          let year-str = (
+            str(it.at("year", default: "")) + it.at("suffix", default: "")
+          )
+          if it.supplement != none {
+            [#year-str: #it.supplement]
+          } else {
+            year-str
+          }
+        })
+        author-parts.push([#author, #years.join(cite-group-delimiter)])
+      }
+      return author-parts.join(delimiter)
+    }
+
+    // No grouping or single item
+    return grouped-items
       .map(it => {
         if it.supplement != none {
           if it.at("formatted", default: none) != none {
@@ -245,9 +339,9 @@
 
   if collapse-mode == "citation-number" {
     // Numeric collapsing: [1, 2, 3] → [1-3]
-    let numbers = items.map(it => it.order)
+    let numbers = grouped-items.map(it => it.order)
     let ranges = collapse-numeric-ranges(numbers)
-    return format-collapsed-numeric(ranges, items, delimiter: delimiter)
+    return format-collapsed-numeric(ranges, grouped-items, delimiter: delimiter)
   }
 
   if (
@@ -255,9 +349,9 @@
       or collapse-mode == "year-suffix"
       or collapse-mode == "year-suffix-ranged"
   ) {
-    // Group by author first
+    // Group by author (already reordered by cite grouping)
     let by-author = (:)
-    for item in items {
+    for item in grouped-items {
       let author = item.at("author", default: "")
       if author not in by-author {
         by-author.insert(author, ())
@@ -265,9 +359,21 @@
       by-author.at(author).push(item)
     }
 
+    // Preserve order based on first occurrence
+    let author-first-pos = (:)
+    for (i, item) in grouped-items.enumerate() {
+      let author = item.at("author", default: "")
+      if author not in author-first-pos {
+        author-first-pos.insert(author, i)
+      }
+    }
+    let author-order = author-first-pos.pairs().sorted(key: ((k, v)) => v)
+
     let author-parts = ()
 
-    for (author, author-items) in by-author.pairs() {
+    // Iterate in first-occurrence order
+    for (author, _) in author-order {
+      let author-items = by-author.at(author)
       if collapse-mode == "year" {
         // Year collapsing: just show author once with all years
         let years = author-items.map(it => {
