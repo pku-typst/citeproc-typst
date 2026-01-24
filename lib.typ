@@ -33,7 +33,7 @@
 
 // Counter for tracking citation occurrence index (for ibid detection)
 #let _cite-occurrence = counter("citeproc-occurrence")
-#import "src/disambiguation.typ": compute-year-suffixes
+// Note: compute-year-suffixes is now called internally via process-entries
 #import "src/locales.typ": detect-language
 #import "src/collapsing.typ": apply-collapse, collapse-numeric-ranges
 
@@ -210,18 +210,19 @@
     let style = _csl-style.get()
     let citations = collect-citations()
 
-    // Compute year suffixes once for all entries
-    let entries-ir = citations
-      .order
-      .pairs()
-      .map(((k, order)) => {
-        let e = bib.at(k, default: none)
-        if e == none { return none }
-        (key: k, entry: e, order: order)
-      })
-      .filter(x => x != none)
+    // Process entries through the full IR pipeline (sort + disambiguate)
+    // This ensures year-suffixes are assigned according to CSL spec:
+    // "The assignment of year-suffixes follows the order of the bibliographies entries"
+    let processed = process-entries(bib, citations, style)
 
-    let suffixes = compute-year-suffixes(entries-ir, style)
+    // Extract suffixes from processed entries
+    let suffixes = (:)
+    for e in processed {
+      let suffix = e.disambig.at("year-suffix", default: "")
+      if suffix != "" {
+        suffixes.insert(e.key, suffix)
+      }
+    }
 
     // Store as queryable metadata
     [#metadata((
@@ -370,18 +371,19 @@
     let style = _csl-style.get()
     let citations = collect-citations()
 
-    // Compute year suffixes once for all entries
-    let entries-ir = citations
-      .order
-      .pairs()
-      .map(((k, order)) => {
-        let e = bib.at(k, default: none)
-        if e == none { return none }
-        (key: k, entry: e, order: order)
-      })
-      .filter(x => x != none)
+    // Process entries through the full IR pipeline (sort + disambiguate)
+    // This ensures year-suffixes are assigned according to CSL spec:
+    // "The assignment of year-suffixes follows the order of the bibliographies entries"
+    let processed = process-entries(bib, citations, style)
 
-    let suffixes = compute-year-suffixes(entries-ir, style)
+    // Extract suffixes from processed entries
+    let suffixes = (:)
+    for e in processed {
+      let suffix = e.disambig.at("year-suffix", default: "")
+      if suffix != "" {
+        suffixes.insert(e.key, suffix)
+      }
+    }
 
     // Store as queryable metadata
     [#metadata((

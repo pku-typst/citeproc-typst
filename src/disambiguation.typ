@@ -33,8 +33,10 @@
   if not use-year-suffix { return (:) }
 
   // Group entries by (first-author-family, year)
+  // Record original index to preserve bibliography order per CSL spec:
+  // "The assignment of year-suffixes follows the order of the bibliographies entries"
   let groups = (:)
-  for e in entries {
+  for (idx, e) in entries.enumerate() {
     let entry = e.entry
     let author = get-first-author-family(entry)
     let year = get-entry-year(entry)
@@ -47,7 +49,7 @@
       .at(group-key)
       .push((
         key: e.key,
-        title: entry.at("fields", default: (:)).at("title", default: ""),
+        index: idx, // Position in bibliography (already sorted)
       ))
   }
 
@@ -57,8 +59,8 @@
 
   for (group-key, items) in groups.pairs() {
     if items.len() > 1 {
-      // Sort by title within group for consistent ordering
-      let sorted-items = items.sorted(key: it => lower(it.title))
+      // Sort by bibliography order (index), not by title
+      let sorted-items = items.sorted(key: it => it.index)
 
       for (i, item) in sorted-items.enumerate() {
         if i < suffix-chars.len() {
