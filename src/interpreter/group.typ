@@ -6,21 +6,26 @@
 #import "../data/conditions.typ": eval-condition, eval-nested-conditions
 
 // =============================================================================
+// Module-level regex patterns (avoid recompilation)
+// =============================================================================
+
+#let _ends-with-digit-pattern = regex("[0-9][\\]\\)]*$")
+#let _starts-with-latin-pattern = regex("^[\\[\\(]*[a-zA-Z]")
+
+// =============================================================================
 // CSL-M require/reject helpers (comma-safe locators)
 // =============================================================================
 
 /// Check if content ends with a number (for comma-safe detection)
 #let _ends-with-number(content) = {
   let s = repr(content)
-  // Check if the string representation ends with a digit
-  s.match(regex("[0-9][\]\)]*$")) != none
+  s.match(_ends-with-digit-pattern) != none
 }
 
 /// Check if content starts with a "romanesque" (latin alphabet) term
 #let _starts-with-latin(content) = {
   let s = repr(content)
-  // Match if starts with a latin letter (not a symbol)
-  s.match(regex("^[\[\(]*[a-zA-Z]")) != none
+  s.match(_starts-with-latin-pattern) != none
 }
 
 /// Evaluate CSL-M require/reject conditions

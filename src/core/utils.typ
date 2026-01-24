@@ -3,6 +3,13 @@
 // Common utility functions used across the codebase.
 
 // =============================================================================
+// Module-level regex patterns (avoid recompilation)
+// =============================================================================
+
+// Pattern for stripping periods after letters (preserves periods in numbers)
+#let _period-after-letter-pattern = regex("([a-zA-Z\\u{00C0}-\\u{024F}])\\.")
+
+// =============================================================================
 // String Utilities
 // =============================================================================
 
@@ -29,8 +36,7 @@
 /// Only removes periods after letters, preserves periods in numbers (e.g., "2.1.0")
 #let strip-periods-from-str(s) = {
   if type(s) != str { return s }
-  // Match period that follows a letter (including accented Latin letters)
-  s.replace(regex("([a-zA-Z\u{00C0}-\u{024F}])\\."), m => m.captures.at(0))
+  s.replace(_period-after-letter-pattern, m => m.captures.at(0))
 }
 
 // =============================================================================

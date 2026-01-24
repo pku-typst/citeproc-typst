@@ -10,6 +10,11 @@
 // Module-level constants (avoid recreating on each call)
 // =============================================================================
 
+// Regex patterns for condition evaluation
+#let _starts-with-digit-pattern = regex("\\d")
+#let _iso-date-with-day-pattern = regex("^\\d{4}[-/]\\d{1,2}[-/]\\d{1,2}")
+#let _text-date-with-day-pattern = regex("[A-Za-z]+\\s+\\d{1,2},?\\s+\\d{4}")
+
 // Map BibTeX types to CSL types (including CSL-M legal types)
 #let _type-map = (
   // Standard CSL types
@@ -125,7 +130,7 @@
 #let check-is-numeric(ctx, var-name) = {
   let val = get-variable(ctx, var-name)
   if val == "" { return false }
-  val.starts-with(regex("\d"))
+  val.starts-with(_starts-with-digit-pattern)
 }
 
 /// Evaluate a CSL condition
@@ -201,12 +206,12 @@
       // Check for day component in various formats
       let s = str(date-val)
       // YYYY-MM-DD format
-      let iso-match = s.match(regex("^\d{4}[-/]\d{1,2}[-/]\d{1,2}"))
+      let iso-match = s.match(_iso-date-with-day-pattern)
       if iso-match != none {
         true
       } else {
         // "Month Day, Year" format
-        let text-match = s.match(regex("[A-Za-z]+\s+\d{1,2},?\s+\d{4}"))
+        let text-match = s.match(_text-date-with-day-pattern)
         text-match != none
       }
     } else { false }

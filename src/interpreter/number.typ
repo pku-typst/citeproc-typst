@@ -6,11 +6,14 @@
 #import "../data/variables.typ": get-variable
 #import "../parsing/locales.typ": lookup-term
 
+// Module-level regex pattern
+#let _leading-int-pattern = regex("^-?\\d+")
+
 /// Safely parse an integer from a string (returns none on failure)
 #let safe-int(s) = {
   let s = str(s)
   // Extract leading digits only
-  let m = s.match(regex("^-?\d+"))
+  let m = s.match(_leading-int-pattern)
   if m != none { int(m.text) } else { none }
 }
 

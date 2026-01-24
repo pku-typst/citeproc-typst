@@ -12,6 +12,9 @@
 
 #import "../core/state.typ": get-entry-year, get-first-author-family
 
+// Module-level regex pattern
+#let _whitespace-pattern = regex("\\s+")
+
 // =============================================================================
 // Year Suffix Computation
 // =============================================================================
@@ -100,7 +103,7 @@
 /// Returns: Initials string (e.g., "J. M.")
 #let get-initials(given) = {
   if given == none or given == "" { return "" }
-  let parts = given.split(regex("\\s+"))
+  let parts = given.split(_whitespace-pattern)
   parts
     .filter(p => p.len() > 0)
     .map(p => {

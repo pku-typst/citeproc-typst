@@ -7,6 +7,12 @@
 #import "../core/constants.typ": POSITION
 
 // =============================================================================
+// Module-level regex patterns (avoid recompilation)
+// =============================================================================
+
+#let _name-split-pattern = regex("[ -]+")
+
+// =============================================================================
 // Et-al Setting Resolution
 // =============================================================================
 
@@ -239,7 +245,7 @@
     } else {
       // Level 1: show initials
       if given != "" and not is-chinese {
-        let parts = given.split(regex("[ -]+")).filter(p => p != "")
+        let parts = given.split(_name-split-pattern).filter(p => p != "")
         // Use initialize-with from style, default to ". "
         let init-sep = if initialize-with != none { initialize-with } else {
           ". "
@@ -267,7 +273,7 @@
       and givenname-level != 2
   ) {
     // Split given names and take initials
-    let parts = given.split(regex("[ -]+")).filter(p => p != "")
+    let parts = given.split(_name-split-pattern).filter(p => p != "")
     let initialize-hyphen = ctx.style.initialize-with-hyphen
 
     // Build initials with initialize-with after each
