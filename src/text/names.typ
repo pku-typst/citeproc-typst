@@ -257,21 +257,84 @@
   // Get et-al settings
   let et-al-min = attrs.at("et-al-min", default: none)
   let et-al-use-first = attrs.at("et-al-use-first", default: none)
+  let et-al-use-last = attrs.at("et-al-use-last", default: none)
 
-  // Fallback to bibliography settings (with null-safety for citation-only styles)
+  // CSL spec: names-min/use-first/use-last on sort keys override et-al settings
+  // These have highest priority
+  let sort-names-min = ctx.at("sort-names-min", default: none)
+  let sort-names-use-first = ctx.at("sort-names-use-first", default: none)
+  let sort-names-use-last = ctx.at("sort-names-use-last", default: none)
+
+  if sort-names-min != none { et-al-min = sort-names-min }
+  if sort-names-use-first != none { et-al-use-first = sort-names-use-first }
+  if sort-names-use-last != none { et-al-use-last = sort-names-use-last }
+
+  // Check if this is a subsequent cite (for et-al-subsequent-min/use-first)
+  let position = ctx.at("position", default: "first")
+  let is-subsequent = (
+    position == "subsequent"
+      or position == "ibid"
+      or position == "ibid-with-locator"
+  )
+
+  // Fallback to bibliography or citation settings (with null-safety)
   let bib = ctx.style.at("bibliography", default: none)
   if et-al-min == none {
-    et-al-min = if bib != none { bib.at("et-al-min", default: 4) } else { 4 }
+    // For subsequent cites, try et-al-subsequent-min first
+    if is-subsequent {
+      let subsequent-min = ctx.at("et-al-subsequent-min", default: none)
+      if subsequent-min != none {
+        et-al-min = subsequent-min
+      }
+    }
+    // Then try citation-level setting
+    if et-al-min == none {
+      let citation-min = ctx.at("citation-et-al-min", default: none)
+      if citation-min != none {
+        et-al-min = citation-min
+      }
+    }
+    // Finally fall back to bibliography
+    if et-al-min == none {
+      et-al-min = if bib != none { bib.at("et-al-min", default: 4) } else { 4 }
+    }
   }
   if et-al-use-first == none {
-    et-al-use-first = if bib != none {
-      bib.at("et-al-use-first", default: 3)
-    } else { 3 }
+    // For subsequent cites, try et-al-subsequent-use-first first
+    if is-subsequent {
+      let subsequent-use-first = ctx.at(
+        "et-al-subsequent-use-first",
+        default: none,
+      )
+      if subsequent-use-first != none {
+        et-al-use-first = subsequent-use-first
+      }
+    }
+    // Then try citation-level setting
+    if et-al-use-first == none {
+      let citation-use-first = ctx.at("citation-et-al-use-first", default: none)
+      if citation-use-first != none {
+        et-al-use-first = citation-use-first
+      }
+    }
+    // Finally fall back to bibliography
+    if et-al-use-first == none {
+      et-al-use-first = if bib != none {
+        bib.at("et-al-use-first", default: 3)
+      } else { 3 }
+    }
+  }
+  if et-al-use-last == none {
+    et-al-use-last = if bib != none {
+      bib.at("et-al-use-last", default: false)
+    } else { false }
   }
 
   // Convert string to int if needed
   if type(et-al-min) == str { et-al-min = int(et-al-min) }
   if type(et-al-use-first) == str { et-al-use-first = int(et-al-use-first) }
+  // Convert et-al-use-last to boolean if string
+  if type(et-al-use-last) == str { et-al-use-last = et-al-use-last == "true" }
 
   // Apply disambiguation: add more names if names-expanded > 0
   // (CSL Method 2: disambiguate-add-names)
@@ -281,7 +344,9 @@
   }
 
   // Determine how many names to show
-  let use-et-al = names.len() >= et-al-min
+  // CSL spec: et-al is only used when the name list is TRUNCATED
+  // If et-al-use-first >= names.len(), we show all names and don't use et-al
+  let use-et-al = names.len() >= et-al-min and et-al-use-first < names.len()
   let show-count = if use-et-al { et-al-use-first } else { names.len() }
 
   // Parse name-part elements if present (would be passed via attrs in a more complete impl)
@@ -351,25 +416,42 @@
 
   // Add et al if needed
   if use-et-al {
-    let et-al = lookup-term(ctx, "et-al", form: "long")
+    // CSL spec: et-al-use-last shows ellipsis and last name instead of "et al."
+    // Condition: original name list has at least 2 more names than truncated list
+    let can-use-last = et-al-use-last and (names.len() - show-count >= 2)
 
-    // CSL spec: delimiter-precedes-et-al determines when to add delimiter before "et al."
-    // "contextual" (default): delimiter only if 2+ names shown
-    // "always": always add delimiter
-    // "never": never add delimiter (just space)
-    // "after-inverted-name": delimiter only after inverted name
-    let use-delimiter-before-et-al = (
-      (delimiter-precedes-et-al == "always")
-        or (
-          delimiter-precedes-et-al == "contextual" and formatted.len() >= 2
-        )
-    )
-
-    if use-delimiter-before-et-al {
-      [#result#delimiter#et-al]
+    if can-use-last {
+      // Format the last name
+      let last-name = format-single-name(
+        names.last(),
+        attrs,
+        ctx,
+        position: names.len(),
+        name-parts: name-parts,
+      )
+      // CSL spec: "followed by the name delimiter, the ellipsis character, and the last name"
+      [#result#delimiter … #last-name]
     } else {
-      // Use explicit space (not content space which can be collapsed)
-      [#result#" "#et-al]
+      let et-al = lookup-term(ctx, "et-al", form: "long")
+
+      // CSL spec: delimiter-precedes-et-al determines when to add delimiter before "et al."
+      // "contextual" (default): delimiter only if 2+ names shown
+      // "always": always add delimiter
+      // "never": never add delimiter (just space)
+      // "after-inverted-name": delimiter only after inverted name
+      let use-delimiter-before-et-al = (
+        (delimiter-precedes-et-al == "always")
+          or (
+            delimiter-precedes-et-al == "contextual" and formatted.len() >= 2
+          )
+      )
+
+      if use-delimiter-before-et-al {
+        [#result#delimiter#et-al]
+      } else {
+        // Use explicit space (not content space which can be collapsed)
+        [#result#" "#et-al]
+      }
     }
   } else {
     result

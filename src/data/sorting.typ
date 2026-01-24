@@ -19,6 +19,20 @@
   let ctx = create-context(style, entry)
   let order = key-spec.at("sort", default: "ascending")
 
+  // CSL spec: names-min/use-first/use-last override et-al settings for sort keys
+  // Pass these to the context for names rendering within macros
+  let names-min = key-spec.at("names-min", default: none)
+  let names-use-first = key-spec.at("names-use-first", default: none)
+  let names-use-last = key-spec.at("names-use-last", default: none)
+
+  // Add sort key name settings to context (they override et-al settings)
+  let ctx = (
+    ..ctx,
+    sort-names-min: names-min,
+    sort-names-use-first: names-use-first,
+    sort-names-use-last: names-use-last,
+  )
+
   let value = if key-spec.at("macro", default: none) != none {
     // Render macro and use result as sort key
     let macro-name = key-spec.macro

@@ -107,6 +107,57 @@
   content-to-string(rendered)
 }
 
+/// Get the first cs:names node in bibliography layout
+///
+/// - style: Parsed CSL style
+/// Returns: The first cs:names node, or none
+#let get-first-bib-names-node(style) = {
+  let bib = style.at("bibliography", default: none)
+  if bib == none { return none }
+
+  let layouts = bib.at("layouts", default: ())
+  if layouts.len() == 0 { return none }
+
+  // Use the first layout (typically the default/fallback layout)
+  let layout = layouts.first()
+  find-first-names-node(layout)
+}
+
+/// Render the first cs:names element in bibliography for author substitution comparison
+///
+/// CSL spec for subsequent-author-substitute:
+/// "Substitution is limited to the names of the first cs:names element rendered."
+///
+/// - entry: Bibliography entry
+/// - style: Parsed CSL style
+/// - names-expanded: Name expansion level for disambiguation
+/// - givenname-level: Given name expansion level
+/// Returns: String representation of rendered names for comparison
+#let render-names-for-bibliography(
+  entry,
+  style,
+  names-expanded: 0,
+  givenname-level: 0,
+) = {
+  let names-node = get-first-bib-names-node(style)
+  if names-node == none { return "" }
+
+  // Create context for rendering
+  let ctx = create-context(style, entry)
+  let ctx = (
+    ..ctx,
+    names-expanded: names-expanded,
+    givenname-level: givenname-level,
+    render-context: "bibliography",
+  )
+
+  // Render the names node
+  let rendered = interpret-node(names-node, ctx)
+
+  // Convert content to string for comparison
+  content-to-string(rendered)
+}
+
 /// Check if style uses citation-number variable
 /// Uses simple string search on macro definitions instead of recursive AST traversal
 /// This avoids stack overflow on deeply nested CSL structures
@@ -255,6 +306,9 @@
 /// - cite-number: Citation number for numeric styles
 /// - year-suffix: Year suffix for disambiguation (e.g., "a", "b")
 /// - include-number: Whether to include citation number in output
+/// - author-substitute: String to replace author names with (for subsequent-author-substitute)
+/// - author-substitute-rule: Rule for how to substitute
+/// - substitute-vars: Variable names of the first cs:names to substitute
 /// Returns: Typst content
 #let render-entry(
   entry,
@@ -266,6 +320,9 @@
   names-expanded: 0,
   givenname-level: 0,
   needs-disambiguate: false,
+  author-substitute: none,
+  author-substitute-rule: "complete-all",
+  substitute-vars: "author",
 ) = {
   let ctx = create-context(
     style,
@@ -277,12 +334,16 @@
 
   // Inject year suffix and disambiguation info into context for rendering
   // CSL-M: Set render-context for context condition
+  // Also add author-substitute info for bibliography grouping
   let ctx = (
     ..ctx,
     year-suffix: year-suffix,
     names-expanded: names-expanded,
     givenname-level: givenname-level,
     render-context: "bibliography",
+    author-substitute: author-substitute,
+    author-substitute-rule: author-substitute-rule,
+    substitute-vars: substitute-vars, // Variables from first cs:names element
   )
 
   let entry-lang = detect-language(entry.at("fields", default: (:)))
@@ -344,12 +405,18 @@
 /// - style: Parsed CSL style
 /// - include-number: Whether to include citation number in output
 /// - abbreviations: Optional abbreviation lookup table
+/// - author-substitute: String to replace author names with (for subsequent-author-substitute)
+/// - author-substitute-rule: Rule for how to substitute
+/// - substitute-vars: Variable names of the first cs:names to substitute
 /// Returns: Typst content
 #let render-entry-ir(
   entry-ir,
   style,
   include-number: true,
   abbreviations: (:),
+  author-substitute: none,
+  author-substitute-rule: "complete-all",
+  substitute-vars: "author",
 ) = {
   let disambig = entry-ir.disambig
   render-entry(
@@ -362,6 +429,9 @@
     names-expanded: disambig.at("names-expanded", default: 0),
     givenname-level: disambig.at("givenname-level", default: 0),
     needs-disambiguate: disambig.at("needs-disambiguate", default: false),
+    author-substitute: author-substitute,
+    author-substitute-rule: author-substitute-rule,
+    substitute-vars: substitute-vars,
   )
 }
 
@@ -401,7 +471,14 @@
     cite-number: cite-number,
     abbreviations: abbreviations,
   )
+
+  let citation = style.citation
+  if citation == none or citation.at("layouts", default: ()).len() == 0 {
+    return text(fill: red, "[No citation layout]")
+  }
+
   // CSL-M: Set render-context for context condition
+  // Also pass et-al-subsequent settings for subsequent cites
   let ctx = (
     ..ctx,
     year-suffix: year-suffix,
@@ -413,12 +490,15 @@
     names-expanded: names-expanded,
     givenname-level: givenname-level,
     render-context: "citation",
+    // Et-al settings for subsequent cites (CSL spec: inheritable name options)
+    et-al-subsequent-min: citation.at("et-al-subsequent-min", default: none),
+    et-al-subsequent-use-first: citation.at(
+      "et-al-subsequent-use-first",
+      default: none,
+    ),
+    citation-et-al-min: citation.at("et-al-min", default: none),
+    citation-et-al-use-first: citation.at("et-al-use-first", default: none),
   )
-
-  let citation = style.citation
-  if citation == none or citation.at("layouts", default: ()).len() == 0 {
-    return text(fill: red, "[No citation layout]")
-  }
 
   // CSL-M: Select layout based on entry language
   let entry-lang = detect-language(entry.at("fields", default: (:)))
@@ -564,25 +644,85 @@
 #let get-rendered-entries(bib-data, citations, style, abbreviations: (:)) = {
   let entries = process-entries(bib-data, citations, style)
 
-  entries.map(e => (
-    ir: e,
-    rendered: render-entry-ir(
-      e,
-      style,
-      include-number: true,
-      abbreviations: abbreviations,
-    ),
-    rendered-body: render-entry-ir(
-      e,
-      style,
-      include-number: false,
-      abbreviations: abbreviations,
-    ),
-    rendered-number: render-citation-number(
+  // Get subsequent-author-substitute settings
+  let bib-settings = style.at("bibliography", default: (:))
+  let substitute = bib-settings.at(
+    "subsequent-author-substitute",
+    default: none,
+  )
+  let substitute-rule = bib-settings.at(
+    "subsequent-author-substitute-rule",
+    default: "complete-all",
+  )
+
+  // Get the first cs:names node in bibliography to identify which variables to substitute
+  let first-names-node = get-first-bib-names-node(style)
+  let substitute-vars = if first-names-node != none {
+    first-names-node.at("attrs", default: (:)).at("variable", default: "author")
+  } else { "author" }
+
+  // Track previous entry's names for substitution
+  let prev-names = none
+  let result = ()
+
+  for e in entries {
+    // Get current entry's names string for comparison
+    // Use bibliography layout, not citation layout
+    let current-names = render-names-for-bibliography(
       e.entry,
       style,
-      cite-number: e.order,
-    ),
-    label: label("citeproc-ref-" + e.key),
-  ))
+      names-expanded: e.disambig.at("names-expanded", default: 0),
+      givenname-level: e.disambig.at("givenname-level", default: 0),
+    )
+
+    // Determine if we should substitute
+    let should-substitute = false
+    if substitute != none and prev-names != none and current-names != "" {
+      // CSL spec: comparison is limited to output of first cs:names element
+      if (
+        substitute-rule == "complete-all" or substitute-rule == "complete-each"
+      ) {
+        // Only substitute if all names match exactly
+        should-substitute = current-names == prev-names
+      } else if substitute-rule.starts-with("partial") {
+        // Partial match: at least first name must match
+        // For simplicity, we check if names start the same
+        // A full implementation would compare name by name
+        should-substitute = current-names == prev-names
+      }
+    }
+
+    result.push((
+      ir: e,
+      rendered: render-entry-ir(
+        e,
+        style,
+        include-number: true,
+        abbreviations: abbreviations,
+        author-substitute: if should-substitute { substitute } else { none },
+        author-substitute-rule: substitute-rule,
+        substitute-vars: substitute-vars,
+      ),
+      rendered-body: render-entry-ir(
+        e,
+        style,
+        include-number: false,
+        abbreviations: abbreviations,
+        author-substitute: if should-substitute { substitute } else { none },
+        author-substitute-rule: substitute-rule,
+        substitute-vars: substitute-vars,
+      ),
+      rendered-number: render-citation-number(
+        e.entry,
+        style,
+        cite-number: e.order,
+      ),
+      label: label("citeproc-ref-" + e.key),
+    ))
+
+    // Update previous names for next iteration
+    prev-names = current-names
+  }
+
+  result
 }

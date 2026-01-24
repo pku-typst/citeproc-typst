@@ -222,6 +222,28 @@
       default: "false",
     )
       == "true",
+    // Et-al settings (inheritable name options)
+    et-al-min: if citation-node.attrs.at("et-al-min", default: none) != none {
+      int(citation-node.attrs.at("et-al-min"))
+    } else { none },
+    et-al-use-first: if citation-node.attrs.at("et-al-use-first", default: none)
+      != none {
+      int(citation-node.attrs.at("et-al-use-first"))
+    } else { none },
+    et-al-subsequent-min: if citation-node.attrs.at(
+      "et-al-subsequent-min",
+      default: none,
+    )
+      != none {
+      int(citation-node.attrs.at("et-al-subsequent-min"))
+    } else { none },
+    et-al-subsequent-use-first: if citation-node.attrs.at(
+      "et-al-subsequent-use-first",
+      default: none,
+    )
+      != none {
+      int(citation-node.attrs.at("et-al-subsequent-use-first"))
+    } else { none },
     // Layouts (CSL-M: may have locale-specific variants)
     layouts: layouts.map(l => (
       locale: l.attrs.at("locale", default: none),
@@ -237,6 +259,17 @@
         variable: k.attrs.at("variable", default: ""),
         macro: k.attrs.at("macro", default: none),
         sort: k.attrs.at("sort", default: "ascending"),
+        // Names sorting attributes (CSL spec: override et-al settings for sort keys)
+        names-min: if k.attrs.at("names-min", default: none) != none {
+          int(k.attrs.at("names-min"))
+        } else { none },
+        names-use-first: if k.attrs.at("names-use-first", default: none)
+          != none {
+          int(k.attrs.at("names-use-first"))
+        } else { none },
+        names-use-last: if k.attrs.at("names-use-last", default: none) != none {
+          k.attrs.at("names-use-last") == "true"
+        } else { none },
       ))
     } else { () },
   )
@@ -284,6 +317,17 @@
         variable: k.attrs.at("variable", default: ""),
         macro: k.attrs.at("macro", default: none),
         sort: k.attrs.at("sort", default: "ascending"),
+        // Names sorting attributes (CSL spec: override et-al settings for sort keys)
+        names-min: if k.attrs.at("names-min", default: none) != none {
+          int(k.attrs.at("names-min"))
+        } else { none },
+        names-use-first: if k.attrs.at("names-use-first", default: none)
+          != none {
+          int(k.attrs.at("names-use-first"))
+        } else { none },
+        names-use-last: if k.attrs.at("names-use-last", default: none) != none {
+          k.attrs.at("names-use-last") == "true"
+        } else { none },
       ))
     } else { () },
   )

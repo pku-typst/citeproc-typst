@@ -226,18 +226,13 @@ The `mark` field follows GB/T 7714 document type codes:
 
 ## Known Limitations
 
-### Standard CSL 1.0.2 Features Not Yet Implemented
+### Standard CSL 1.0.2 Features Not Yet Fully Implemented
 
-The following standard CSL features are parsed but not yet fully implemented:
-
-| Feature                             | Description                                            | Status                  |
-| ----------------------------------- | ------------------------------------------------------ | ----------------------- |
-| `subsequent-author-substitute`      | Replace repeated authors in bibliography               | Parsed, not rendered    |
-| `subsequent-author-substitute-rule` | Control substitution behavior                          | Parsed, not used        |
-| `et-al-subsequent-min/use-first`    | Et-al settings for subsequent cites                    | Not parsed              |
-| `et-al-use-last`                    | Show ellipsis and last author (e.g., "Doe, ... Smith") | Parsed, not implemented |
-| `names-min/use-first/use-last`      | Override et-al in sort keys                            | Not implemented         |
-| `cs:name-part` formatting           | Name-part specific formatting                          | Partially implemented   |
+| Feature                 | Description                      | Status                |
+| ----------------------- | -------------------------------- | --------------------- |
+| `cs:name-part` elements | Name-part specific formatting    | Partially implemented |
+| `complete-each` rule    | Per-name author substitution     | Simplified            |
+| `partial-*` rules       | Partial author matching for subs | Simplified            |
 
 ### Bilingual Styles (CSL-M `original-*` variables)
 

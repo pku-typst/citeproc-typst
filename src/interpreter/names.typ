@@ -41,6 +41,54 @@
       sub-result
     } else { [] }
   } else {
+    // Check for subsequent-author-substitute (bibliography grouping)
+    // CSL spec: "Substitution is limited to the names of the first cs:names element rendered"
+    //
+    // IMPLEMENTATION NOTE:
+    // We identify the "first cs:names" by matching variable names from the structurally
+    // first cs:names node in the bibliography layout (stored in ctx.substitute-vars).
+    //
+    // KNOWN LIMITATION:
+    // If a layout contains multiple cs:names elements with the SAME variable attribute
+    // (e.g., two separate `<names variable="author">` elements), this implementation
+    // will substitute ALL of them, not just the first. However, this edge case is
+    // extremely rare in real CSL styles - typically each variable appears in only one
+    // cs:names element per layout.
+    //
+    // A fully spec-compliant fix would require mutable state to track "have we already
+    // rendered the first cs:names?", which Typst's functional model doesn't support
+    // without restructuring to two-pass rendering.
+    let author-substitute = ctx.at("author-substitute", default: none)
+    let substitute-vars = ctx.at("substitute-vars", default: "author")
+
+    // Check if current variable matches the first cs:names element's variables
+    let target-vars = substitute-vars.split(" ")
+    let is-target-element = target-vars.contains(used-var)
+
+    if author-substitute != none and is-target-element {
+      // Return the substitute string instead of rendering names
+      // CSL spec: "replaces the entire name list (including punctuation and terms
+      // like 'et al' and 'and'), except for the affixes set on the cs:names element"
+      let substitute-rule = ctx.at(
+        "author-substitute-rule",
+        default: "complete-all",
+      )
+
+      // IMPLEMENTATION NOTE:
+      // "complete-each" and "partial-*" rules require per-name substitution and
+      // partial matching between consecutive entries. Current implementation treats
+      // them equivalently to "complete-all" (substitute entire name list when all
+      // names match). This covers the most common use case (em-dash substitution).
+      let result = if substitute-rule == "complete-each" {
+        author-substitute
+      } else {
+        // "complete-all" (default): replace entire name list
+        author-substitute
+      }
+
+      return finalize(result, attrs)
+    }
+
     // Find name formatting options
     let name-node = children.find(c => (
       type(c) == dictionary and c.at("tag", default: "") == "name"

@@ -176,8 +176,11 @@
 
   if not add-names and not add-givenname { return (:) }
 
-  let et-al-min = citation.at("et-al-min", default: 4)
-  let et-al-use-first = citation.at("et-al-use-first", default: 1)
+  let et-al-min = citation.at("et-al-min", default: none)
+  let et-al-use-first = citation.at("et-al-use-first", default: none)
+  // Handle none values (when not specified in citation element)
+  if et-al-min == none { et-al-min = 4 }
+  if et-al-use-first == none { et-al-use-first = 1 }
 
   // Convert to integers if needed
   if type(et-al-min) == str { et-al-min = int(et-al-min) }
@@ -357,8 +360,11 @@
   let citation = style.at("citation", default: none)
   if citation == none { return "" }
 
-  let et-al-min = citation.at("et-al-min", default: 4)
-  let et-al-use-first = citation.at("et-al-use-first", default: 1)
+  let et-al-min = citation.at("et-al-min", default: none)
+  let et-al-use-first = citation.at("et-al-use-first", default: none)
+  // Handle none values (when not specified in citation element)
+  if et-al-min == none { et-al-min = 4 }
+  if et-al-use-first == none { et-al-use-first = 1 }
   if type(et-al-min) == str { et-al-min = int(et-al-min) }
   if type(et-al-use-first) == str { et-al-use-first = int(et-al-use-first) }
 
@@ -464,7 +470,8 @@
   let primary-only = givenname-rule.starts-with("primary-name")
 
   // Get et-al settings for names expansion limit
-  let et-al-min = citation.at("et-al-min", default: 4)
+  let et-al-min = citation.at("et-al-min", default: none)
+  if et-al-min == none { et-al-min = 4 }
   if type(et-al-min) == str { et-al-min = int(et-al-min) }
 
   // Initialize disambiguation state for each entry
@@ -533,7 +540,8 @@
         let state = states.at(key)
         let e = entry-map.at(key)
         let authors = get-all-authors(e.entry)
-        let et-al-use-first = citation.at("et-al-use-first", default: 1)
+        let et-al-use-first = citation.at("et-al-use-first", default: none)
+        if et-al-use-first == none { et-al-use-first = 1 }
         if type(et-al-use-first) == str {
           et-al-use-first = int(et-al-use-first)
         }
