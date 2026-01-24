@@ -2,7 +2,7 @@
 //
 // Shared initialization logic for CSL processing.
 
-#import "../core/constants.typ": POSITION
+#import "../core/constants.typ": CITE-FORM, POSITION, STYLE-CLASS
 #import "../parsing/mod.typ": parse-csl, parse-locale-file
 #import "../output/mod.typ": (
   collapse-punctuation, get-rendered-entries, process-entries, render-citation,
@@ -107,8 +107,10 @@
         let form = cite-data.form
 
         // Add footnote/link wrapper
-        let is-note-style = style.class == "note"
-        let is-inline-form = form in ("prose", "author", "year")
+        let is-note-style = style.class == STYLE-CLASS.note
+        let is-inline-form = (
+          form in (CITE-FORM.prose, CITE-FORM.author, CITE-FORM.year)
+        )
 
         if is-note-style and not is-inline-form {
           footnote(link(label("citeproc-ref-" + cite-key), result))

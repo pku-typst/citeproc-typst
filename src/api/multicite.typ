@@ -3,6 +3,9 @@
 // Provides multicite() function for citing multiple sources at once.
 
 #import "../core/mod.typ": _bib-data, _csl-style, cite-marker, get-entry-year
+#import "../core/constants.typ": (
+  CITE-FORM, COLLAPSE, STYLE-CLASS, VERTICAL-ALIGN,
+)
 #import "../output/mod.typ": (
   collapse-punctuation, render-citation, render-names-for-citation-display,
   render-names-for-grouping, select-layout,
@@ -18,12 +21,12 @@
 /// Apply vertical alignment (superscript/subscript) to content
 ///
 /// - content: The content to format
-/// - valign: "sup", "sub", or none
+/// - valign: VERTICAL-ALIGN.sup, VERTICAL-ALIGN.sub, or none
 /// Returns: Formatted content
 #let _apply-vertical-align(content, valign) = {
-  if valign == "sup" {
+  if valign == VERTICAL-ALIGN.sup {
     super(content)
-  } else if valign == "sub" {
+  } else if valign == VERTICAL-ALIGN.sub {
     sub(content)
   } else {
     content
@@ -70,11 +73,11 @@
 /// Returns: The effective collapse mode
 #let _get-effective-collapse-mode(collapse-mode, has-year-suffix) = {
   if (
-    collapse-mode in ("year-suffix", "year-suffix-ranged")
+    collapse-mode in (COLLAPSE.year-suffix, COLLAPSE.year-suffix-ranged)
       and has-year-suffix != "true"
       and has-year-suffix != true
   ) {
-    "year" // Fallback to "year" mode
+    COLLAPSE.year // Fallback to year mode
   } else {
     collapse-mode
   }
@@ -131,9 +134,9 @@
     )
 
     // Detect style class
-    let is-note-style = style.class == "note"
+    let is-note-style = style.class == STYLE-CLASS.note
     let is-author-date = (
-      style.class == "in-text"
+      style.class == STYLE-CLASS.in-text
         and (
           style.citation.at("disambiguate-add-year-suffix", default: false)
             or layout.at("prefix", default: "") == "("
@@ -177,7 +180,9 @@
       let linked = link(label("citeproc-ref-" + first-key), result)
 
       // Wrap in footnote unless using inline forms
-      let is-inline-form = form in ("prose", "author", "year")
+      let is-inline-form = (
+        form in (CITE-FORM.prose, CITE-FORM.author, CITE-FORM.year)
+      )
       if is-inline-form {
         linked
       } else {
@@ -271,7 +276,8 @@
 
       // Apply collapsing/grouping
       let result = if (
-        effective-collapse-mode in ("year", "year-suffix", "year-suffix-ranged")
+        effective-collapse-mode
+          in (COLLAPSE.year, COLLAPSE.year-suffix, COLLAPSE.year-suffix-ranged)
           or enable-grouping
       ) {
         apply-collapse(
@@ -301,7 +307,7 @@
       // Apply formatting and link
       let valign = layout.at("vertical-align", default: none)
 
-      if form == "prose" {
+      if form == CITE-FORM.prose {
         // Prose: no outer parentheses, no vertical-align
         _make-ref-link(result, first-key)
       } else {

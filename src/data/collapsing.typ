@@ -7,6 +7,8 @@
 // - year-suffix: (Smith 2000a, Smith 2000b) → (Smith 2000a, b)
 // - year-suffix-ranged: (Smith 2000a, b, c) → (Smith 2000a-c)
 
+#import "../core/constants.typ": COLLAPSE
+
 /// Collapse consecutive numeric citations into ranges
 ///
 /// Example: (1, 2, 3, 5, 7, 8, 9) → ((1, 3), (5, 5), (7, 9))
@@ -333,7 +335,7 @@
       .join(delimiter)
   }
 
-  if collapse-mode == "citation-number" {
+  if collapse-mode == COLLAPSE.citation-number {
     // Numeric collapsing: [1, 2, 3] → [1-3]
     let numbers = grouped-items.map(it => it.order)
     let ranges = collapse-numeric-ranges(numbers)
@@ -341,9 +343,9 @@
   }
 
   if (
-    collapse-mode == "year"
-      or collapse-mode == "year-suffix"
-      or collapse-mode == "year-suffix-ranged"
+    collapse-mode == COLLAPSE.year
+      or collapse-mode == COLLAPSE.year-suffix
+      or collapse-mode == COLLAPSE.year-suffix-ranged
   ) {
     // Group by author (already reordered by cite grouping)
     let grouped = _group-by-author(grouped-items)
@@ -357,7 +359,7 @@
       let first-item = author-items.first()
       let display-author = first-item.at("author-display", default: author)
 
-      if collapse-mode == "year" {
+      if collapse-mode == COLLAPSE.year {
         // Year collapsing: just show author once with all years
         let years = author-items.map(it => {
           let year-str = (
@@ -397,7 +399,7 @@
             } else {
               year-parts.push(year-str)
             }
-          } else if collapse-mode == "year-suffix-ranged" {
+          } else if collapse-mode == COLLAPSE.year-suffix-ranged {
             year-parts.push(collapse-year-suffix-ranged(
               year-items,
               delimiter: year-suffix-delimiter,
