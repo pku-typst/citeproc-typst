@@ -111,6 +111,7 @@
   [仅年份：#cite(<smith2020climate>, form: "year")]
 
   [= 参考文献]
-
-  csl-bibliography(title: none)
 }
+
+// Bibliography outside if-else to avoid layout convergence issues
+#csl-bibliography(title: none)

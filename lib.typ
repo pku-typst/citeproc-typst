@@ -243,6 +243,103 @@
       disambig-states: disambig-states,
       sorted-keys: sorted-keys, // Cache sorted order
     ))<citeproc-precomputed>]
+
+    // Pre-render bibliography entries to avoid convergence issues
+    // This is done ONCE here instead of in csl-bibliography context
+    let abbrevs = _abbreviations.get()
+    let rendered-entries = get-rendered-entries(
+      bib,
+      citations,
+      style,
+      abbreviations: abbrevs,
+      precomputed: (
+        sorted-keys: sorted-keys,
+        disambig-states: disambig-states,
+      ),
+    )
+
+    // Build pre-rendered entry data
+    let pre-rendered = rendered-entries.map(e => (
+      key: e.ir.key,
+      order: e.ir.order,
+      year-suffix: e.ir.disambig.year-suffix,
+      lang: detect-language(e.ir.entry.at("fields", default: (:))),
+      entry-type: e.ir.entry.at("entry_type", default: "misc"),
+      fields: e.ir.entry.at("fields", default: (:)),
+      parsed-names: e.ir.entry.at("parsed_names", default: (:)),
+      rendered: e.rendered,
+      rendered-body: e.rendered-body,
+      rendered-number: e.rendered-number,
+      ref-label: e.label,
+      labeled-rendered: [#e.rendered #e.label],
+    ))
+
+    // Get bibliography settings for csl-bibliography
+    let bib-settings = style.at("bibliography", default: (:))
+    let second-field-align = bib-settings.at(
+      "second-field-align",
+      default: none,
+    )
+
+    // Get references term for title
+    let references-term = style.locale.terms.at("references", default: none)
+    let references-text = if references-term != none {
+      if type(references-term) == dictionary {
+        references-term.at("multiple", default: "References")
+      } else {
+        references-term
+      }
+    } else {
+      "References"
+    }
+
+    // Pre-render complete bibliography content
+    let bib-content = {
+      if second-field-align == "flush" {
+        let max-order = pre-rendered.fold(0, (acc, e) => calc.max(acc, e.order))
+        let digit-count = str(max-order).len()
+        let num-width = 2em + digit-count * 0.6em
+        let indent = num-width + 0.5em
+
+        set par(first-line-indent: 0em, hanging-indent: indent, spacing: 0.65em)
+        for e in pre-rendered {
+          box(width: num-width, align(right, e.rendered-number))
+          h(0.5em)
+          [#e.rendered-body #e.ref-label]
+          parbreak()
+        }
+      } else if second-field-align == "margin" {
+        let max-order = pre-rendered.fold(0, (acc, e) => calc.max(acc, e.order))
+        let digit-count = str(max-order).len()
+        let num-width = 2em + digit-count * 0.6em + 0.5em
+
+        set par(
+          first-line-indent: -num-width,
+          hanging-indent: 0em,
+          spacing: 0.65em,
+        )
+        pad(left: num-width)[
+          #for e in pre-rendered {
+            box(width: num-width, align(right, e.rendered-number))
+            [#e.rendered-body #e.ref-label]
+            parbreak()
+          }
+        ]
+      } else {
+        set par(hanging-indent: 2em, first-line-indent: 0em)
+        for e in pre-rendered {
+          e.labeled-rendered
+          parbreak()
+        }
+      }
+    }
+
+    [#metadata((
+      entries: pre-rendered,
+      second-field-align: second-field-align,
+      references-text: references-text,
+      rendered-content: bib-content,
+    ))<citeproc-bibliography>]
   }
 }
 
@@ -414,91 +511,33 @@
 /// })
 /// ```
 #let csl-bibliography(title: auto, full-control: none) = {
+  // Query pre-rendered bibliography data (computed once in init-csl)
+  // This avoids convergence issues by using pre-computed content
   context {
-    let bib = _bib-data.get()
-    let style = _csl-style.get()
+    let bib-data = query(<citeproc-bibliography>)
+    if bib-data.len() == 0 {
+      text(fill: red, "[Bibliography not initialized]")
+    } else {
+      let data = bib-data.first().value
+      let references-text = data.references-text
 
-    // Use precomputed data
-    let precomputed = _get-precomputed()
-    let citations = precomputed.citations
-
-    // Auto title based on style locale
-    let references-term = style.locale.terms.at("references", default: none)
-    let references-text = if references-term != none {
-      if type(references-term) == dictionary {
-        references-term.at("multiple", default: "References")
+      // Title handling
+      let actual-title = if title == auto {
+        heading(numbering: none, references-text)
       } else {
-        references-term
+        title
       }
-    } else {
-      "References"
-    }
 
-    let actual-title = if title == auto {
-      heading(numbering: none, references-text)
-    } else {
-      title
-    }
+      if actual-title != none {
+        actual-title
+      }
 
-    if actual-title != none {
-      actual-title
-    }
-
-    // Get rich entry data
-    let entries = get-cited-entries()
-
-    // Allow full control if provided
-    if full-control != none {
-      full-control(entries)
-    } else {
-      // Check for second-field-align setting
-      let bib-settings = style.at("bibliography", default: (:))
-      let second-field-align = bib-settings.at(
-        "second-field-align",
-        default: none,
-      )
-
-      if second-field-align == "flush" {
-        // Flush mode: number at margin, text follows inline
-        // Wrapped lines indent to align with text start
-        let max-order = entries.fold(0, (acc, e) => calc.max(acc, e.order))
-        let digit-count = str(max-order).len()
-        let num-width = 2em + digit-count * 0.6em
-        let indent = num-width + 0.5em
-
-        set par(first-line-indent: 0em, hanging-indent: indent, spacing: 0.65em)
-        for e in entries {
-          box(width: num-width, align(right, e.rendered-number))
-          h(0.5em)
-          [#e.rendered-body #e.ref-label]
-          parbreak()
-        }
-      } else if second-field-align == "margin" {
-        // Margin mode: number in left margin, text starts at margin
-        // All lines (including first) start at the same position
-        let max-order = entries.fold(0, (acc, e) => calc.max(acc, e.order))
-        let digit-count = str(max-order).len()
-        let num-width = 2em + digit-count * 0.6em + 0.5em
-
-        set par(
-          first-line-indent: -num-width,
-          hanging-indent: 0em,
-          spacing: 0.65em,
-        )
-        pad(left: num-width)[
-          #for e in entries {
-            box(width: num-width, align(right, e.rendered-number))
-            [#e.rendered-body #e.ref-label]
-            parbreak()
-          }
-        ]
+      // Use pre-rendered content or full-control callback
+      if full-control != none {
+        full-control(data.entries)
       } else {
-        // Default: simple hanging indent
-        set par(hanging-indent: 2em, first-line-indent: 0em)
-        for e in entries {
-          e.labeled-rendered
-          parbreak()
-        }
+        // Use pre-rendered bibliography content directly
+        data.rendered-content
       }
     }
   }
