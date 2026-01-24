@@ -30,23 +30,27 @@
 
 /// Place a citation marker in the document
 ///
-/// This creates invisible metadata elements that can be queried later
+/// This creates an invisible metadata element that can be queried later
 /// to determine citation order and positions.
 ///
 /// Uses a complex label encoding key+locator for precise querying.
 /// This avoids counter-based occurrence tracking which can cause
 /// layout convergence issues when page settings change mid-document.
 ///
+/// Design:
+/// - Fixed metadata value "citeproc-cite" enables efficient metadata.where() query
+/// - Complex label encodes key+locator for selector.before(here()) queries
+/// - Label string (via repr) is used as hashmap key, avoiding parsing
+///
 /// - key: Citation key
 /// - locator: Optional locator (page, chapter, etc.)
 /// Returns: Content (invisible metadata)
 #let cite-marker(key, locator: none) = {
-  // Generic label for collecting all citations
-  [#metadata((key: key, locator: locator))<citeproc-cite>]
-  // Complex label: encode key and locator for precise per-key querying
-  let complex-key = "citeproc-" + key + "-" + repr(locator)
+  // Complex label: encode key and locator with unlikely separator
+  let complex-key = "citeproc|||" + key + "|||" + repr(locator)
   let lbl = label(complex-key)
-  [#metadata(none)#lbl]
+  // Fixed value for efficient metadata.where() query
+  [#metadata("citeproc-cite")#lbl]
 }
 
 /// Collect all citations from the document
@@ -54,12 +58,16 @@
 /// Must be called within a `context` block.
 /// Returns a dictionary with:
 /// - order: key -> first occurrence order (1-based)
-/// - positions: key -> array of position info (indexed by per-key occurrence, 1-based)
-/// - by-location: array of (key, index) in document order
+/// - positions: positions-key -> array of position info (key is "key|||repr(locator)")
+/// - by-location: array of (key, occurrence) in document order
 /// - count: total unique citations
 /// - first-note-numbers: key -> note number of first occurrence (for note styles)
+///
+/// Note: positions uses "key|||repr(locator)" as key (e.g., "smith2020|||none")
+/// to enable O(1) lookup in show rules.
 #let collect-citations() = {
-  let cites = query(<citeproc-cite>)
+  // Efficient query using fixed metadata value
+  let cites = query(metadata.where(value: "citeproc-cite"))
 
   let result = (
     order: (:),
@@ -71,51 +79,76 @@
 
   let n = 0
   let note-number = 0 // Track note numbers (each citation in note style = one footnote)
+  let prev-key = none
+
   for c in cites {
-    let info = c.value
-    let key = info.key
+    // Parse label to extract key and locator
+    // Label format: "citeproc|||{key}|||{repr(locator)}"
+    let label-str = str(c.label)
+    let parts = label-str.split("|||")
+    let key = parts.at(1)
+    let locator-repr = parts.slice(2).join("|||")
+
+    // Hashmap key: just "key|||locator-repr" (no prefix needed internally)
+    let positions-key = key + "|||" + locator-repr
+
+    // Parse locator back from repr (handles "none" and quoted strings)
+    let locator = if locator-repr == "none" {
+      none
+    } else if locator-repr.starts-with("\"") and locator-repr.ends-with("\"") {
+      locator-repr.slice(1, -1)
+    } else {
+      locator-repr
+    }
+
     note-number += 1
 
-    // Track first occurrence order
+    // Track first occurrence order (by key, not positions-key)
     if key not in result.order {
       n += 1
       result.order.insert(key, n)
-      result.positions.insert(key, ())
-      // Record the note number where this key first appears
       result.first-note-numbers.insert(key, note-number)
     }
 
+    // Initialize positions array if needed
+    if positions-key not in result.positions {
+      result.positions.insert(positions-key, ())
+    }
+
     // Track each occurrence's position
-    let is-first = result.positions.at(key).len() == 0
-    let prev-key = if result.by-location.len() > 0 {
-      result.by-location.last().key
-    } else { none }
+    let is-first = result.positions.at(positions-key).len() == 0
+    let is-first-of-key = result.order.at(key) == n and is-first
 
     // Determine position type
-    let position = if is-first {
+    let position = if is-first-of-key {
       "first"
     } else if prev-key == key {
       // Same key as previous citation
-      if info.locator != none { "ibid-with-locator" } else { "ibid" }
+      if locator != none { "ibid-with-locator" } else { "ibid" }
     } else {
       "subsequent"
     }
 
-    // Use per-key occurrence (1-based) instead of global index
-    // This matches how show rule queries using selector(lbl).before(here())
-    let occurrence = result.positions.at(key).len() + 1
+    // Use per-positions-key occurrence (1-based)
+    let occurrence = result.positions.at(positions-key).len() + 1
 
     result
       .positions
-      .at(key)
+      .at(positions-key)
       .push((
-        occurrence: occurrence, // Per-key occurrence (1-based)
+        occurrence: occurrence,
         position: position,
-        locator: info.locator,
+        key: key,
+        locator: locator,
         note-number: note-number,
       ))
 
-    result.by-location.push((key: key, occurrence: occurrence))
+    result.by-location.push((
+      key: key,
+      positions-key: positions-key,
+      occurrence: occurrence,
+    ))
+    prev-key = key
   }
 
   result.count = n

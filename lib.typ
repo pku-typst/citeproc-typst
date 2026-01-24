@@ -134,13 +134,15 @@
 
         // Get current occurrence using complex label + selector.before()
         // This is stable across layout passes (no counter dependency)
-        let complex-key = "citeproc-" + key + "-" + repr(it.supplement)
-        let lbl = label(complex-key)
+        let label-key = "citeproc|||" + key + "|||" + repr(it.supplement)
+        let lbl = label(label-key)
         let before = query(selector(lbl).before(here(), inclusive: true))
         let occurrence = before.len() // Per-key occurrence (1-based)
 
         // Position tracking for subsequent/ibid
-        let all-positions = citations.positions.at(key, default: ())
+        // Hashmap key is "key|||repr(locator)" (no prefix)
+        let positions-key = key + "|||" + repr(it.supplement)
+        let all-positions = citations.positions.at(positions-key, default: ())
         let position = all-positions.find(p => (
           p.at("occurrence", default: -1) == occurrence
         ))
