@@ -30,14 +30,23 @@
 
 /// Place a citation marker in the document
 ///
-/// This creates an invisible metadata element that can be queried later
+/// This creates invisible metadata elements that can be queried later
 /// to determine citation order and positions.
+///
+/// Uses a complex label encoding key+locator for precise querying.
+/// This avoids counter-based occurrence tracking which can cause
+/// layout convergence issues when page settings change mid-document.
 ///
 /// - key: Citation key
 /// - locator: Optional locator (page, chapter, etc.)
 /// Returns: Content (invisible metadata)
 #let cite-marker(key, locator: none) = {
+  // Generic label for collecting all citations
   [#metadata((key: key, locator: locator))<citeproc-cite>]
+  // Complex label: encode key and locator for precise per-key querying
+  let complex-key = "citeproc-" + key + "-" + repr(locator)
+  let lbl = label(complex-key)
+  [#metadata(none)#lbl]
 }
 
 /// Collect all citations from the document
@@ -45,7 +54,7 @@
 /// Must be called within a `context` block.
 /// Returns a dictionary with:
 /// - order: key -> first occurrence order (1-based)
-/// - positions: key -> array of position info
+/// - positions: key -> array of position info (indexed by per-key occurrence, 1-based)
 /// - by-location: array of (key, index) in document order
 /// - count: total unique citations
 /// - first-note-numbers: key -> note number of first occurrence (for note styles)
@@ -92,17 +101,21 @@
       "subsequent"
     }
 
+    // Use per-key occurrence (1-based) instead of global index
+    // This matches how show rule queries using selector(lbl).before(here())
+    let occurrence = result.positions.at(key).len() + 1
+
     result
       .positions
       .at(key)
       .push((
-        index: result.by-location.len(),
+        occurrence: occurrence, // Per-key occurrence (1-based)
         position: position,
         locator: info.locator,
         note-number: note-number,
       ))
 
-    result.by-location.push((key: key, index: result.by-location.len()))
+    result.by-location.push((key: key, occurrence: occurrence))
   }
 
   result.count = n

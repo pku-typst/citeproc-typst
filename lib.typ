@@ -34,8 +34,9 @@
   _csl-json-data, _csl-json-mode, generate-stub-bib, parse-csl-json,
 )
 
-// Counter for tracking citation occurrence index (for ibid detection)
-#let _cite-occurrence = counter("citeproc-occurrence")
+// Note: Citation occurrence tracking now uses complex labels + selector.before()
+// instead of counters, which avoids layout convergence issues when page
+// settings change mid-document. See cite-marker() in src/core/state.typ.
 // Note: compute-year-suffixes is now called internally via process-entries
 #import "src/parsing/mod.typ": detect-language
 #import "src/data/mod.typ": apply-collapse, collapse-numeric-ranges
@@ -109,11 +110,8 @@
   show cite: it => {
     let key = str(it.key)
 
-    // Place citation marker for collection
+    // Place citation marker for collection (uses complex label)
     cite-marker(key, locator: it.supplement)
-
-    // Step occurrence counter to track which citation this is
-    _cite-occurrence.step()
 
     // Render citation using precomputed data (O(1) lookup instead of O(N) recomputation)
     context {
@@ -134,13 +132,17 @@
 
         let cite-number = citations.order.at(key, default: citations.count + 1)
 
-        // Get current occurrence index (0-based)
-        let occurrence-idx = _cite-occurrence.get().first() - 1
+        // Get current occurrence using complex label + selector.before()
+        // This is stable across layout passes (no counter dependency)
+        let complex-key = "citeproc-" + key + "-" + repr(it.supplement)
+        let lbl = label(complex-key)
+        let before = query(selector(lbl).before(here(), inclusive: true))
+        let occurrence = before.len() // Per-key occurrence (1-based)
 
         // Position tracking for subsequent/ibid
         let all-positions = citations.positions.at(key, default: ())
         let position = all-positions.find(p => (
-          p.at("index", default: -1) == occurrence-idx
+          p.at("occurrence", default: -1) == occurrence
         ))
         let position = if position != none {
           position.at("position", default: "first")
