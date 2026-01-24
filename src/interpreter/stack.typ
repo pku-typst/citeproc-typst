@@ -42,13 +42,15 @@
     } else { [] }
 
     // Apply quotes if requested
-    let quoted = if attrs.at("quotes", default: "false") == "true" and not is-empty(result) {
+    let quoted = if (
+      attrs.at("quotes", default: "false") == "true" and not is-empty(result)
+    ) {
       apply-quotes(result, ctx, level: 0)
     } else { result }
 
     finalize(quoted, attrs)
   } else if tag == "number" {
-    handle-number(node, ctx, n => [])  // Simple fallback
+    handle-number(node, ctx, n => []) // Simple fallback
   } else if tag == "label" {
     handle-label(node, ctx, n => [])
   } else if tag == "names" {
@@ -79,8 +81,9 @@
 /// Stack-based interpreter with memoization
 /// - children: List of nodes to interpret
 /// - ctx: Interpretation context
+/// - delimiter: Optional delimiter for joining top-level results
 /// Returns: Joined content from all children
-#let interpret-children-stack(children, ctx) = {
+#let interpret-children-stack(children, ctx, delimiter: none) = {
   if children.len() == 0 { return [] }
 
   // Work stack: (node, state, meta)
@@ -326,8 +329,13 @@
     }
   }
 
-  // Final result: join all top-level results
-  results.filter(x => not is-empty(x)).join()
+  // Final result: join all top-level results with optional delimiter
+  let final-results = results.filter(x => not is-empty(x))
+  if delimiter != none {
+    final-results.join(delimiter)
+  } else {
+    final-results.join()
+  }
 }
 
 /// Convenience function to interpret a single node with stack

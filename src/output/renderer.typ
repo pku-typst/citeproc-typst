@@ -426,7 +426,7 @@
     node,
   ))
   if number-nodes.len() > 0 {
-    number-nodes.map(node => interpret-node(node, ctx)).join()
+    interpret-children-stack(number-nodes, ctx)
   } else {
     // Fallback: simple bracketed number
     [[#cite-number]]
@@ -653,12 +653,12 @@
     }
   }
 
-  // Interpret citation layout
-  let result = layout
-    .children
-    .map(node => interpret-node(node, ctx))
-    .filter(x => x != [] and x != "")
-    .join(layout.delimiter)
+  // Interpret citation layout using stack-based interpreter with memoization
+  let result = interpret-children-stack(
+    layout.children,
+    ctx,
+    delimiter: layout.delimiter,
+  )
 
   // Handle form variations
   if form == "author" {

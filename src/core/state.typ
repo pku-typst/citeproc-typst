@@ -24,6 +24,10 @@
 /// Structure: { "default": { "title": { "Full Title": "Abbr" }, ... }, ... }
 #let _abbreviations = state("citeproc-abbreviations", (:))
 
+/// Global citation counter for O(1) lookup in precomputed array
+/// Each cite-marker increments this; show rule uses it to index pre-rendered citations
+#let _cite-global-idx = counter("citeproc-cite-global-idx")
+
 // =============================================================================
 // Citation Tracking (metadata + query pattern)
 // =============================================================================
@@ -31,23 +35,25 @@
 /// Place a citation marker in the document
 ///
 /// This creates an invisible metadata element that can be queried later
-/// to determine citation order and positions.
-///
-/// Uses a complex label encoding key+locator for precise querying.
-/// This avoids counter-based occurrence tracking which can cause
-/// layout convergence issues when page settings change mid-document.
+/// to determine citation order and positions. Also steps a global counter
+/// for O(1) citation lookup in the pre-rendered array.
 ///
 /// Design:
+/// - Global counter (_cite-global-idx) provides O(1) index into pre-rendered citations
 /// - Fixed metadata value "citeproc-cite" enables efficient metadata.where() query
-/// - Complex label encodes key+locator for selector.before(here()) queries
-/// - Label string (via repr) is used as hashmap key, avoiding parsing
+/// - Complex label encodes key+locator+form for precise identification
 ///
 /// - key: Citation key
 /// - locator: Optional locator (page, chapter, etc.)
+/// - form: Optional citation form (prose, author, year, etc.)
 /// Returns: Content (invisible metadata)
-#let cite-marker(key, locator: none) = {
-  // Complex label: encode key and locator with unlikely separator
-  let complex-key = "citeproc|||" + key + "|||" + repr(locator)
+#let cite-marker(key, locator: none, form: none) = {
+  // Step global counter FIRST for consistent indexing
+  _cite-global-idx.step()
+  // Complex label: encode key, locator, and form with unlikely separator
+  let complex-key = (
+    "citeproc|||" + key + "|||" + repr(locator) + "|||" + repr(form)
+  )
   let lbl = label(complex-key)
   // Fixed value for efficient metadata.where() query
   [#metadata("citeproc-cite")#lbl]
@@ -82,12 +88,13 @@
   let prev-key = none
 
   for c in cites {
-    // Parse label to extract key and locator
-    // Label format: "citeproc|||{key}|||{repr(locator)}"
+    // Parse label to extract key, locator, and form
+    // Label format: "citeproc|||{key}|||{repr(locator)}|||{repr(form)}"
     let label-str = str(c.label)
     let parts = label-str.split("|||")
     let key = parts.at(1)
-    let locator-repr = parts.slice(2).join("|||")
+    let locator-repr = parts.at(2, default: "none")
+    let form-repr = parts.at(3, default: "none")
 
     // Hashmap key: just "key|||locator-repr" (no prefix needed internally)
     let positions-key = key + "|||" + locator-repr
@@ -99,6 +106,15 @@
       locator-repr.slice(1, -1)
     } else {
       locator-repr
+    }
+
+    // Parse form back from repr
+    let form = if form-repr == "none" {
+      none
+    } else if form-repr.starts-with("\"") and form-repr.ends-with("\"") {
+      form-repr.slice(1, -1)
+    } else {
+      form-repr
     }
 
     note-number += 1
@@ -140,6 +156,7 @@
         position: position,
         key: key,
         locator: locator,
+        form: form,
         note-number: note-number,
       ))
 
@@ -147,6 +164,8 @@
       key: key,
       positions-key: positions-key,
       occurrence: occurrence,
+      locator: locator,
+      form: form,
     ))
     prev-key = key
   }

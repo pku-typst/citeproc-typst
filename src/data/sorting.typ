@@ -3,7 +3,8 @@
 // Extracts sort keys from CSL <sort> element and sorts entries.
 
 #import "variables.typ": get-variable  // Same directory
-#import "../interpreter/mod.typ": create-context, interpret-node
+#import "../interpreter/mod.typ": create-context
+#import "../interpreter/stack.typ": interpret-children-stack
 
 // =============================================================================
 // Sort Key Extraction
@@ -38,11 +39,7 @@
     let macro-name = key-spec.macro
     let macro-def = style.macros.at(macro-name, default: none)
     if macro-def != none {
-      let rendered = macro-def
-        .children
-        .map(n => interpret-node(n, ctx))
-        .filter(x => x != [] and x != "")
-        .join()
+      let rendered = interpret-children-stack(macro-def.children, ctx)
       // Convert to string for sorting
       if type(rendered) == str { rendered } else if type(rendered) == content {
         // Extract text from content (simplified)

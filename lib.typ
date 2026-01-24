@@ -28,16 +28,16 @@
 )
 #import "src/parsing/locales.typ": detect-language
 #import "src/core/mod.typ": (
-  _abbreviations, _bib-data, _config, _csl-style, cite-marker,
+  _abbreviations, _bib-data, _cite-global-idx, _config, _csl-style, cite-marker,
   collect-citations, get-entry-year, get-first-author-family,
 )
 #import "src/parsing/mod.typ": (
   _csl-json-data, _csl-json-mode, generate-stub-bib, parse-csl-json,
 )
 
-// Note: Citation occurrence tracking now uses complex labels + selector.before()
-// instead of counters, which avoids layout convergence issues when page
-// settings change mid-document. See cite-marker() in src/core/state.typ.
+// Note: Citations are pre-rendered once at document end and indexed by a global counter.
+// This avoids query(selector.before(here())) which causes extra layout iterations.
+// See cite-marker() in src/core/state.typ and the precomputation block in init-csl.
 // Note: compute-year-suffixes is now called internally via process-entries
 #import "src/parsing/mod.typ": detect-language
 #import "src/data/mod.typ": apply-collapse, collapse-numeric-ranges
@@ -112,89 +112,35 @@
     let key = str(it.key)
 
     // Place citation marker for collection (uses complex label)
-    cite-marker(key, locator: it.supplement)
+    cite-marker(key, locator: it.supplement, form: it.form)
 
-    // Render citation using precomputed data (O(1) lookup instead of O(N) recomputation)
+    // Render citation using precomputed data (O(1) lookup via global counter)
     context {
-      let bib = _bib-data.get()
+      let precomputed = _get-precomputed()
       let style = _csl-style.get()
-      let entry = bib.at(key, default: none)
+      let rendered-citations = precomputed.at("rendered-citations", default: ())
 
-      if entry == none {
-        text(fill: red, "[??" + key + "??]")
-      } else {
-        // Query precomputed data (computed once at document end)
-        let precomputed = _get-precomputed()
+      // Get citation index (0-based) from global counter
+      let cite-idx = _cite-global-idx.get().first() - 1
 
-        // Get citation info from precomputed cache
-        let citations = precomputed.citations
-        let suffixes = precomputed.suffixes
-        let disambig-states = precomputed.at("disambig-states", default: (:))
+      if cite-idx >= 0 and cite-idx < rendered-citations.len() {
+        let cite-data = rendered-citations.at(cite-idx)
+        let result = cite-data.content
+        let cite-key = cite-data.key
+        let form = cite-data.form
 
-        let cite-number = citations.order.at(key, default: citations.count + 1)
-
-        // Get current occurrence using complex label + selector.before()
-        // This is stable across layout passes (no counter dependency)
-        let label-key = "citeproc|||" + key + "|||" + repr(it.supplement)
-        let lbl = label(label-key)
-        let before = query(selector(lbl).before(here(), inclusive: true))
-        let occurrence = before.len() // Per-key occurrence (1-based)
-
-        // Position tracking for subsequent/ibid
-        // Hashmap key is "key|||repr(locator)" (no prefix)
-        let positions-key = key + "|||" + repr(it.supplement)
-        let all-positions = citations.positions.at(positions-key, default: ())
-        let position = all-positions.find(p => (
-          p.at("occurrence", default: -1) == occurrence
-        ))
-        let position = if position != none {
-          position.at("position", default: "first")
-        } else if all-positions.len() == 0 {
-          "first"
-        } else {
-          if all-positions.len() <= 1 { "first" } else { "subsequent" }
-        }
-
-        // Get year suffix from precomputed cache (O(1) lookup)
-        let year-suffix = suffixes.at(key, default: "")
-
-        // Get disambiguation state for name rendering
-        let disambig = disambig-states.at(key, default: (
-          names-expanded: 0,
-          givenname-level: 0,
-        ))
-
-        // Get first note number for ibid/subsequent citations
-        let first-note-number = citations.first-note-numbers.at(
-          key,
-          default: none,
-        )
-
-        let abbrevs = _abbreviations.get()
-        // Apply punctuation collapsing to CSL citation output
-        let result = collapse-punctuation(render-citation(
-          entry,
-          style,
-          form: it.form,
-          supplement: it.supplement,
-          cite-number: cite-number,
-          year-suffix: year-suffix,
-          position: position,
-          first-note-number: first-note-number,
-          abbreviations: abbrevs,
-          names-expanded: disambig.at("names-expanded", default: 0),
-          givenname-level: disambig.at("givenname-level", default: 0),
-        ))
-
-        // Note styles: wrap in footnote (unless prose/author/year form)
+        // Add footnote/link wrapper
         let is-note-style = style.class == "note"
-        let is-inline-form = it.form in ("prose", "author", "year")
+        let is-inline-form = form in ("prose", "author", "year")
 
         if is-note-style and not is-inline-form {
-          footnote(link(label("citeproc-ref-" + key), result))
+          footnote(link(label("citeproc-ref-" + cite-key), result))
         } else {
-          link(label("citeproc-ref-" + key), result)
+          link(label("citeproc-ref-" + cite-key), result)
         }
+      } else {
+        // Fallback for edge cases
+        text(fill: red, "[??" + key + "??]")
       }
     }
   }
@@ -236,17 +182,74 @@
       disambig-states.insert(e.key, disambig)
     }
 
-    // Store as queryable metadata
+    // Get abbreviations for rendering
+    let abbrevs = _abbreviations.get()
+
+    // Pre-render ALL citations for O(1) lookup in show rule
+    // This eliminates the need for query(selector.before(here())) which causes layout iterations
+    // Note: Only render content, NOT footnote/link wrappers (those are added in show rule)
+    let rendered-citations = citations.by-location.map(cite-info => {
+      let key = cite-info.key
+      let entry = bib.at(key, default: none)
+      if entry == none {
+        (key: key, content: text(fill: red, "[??" + key + "??]"), form: none)
+      } else {
+        let cite-number = citations.order.at(key, default: citations.count + 1)
+        let positions-key = cite-info.positions-key
+        let occurrence = cite-info.occurrence
+        let locator = cite-info.at("locator", default: none)
+        let form = cite-info.at("form", default: none)
+
+        // Get position from precomputed positions
+        let all-positions = citations.positions.at(positions-key, default: ())
+        let pos-info = all-positions.find(p => (
+          p.at("occurrence", default: -1) == occurrence
+        ))
+        let position = if pos-info != none {
+          pos-info.at("position", default: "first")
+        } else {
+          "first"
+        }
+
+        let year-suffix = suffixes.at(key, default: "")
+        let disambig = disambig-states.at(key, default: (
+          names-expanded: 0,
+          givenname-level: 0,
+        ))
+        let first-note-number = citations.first-note-numbers.at(
+          key,
+          default: none,
+        )
+
+        let result = collapse-punctuation(render-citation(
+          entry,
+          style,
+          form: form,
+          supplement: locator,
+          cite-number: cite-number,
+          year-suffix: year-suffix,
+          position: position,
+          first-note-number: first-note-number,
+          abbreviations: abbrevs,
+          names-expanded: disambig.at("names-expanded", default: 0),
+          givenname-level: disambig.at("givenname-level", default: 0),
+        ))
+
+        (key: key, content: result, form: form)
+      }
+    })
+
+    // Store as queryable metadata (including pre-rendered citations)
     [#metadata((
       citations: citations,
       suffixes: suffixes,
       disambig-states: disambig-states,
-      sorted-keys: sorted-keys, // Cache sorted order
+      sorted-keys: sorted-keys,
+      rendered-citations: rendered-citations, // Pre-rendered for O(1) lookup
     ))<citeproc-precomputed>]
 
     // Pre-render bibliography entries to avoid convergence issues
     // This is done ONCE here instead of in csl-bibliography context
-    let abbrevs = _abbreviations.get()
     let rendered-entries = get-rendered-entries(
       bib,
       citations,
@@ -565,7 +568,7 @@
 
   // Place markers for all keys
   for item in normalized {
-    cite-marker(item.key, locator: item.supplement)
+    cite-marker(item.key, locator: item.supplement, form: form)
   }
 
   context {
