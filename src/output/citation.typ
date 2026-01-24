@@ -2,6 +2,7 @@
 //
 // Functions for rendering in-text citations.
 
+#import "../core/constants.typ": POSITION, RENDER-CONTEXT
 #import "../interpreter/mod.typ": create-context
 #import "../interpreter/stack.typ": interpret-children-stack
 #import "../parsing/locales.typ": detect-language
@@ -31,7 +32,7 @@
   supplement: none,
   cite-number: none,
   year-suffix: "",
-  position: "first",
+  position: POSITION.first,
   suppress-affixes: false,
   first-note-number: none,
   abbreviations: (:),
@@ -62,7 +63,7 @@
     // Disambiguation state for name rendering
     names-expanded: names-expanded,
     givenname-level: givenname-level,
-    render-context: "citation",
+    render-context: RENDER-CONTEXT.citation,
     // Et-al settings for subsequent cites (CSL spec: inheritable name options)
     et-al-subsequent-min: citation.at("et-al-subsequent-min", default: none),
     et-al-subsequent-use-first: citation.at(

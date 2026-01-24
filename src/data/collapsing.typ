@@ -205,6 +205,36 @@
   [#base-year#parts.join(delimiter)]
 }
 
+/// Group items by author and return both groups and ordering
+///
+/// - items: Array of citation items with author field
+/// Returns: (by-author: dict, author-order: array of (author, pos) pairs)
+#let _group-by-author(items) = {
+  // Group items by author
+  let by-author = (:)
+  for item in items {
+    let author = item.at("author", default: "")
+    if author not in by-author {
+      by-author.insert(author, ())
+    }
+    by-author.at(author).push(item)
+  }
+
+  // Track first occurrence position of each author
+  let author-first-pos = (:)
+  for (i, item) in items.enumerate() {
+    let author = item.at("author", default: "")
+    if author not in author-first-pos {
+      author-first-pos.insert(author, i)
+    }
+  }
+
+  // Sort authors by first occurrence
+  let author-order = author-first-pos.pairs().sorted(key: ((k, v)) => v)
+
+  (by-author: by-author, author-order: author-order)
+}
+
 /// Apply cite grouping to reorder items
 ///
 /// CSL spec: "Grouped cites maintain their relative order, and are moved
@@ -217,31 +247,12 @@
 #let apply-cite-grouping(items) = {
   if items.len() <= 1 { return items }
 
-  // Track first occurrence position of each author
-  let author-first-pos = (:)
-  for (i, item) in items.enumerate() {
-    let author = item.at("author", default: "")
-    if author not in author-first-pos {
-      author-first-pos.insert(author, i)
-    }
-  }
-
-  // Group items by author while preserving relative order within groups
-  let by-author = (:)
-  for item in items {
-    let author = item.at("author", default: "")
-    if author not in by-author {
-      by-author.insert(author, ())
-    }
-    by-author.at(author).push(item)
-  }
+  let grouped = _group-by-author(items)
 
   // Build result: authors ordered by their first occurrence
-  let author-order = author-first-pos.pairs().sorted(key: ((k, v)) => v)
-
   let result = ()
-  for (author, _) in author-order {
-    let author-items = by-author.at(author)
+  for (author, _) in grouped.author-order {
+    let author-items = grouped.by-author.at(author)
     for item in author-items {
       result.push(item)
     }
@@ -279,29 +290,11 @@
   if collapse-mode == none {
     // Grouping only (no collapsing) - still need to format with group delimiter
     if enable-grouping and grouped-items.len() > 1 {
-      // Group by author and format
-      let by-author = (:)
-      for item in grouped-items {
-        let author = item.at("author", default: "")
-        if author not in by-author {
-          by-author.insert(author, ())
-        }
-        by-author.at(author).push(item)
-      }
-
-      // Preserve order based on first occurrence
-      let author-first-pos = (:)
-      for (i, item) in grouped-items.enumerate() {
-        let author = item.at("author", default: "")
-        if author not in author-first-pos {
-          author-first-pos.insert(author, i)
-        }
-      }
-      let author-order = author-first-pos.pairs().sorted(key: ((k, v)) => v)
+      let grouped = _group-by-author(grouped-items)
 
       let author-parts = ()
-      for (author, _) in author-order {
-        let author-items = by-author.at(author)
+      for (author, _) in grouped.author-order {
+        let author-items = grouped.by-author.at(author)
         // Use author-display from first item for display (fall back to author string)
         let first-item = author-items.first()
         let display-author = first-item.at("author-display", default: author)
@@ -353,30 +346,13 @@
       or collapse-mode == "year-suffix-ranged"
   ) {
     // Group by author (already reordered by cite grouping)
-    let by-author = (:)
-    for item in grouped-items {
-      let author = item.at("author", default: "")
-      if author not in by-author {
-        by-author.insert(author, ())
-      }
-      by-author.at(author).push(item)
-    }
-
-    // Preserve order based on first occurrence
-    let author-first-pos = (:)
-    for (i, item) in grouped-items.enumerate() {
-      let author = item.at("author", default: "")
-      if author not in author-first-pos {
-        author-first-pos.insert(author, i)
-      }
-    }
-    let author-order = author-first-pos.pairs().sorted(key: ((k, v)) => v)
+    let grouped = _group-by-author(grouped-items)
 
     let author-parts = ()
 
     // Iterate in first-occurrence order
-    for (author, _) in author-order {
-      let author-items = by-author.at(author)
+    for (author, _) in grouped.author-order {
+      let author-items = grouped.by-author.at(author)
       // Use author-display from first item for display (fall back to author string)
       let first-item = author-items.first()
       let display-author = first-item.at("author-display", default: author)

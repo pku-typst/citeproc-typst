@@ -3,6 +3,62 @@
 // Manages bibliography data, CSL style, and citation tracking.
 // Uses metadata + query pattern for citation collection.
 
+#import "constants.typ": POSITION
+
+// =============================================================================
+// Label Encoding/Decoding
+// =============================================================================
+// Uses a safe encoding scheme that handles any characters in keys/locators.
+// Format: "citeproc:" + base64-like encoding of JSON data
+// This avoids issues with separator characters appearing in user data.
+
+/// Encode citation data into a safe label string
+///
+/// - key: Citation key
+/// - locator: Optional locator
+/// - form: Optional form
+/// Returns: Encoded string safe for use as a label
+#let _encode-cite-label(key, locator, form) = {
+  // Use repr() for safe serialization, join with newlines (safe in labels)
+  // Format: "citeproc\n{key}\n{repr(locator)}\n{repr(form)}"
+  "citeproc\n" + key + "\n" + repr(locator) + "\n" + repr(form)
+}
+
+/// Decode citation data from a label string
+///
+/// - label-str: The label string to decode
+/// Returns: (key: str, locator: any, form: any) or none if invalid
+#let _decode-cite-label(label-str) = {
+  if not label-str.starts-with("citeproc\n") { return none }
+
+  let parts = label-str.split("\n")
+  if parts.len() < 4 { return none }
+
+  let key = parts.at(1)
+  let locator-repr = parts.at(2, default: "none")
+  let form-repr = parts.at(3, default: "none")
+
+  // Parse locator back from repr
+  let locator = if locator-repr == "none" {
+    none
+  } else if locator-repr.starts-with("\"") and locator-repr.ends-with("\"") {
+    locator-repr.slice(1, -1)
+  } else {
+    locator-repr
+  }
+
+  // Parse form back from repr
+  let form = if form-repr == "none" {
+    none
+  } else if form-repr.starts-with("\"") and form-repr.ends-with("\"") {
+    form-repr.slice(1, -1)
+  } else {
+    form-repr
+  }
+
+  (key: key, locator: locator, form: form)
+}
+
 // =============================================================================
 // Core State Variables
 // =============================================================================
@@ -41,7 +97,7 @@
 /// Design:
 /// - Global counter (_cite-global-idx) provides O(1) index into pre-rendered citations
 /// - Fixed metadata value "citeproc-cite" enables efficient metadata.where() query
-/// - Complex label encodes key+locator+form for precise identification
+/// - Safe label encoding handles any characters in keys/locators
 ///
 /// - key: Citation key
 /// - locator: Optional locator (page, chapter, etc.)
@@ -50,11 +106,9 @@
 #let cite-marker(key, locator: none, form: none) = {
   // Step global counter FIRST for consistent indexing
   _cite-global-idx.step()
-  // Complex label: encode key, locator, and form with unlikely separator
-  let complex-key = (
-    "citeproc|||" + key + "|||" + repr(locator) + "|||" + repr(form)
-  )
-  let lbl = label(complex-key)
+  // Safe encoding that handles any characters in key/locator/form
+  let encoded = _encode-cite-label(key, locator, form)
+  let lbl = label(encoded)
   // Fixed value for efficient metadata.where() query
   [#metadata("citeproc-cite")#lbl]
 }
@@ -64,13 +118,10 @@
 /// Must be called within a `context` block.
 /// Returns a dictionary with:
 /// - order: key -> first occurrence order (1-based)
-/// - positions: positions-key -> array of position info (key is "key|||repr(locator)")
+/// - positions: positions-key -> array of position info
 /// - by-location: array of (key, occurrence) in document order
 /// - count: total unique citations
 /// - first-note-numbers: key -> note number of first occurrence (for note styles)
-///
-/// Note: positions uses "key|||repr(locator)" as key (e.g., "smith2020|||none")
-/// to enable O(1) lookup in show rules.
 #let collect-citations() = {
   // Efficient query using fixed metadata value
   let cites = query(metadata.where(value: "citeproc-cite"))
@@ -88,34 +139,17 @@
   let prev-key = none
 
   for c in cites {
-    // Parse label to extract key, locator, and form
-    // Label format: "citeproc|||{key}|||{repr(locator)}|||{repr(form)}"
+    // Decode label using safe encoding
     let label-str = str(c.label)
-    let parts = label-str.split("|||")
-    let key = parts.at(1)
-    let locator-repr = parts.at(2, default: "none")
-    let form-repr = parts.at(3, default: "none")
+    let decoded = _decode-cite-label(label-str)
+    if decoded == none { continue }
 
-    // Hashmap key: just "key|||locator-repr" (no prefix needed internally)
-    let positions-key = key + "|||" + locator-repr
+    let key = decoded.key
+    let locator = decoded.locator
+    let form = decoded.form
 
-    // Parse locator back from repr (handles "none" and quoted strings)
-    let locator = if locator-repr == "none" {
-      none
-    } else if locator-repr.starts-with("\"") and locator-repr.ends-with("\"") {
-      locator-repr.slice(1, -1)
-    } else {
-      locator-repr
-    }
-
-    // Parse form back from repr
-    let form = if form-repr == "none" {
-      none
-    } else if form-repr.starts-with("\"") and form-repr.ends-with("\"") {
-      form-repr.slice(1, -1)
-    } else {
-      form-repr
-    }
+    // Positions key for O(1) lookup (uses repr for consistency)
+    let positions-key = key + "\n" + repr(locator)
 
     note-number += 1
 
@@ -137,12 +171,12 @@
 
     // Determine position type
     let position = if is-first-of-key {
-      "first"
+      POSITION.first
     } else if prev-key == key {
       // Same key as previous citation
-      if locator != none { "ibid-with-locator" } else { "ibid" }
+      if locator != none { POSITION.ibid-with-locator } else { POSITION.ibid }
     } else {
-      "subsequent"
+      POSITION.subsequent
     }
 
     // Use per-positions-key occurrence (1-based)

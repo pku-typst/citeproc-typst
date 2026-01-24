@@ -2,6 +2,7 @@
 //
 // Functions for rendering names in different contexts (grouping, display, bibliography).
 
+#import "../core/constants.typ": RENDER-CONTEXT
 #import "../interpreter/mod.typ": create-context
 #import "../interpreter/stack.typ": interpret-children-stack
 #import "../parsing/locales.typ": detect-language
@@ -168,7 +169,7 @@
     ..ctx,
     names-expanded: names-expanded,
     givenname-level: givenname-level,
-    render-context: "bibliography",
+    render-context: RENDER-CONTEXT.bibliography,
   )
 
   // Render the names node using stack interpreter

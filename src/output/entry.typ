@@ -2,6 +2,7 @@
 //
 // Functions for rendering bibliography entries.
 
+#import "../core/constants.typ": RENDER-CONTEXT
 #import "../interpreter/mod.typ": create-context
 #import "../interpreter/stack.typ": interpret-children-stack
 #import "../parsing/locales.typ": detect-language
@@ -22,7 +23,7 @@
 #let render-citation-number(entry, style, cite-number: none) = {
   let ctx = create-context(style, entry, cite-number: cite-number)
   // CSL-M: Set render-context (citation-number is used in bibliography)
-  let ctx = (..ctx, render-context: "bibliography")
+  let ctx = (..ctx, render-context: RENDER-CONTEXT.bibliography)
   let entry-lang = detect-language(entry.at("fields", default: (:)))
 
   let bib = style.at("bibliography", default: none)
@@ -84,7 +85,7 @@
     year-suffix: year-suffix,
     names-expanded: names-expanded,
     givenname-level: givenname-level,
-    render-context: "bibliography",
+    render-context: RENDER-CONTEXT.bibliography,
     author-substitute: author-substitute,
     author-substitute-rule: author-substitute-rule,
     substitute-vars: substitute-vars, // Variables from first cs:names element

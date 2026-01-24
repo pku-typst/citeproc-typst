@@ -4,6 +4,138 @@
 // Includes CSL-M extension: cs:institution for institutional authors
 
 #import "../parsing/locales.typ": is-cjk-name, lookup-term
+#import "../core/constants.typ": POSITION
+
+// =============================================================================
+// Et-al Setting Resolution
+// =============================================================================
+
+/// Resolve an et-al setting with fallback cascade
+///
+/// Priority: sort-key override > subsequent cite > citation-level > bibliography > default
+///
+/// - value: Current value (from attrs)
+/// - sort-override: Sort key override from context
+/// - is-subsequent: Whether this is a subsequent cite
+/// - subsequent-ctx-key: Context key for subsequent cite value
+/// - citation-ctx-key: Context key for citation-level value
+/// - bib-key: Bibliography key
+/// - default-val: Default value
+/// - ctx: Context
+/// Returns: Resolved value
+#let _resolve-et-al-setting(
+  value,
+  sort-override,
+  is-subsequent,
+  subsequent-ctx-key,
+  citation-ctx-key,
+  bib-key,
+  default-val,
+  ctx,
+) = {
+  // Sort key override has highest priority
+  if sort-override != none { return sort-override }
+
+  // Use provided value if set
+  if value != none { return value }
+
+  // For subsequent cites, try subsequent-specific setting
+  if is-subsequent {
+    let subsequent-val = ctx.at(subsequent-ctx-key, default: none)
+    if subsequent-val != none { return subsequent-val }
+  }
+
+  // Try citation-level setting
+  let citation-val = ctx.at(citation-ctx-key, default: none)
+  if citation-val != none { return citation-val }
+
+  // Fall back to bibliography setting
+  let bib = ctx.style.at("bibliography", default: none)
+  if bib != none {
+    return bib.at(bib-key, default: default-val)
+  }
+
+  default-val
+}
+
+/// Resolve all et-al settings for name formatting
+///
+/// - attrs: Name element attributes
+/// - ctx: Context
+/// Returns: (et-al-min, et-al-use-first, et-al-use-last) tuple
+#let _resolve-et-al-settings(attrs, ctx) = {
+  // Get initial values from attrs
+  let et-al-min = attrs.at("et-al-min", default: none)
+  let et-al-use-first = attrs.at("et-al-use-first", default: none)
+  let et-al-use-last = attrs.at("et-al-use-last", default: none)
+
+  // Get sort key overrides (highest priority)
+  let sort-names-min = ctx.at("sort-names-min", default: none)
+  let sort-names-use-first = ctx.at("sort-names-use-first", default: none)
+  let sort-names-use-last = ctx.at("sort-names-use-last", default: none)
+
+  // Check if this is a subsequent cite
+  let position = ctx.at("position", default: POSITION.first)
+  let is-subsequent = (
+    position == POSITION.subsequent
+      or position == POSITION.ibid
+      or position == POSITION.ibid-with-locator
+  )
+
+  // Resolve each setting
+  et-al-min = _resolve-et-al-setting(
+    et-al-min,
+    sort-names-min,
+    is-subsequent,
+    "et-al-subsequent-min",
+    "citation-et-al-min",
+    "et-al-min",
+    4,
+    ctx,
+  )
+
+  et-al-use-first = _resolve-et-al-setting(
+    et-al-use-first,
+    sort-names-use-first,
+    is-subsequent,
+    "et-al-subsequent-use-first",
+    "citation-et-al-use-first",
+    "et-al-use-first",
+    3,
+    ctx,
+  )
+
+  // et-al-use-last has simpler fallback (no subsequent/citation variants)
+  if sort-names-use-last != none {
+    et-al-use-last = sort-names-use-last
+  } else if et-al-use-last == none {
+    let bib = ctx.style.at("bibliography", default: none)
+    et-al-use-last = if bib != none {
+      bib.at("et-al-use-last", default: false)
+    } else { false }
+  }
+
+  // Convert types
+  if type(et-al-min) == str { et-al-min = int(et-al-min) }
+  if type(et-al-use-first) == str { et-al-use-first = int(et-al-use-first) }
+  if type(et-al-use-last) == str { et-al-use-last = et-al-use-last == "true" }
+
+  // Apply disambiguation expansion
+  let names-expanded = ctx.at("names-expanded", default: 0)
+  if names-expanded > 0 {
+    et-al-use-first = et-al-use-first + names-expanded
+  }
+
+  (
+    et-al-min: et-al-min,
+    et-al-use-first: et-al-use-first,
+    et-al-use-last: et-al-use-last,
+  )
+}
+
+// =============================================================================
+// Name Part Formatting
+// =============================================================================
 
 /// Apply name-part formatting (text-case)
 #let format-name-part(text, attrs) = {
@@ -254,94 +386,11 @@
     }
   }
 
-  // Get et-al settings
-  let et-al-min = attrs.at("et-al-min", default: none)
-  let et-al-use-first = attrs.at("et-al-use-first", default: none)
-  let et-al-use-last = attrs.at("et-al-use-last", default: none)
-
-  // CSL spec: names-min/use-first/use-last on sort keys override et-al settings
-  // These have highest priority
-  let sort-names-min = ctx.at("sort-names-min", default: none)
-  let sort-names-use-first = ctx.at("sort-names-use-first", default: none)
-  let sort-names-use-last = ctx.at("sort-names-use-last", default: none)
-
-  if sort-names-min != none { et-al-min = sort-names-min }
-  if sort-names-use-first != none { et-al-use-first = sort-names-use-first }
-  if sort-names-use-last != none { et-al-use-last = sort-names-use-last }
-
-  // Check if this is a subsequent cite (for et-al-subsequent-min/use-first)
-  let position = ctx.at("position", default: "first")
-  let is-subsequent = (
-    position == "subsequent"
-      or position == "ibid"
-      or position == "ibid-with-locator"
-  )
-
-  // Fallback to bibliography or citation settings (with null-safety)
-  let bib = ctx.style.at("bibliography", default: none)
-  if et-al-min == none {
-    // For subsequent cites, try et-al-subsequent-min first
-    if is-subsequent {
-      let subsequent-min = ctx.at("et-al-subsequent-min", default: none)
-      if subsequent-min != none {
-        et-al-min = subsequent-min
-      }
-    }
-    // Then try citation-level setting
-    if et-al-min == none {
-      let citation-min = ctx.at("citation-et-al-min", default: none)
-      if citation-min != none {
-        et-al-min = citation-min
-      }
-    }
-    // Finally fall back to bibliography
-    if et-al-min == none {
-      et-al-min = if bib != none { bib.at("et-al-min", default: 4) } else { 4 }
-    }
-  }
-  if et-al-use-first == none {
-    // For subsequent cites, try et-al-subsequent-use-first first
-    if is-subsequent {
-      let subsequent-use-first = ctx.at(
-        "et-al-subsequent-use-first",
-        default: none,
-      )
-      if subsequent-use-first != none {
-        et-al-use-first = subsequent-use-first
-      }
-    }
-    // Then try citation-level setting
-    if et-al-use-first == none {
-      let citation-use-first = ctx.at("citation-et-al-use-first", default: none)
-      if citation-use-first != none {
-        et-al-use-first = citation-use-first
-      }
-    }
-    // Finally fall back to bibliography
-    if et-al-use-first == none {
-      et-al-use-first = if bib != none {
-        bib.at("et-al-use-first", default: 3)
-      } else { 3 }
-    }
-  }
-  if et-al-use-last == none {
-    et-al-use-last = if bib != none {
-      bib.at("et-al-use-last", default: false)
-    } else { false }
-  }
-
-  // Convert string to int if needed
-  if type(et-al-min) == str { et-al-min = int(et-al-min) }
-  if type(et-al-use-first) == str { et-al-use-first = int(et-al-use-first) }
-  // Convert et-al-use-last to boolean if string
-  if type(et-al-use-last) == str { et-al-use-last = et-al-use-last == "true" }
-
-  // Apply disambiguation: add more names if names-expanded > 0
-  // (CSL Method 2: disambiguate-add-names)
-  let names-expanded = ctx.at("names-expanded", default: 0)
-  if names-expanded > 0 {
-    et-al-use-first = et-al-use-first + names-expanded
-  }
+  // Resolve et-al settings with fallback cascade
+  let et-al = _resolve-et-al-settings(attrs, ctx)
+  let et-al-min = et-al.et-al-min
+  let et-al-use-first = et-al.et-al-use-first
+  let et-al-use-last = et-al.et-al-use-last
 
   // Determine how many names to show
   // CSL spec: et-al is only used when the name list is TRUNCATED
