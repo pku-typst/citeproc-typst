@@ -18,25 +18,26 @@
 //   Use @key in text to cite...
 //   #csl-bibliography()
 
-#import "src/parser.typ": parse-csl, parse-locale-file
-#import "src/interpreter.typ": create-context, interpret-node
-#import "src/renderer.typ": (
+// Import from new modular structure
+#import "src/parsing/mod.typ": parse-csl, parse-locale-file
+#import "src/interpreter/mod.typ": create-context, interpret-node
+#import "src/output/mod.typ": (
   collapse-punctuation, get-rendered-entries, process-entries, render-citation,
   render-entry, render-names-for-grouping,
 )
-#import "src/state.typ": (
+#import "src/core/mod.typ": (
   _abbreviations, _bib-data, _config, _csl-style, cite-marker,
   collect-citations, get-entry-year, get-first-author-family,
 )
-#import "src/csl-json.typ": (
+#import "src/parsing/mod.typ": (
   _csl-json-data, _csl-json-mode, generate-stub-bib, parse-csl-json,
 )
 
 // Counter for tracking citation occurrence index (for ibid detection)
 #let _cite-occurrence = counter("citeproc-occurrence")
 // Note: compute-year-suffixes is now called internally via process-entries
-#import "src/locales.typ": detect-language
-#import "src/collapsing.typ": apply-collapse, collapse-numeric-ranges
+#import "src/parsing/mod.typ": detect-language
+#import "src/data/mod.typ": apply-collapse, collapse-numeric-ranges
 
 // =============================================================================
 // Precomputation Cache (Performance Optimization)
@@ -547,7 +548,7 @@
     if is-note-style {
       // Note/footnote style: render each citation fully and join with delimiter
       // Wrap in footnote unless using prose/author/year form
-      import "src/renderer.typ": collapse-punctuation, render-citation
+      import "src/output/mod.typ": collapse-punctuation, render-citation
 
       let is-multicite = normalized.len() > 1
 

@@ -2,8 +2,8 @@
 //
 // Extracts sort keys from CSL <sort> element and sorts entries.
 
-#import "variables.typ": get-variable
-#import "interpreter.typ": create-context, interpret-node
+#import "variables.typ": get-variable  // Same directory
+#import "../interpreter/mod.typ": create-context, interpret-node
 
 // =============================================================================
 // Sort Key Extraction

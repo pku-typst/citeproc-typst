@@ -10,7 +10,7 @@
 // Key insight: Disambiguation is based on RENDERED citation form, not raw data.
 // Two citations are ambiguous if they render identically.
 
-#import "state.typ": get-entry-year, get-first-author-family
+#import "../core/state.typ": get-entry-year, get-first-author-family
 
 // =============================================================================
 // Year Suffix Computation

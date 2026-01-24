@@ -3,7 +3,7 @@
 // Formats author/editor names according to CSL rules
 // Includes CSL-M extension: cs:institution for institutional authors
 
-#import "locales.typ": is-cjk-name, lookup-term
+#import "../parsing/locales.typ": is-cjk-name, lookup-term
 
 /// Apply name-part formatting (text-case)
 #let format-name-part(text, attrs) = {

@@ -4,7 +4,7 @@
 // - Alternates between outer and inner quotes for nested quotations
 // - Handles locale-specific quote marks
 
-#import "locales.typ": get-quote-chars
+#import "../parsing/locales.typ": get-quote-chars
 
 // =============================================================================
 // Quote Functions

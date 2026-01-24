@@ -3,7 +3,7 @@
 // Evaluates CSL conditional expressions (if/else-if)
 // Includes CSL-M extension conditions
 
-#import "variables.typ": get-variable, has-variable
+#import "variables.typ": get-variable, has-variable  // Same directory
 
 // =============================================================================
 // Module-level constants (avoid recreating on each call)
