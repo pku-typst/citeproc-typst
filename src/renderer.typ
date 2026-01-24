@@ -6,57 +6,62 @@
 
 /// Apply CSL punctuation collapsing to content
 ///
-/// CSL spec: When a rendered item ends with punctuation, subsequent
-/// affixes starting with the same (or weaker) punctuation have it suppressed.
+/// Based on citeproc-js LtoR_MAP logic. The map defines what happens when
+/// two punctuation marks are adjacent (left + right → result).
 ///
-/// Rules:
-/// 1. Duplicate punctuation collapses: ".." → ".", ",," → ",", etc.
-/// 2. Period is absorbed by stronger punctuation: ".,", ".;", ".:", ".!", ".?" → the stronger one
-/// 3. Supports both Western and CJK punctuation
+/// Absorption rules (from citeproc-js):
+/// - "!" absorbs "." and ":"    → !. → !,  !: → !
+/// - "?" absorbs "." and ":"    → ?. → ?,  ?: → ?
+/// - ":" absorbs "."            → :. → :
+/// - ":" absorbed by "!" "?"    → :! → !,  :? → ?
+/// - ";" absorbs "." and ":"    → ;. → ;,  ;: → ;
+/// - ";" absorbed by "!" "?"    → ;! → !,  ;? → ?
+/// - "," absorbs "."            → ,. → ,
 ///
-/// This wrapper limits the show rules to CSL output only,
-/// avoiding interference with user content.
+/// All other combinations keep both characters.
+///
+/// This wrapper limits the show rules to CSL output only.
 #let collapse-punctuation(content) = {
-  // Rule 1: Same-class punctuation collapses (keeps first character)
-  // Western + CJK periods
+  // Rule 1: Duplicate punctuation collapses (keeps first character)
   show regex("[.。]{2,}"): it => it.text.first()
-  // Western + CJK commas (、is CJK enumeration comma)
   show regex("[,，、]{2,}"): it => it.text.first()
-  // Western + CJK semicolons
   show regex("[;；]{2,}"): it => it.text.first()
-  // Western + CJK colons
   show regex("[:：]{2,}"): it => it.text.first()
-  // Western + CJK exclamation marks
   show regex("[!！]{2,}"): it => it.text.first()
-  // Western + CJK question marks
   show regex("[?？]{2,}"): it => it.text.first()
 
-  // Rule 2: Period absorbed by stronger punctuation (keeps the stronger one)
-  // Period + comma → comma
-  show regex("[.。][,，、]|[,，、][.。]"): it => {
-    let chars = it.text.clusters()
-    chars.find(c => c in (",", "，", "、"))
+  // Rule 2: Absorption rules from citeproc-js LtoR_MAP
+  // Helper to get the "stronger" punctuation
+  let get-absorbed(text, absorbers) = {
+    let chars = text.clusters()
+    chars.find(c => c in absorbers)
   }
-  // Period + semicolon → semicolon
-  show regex("[.。][;；]|[;；][.。]"): it => {
-    let chars = it.text.clusters()
-    chars.find(c => c in (";", "；"))
-  }
-  // Period + colon → colon
-  show regex("[.。][:：]|[:：][.。]"): it => {
-    let chars = it.text.clusters()
-    chars.find(c => c in (":", "："))
-  }
-  // Period + exclamation → exclamation
-  show regex("[.。][!！]|[!！][.。]"): it => {
-    let chars = it.text.clusters()
-    chars.find(c => c in ("!", "！"))
-  }
-  // Period + question → question
-  show regex("[.。][?？]|[?？][.。]"): it => {
-    let chars = it.text.clusters()
-    chars.find(c => c in ("?", "？"))
-  }
+
+  // "!" absorbs "." and ":"
+  show regex("[!！][.。]"): it => it.text.first()
+  show regex("[!！][:：]"): it => it.text.first()
+
+  // "?" absorbs "." and ":"
+  show regex("[?？][.。]"): it => it.text.first()
+  show regex("[?？][:：]"): it => it.text.first()
+
+  // ":" absorbs "." only
+  show regex("[:：][.。]"): it => it.text.first()
+
+  // ":" is absorbed by "!" and "?"
+  show regex("[:：][!！]"): it => it.text.clusters().last()
+  show regex("[:：][?？]"): it => it.text.clusters().last()
+
+  // ";" absorbs "." and ":"
+  show regex("[;；][.。]"): it => it.text.first()
+  show regex("[;；][:：]"): it => it.text.first()
+
+  // ";" is absorbed by "!" and "?"
+  show regex("[;；][!！]"): it => it.text.clusters().last()
+  show regex("[;；][?？]"): it => it.text.clusters().last()
+
+  // "," absorbs "."
+  show regex("[,，、][.。]"): it => it.text.first()
 
   content
 }
