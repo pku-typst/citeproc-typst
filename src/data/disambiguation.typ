@@ -421,6 +421,112 @@
 }
 
 // =============================================================================
+// Disambiguation Helpers
+// =============================================================================
+
+/// Check if expanding givenname would help disambiguate an entry
+///
+/// Compares the entry's first author given name against other entries
+/// in the same ambiguous group.
+///
+/// - key: The entry key to check
+/// - entries: All entries
+/// - ambiguous: Current ambiguous groups
+/// Returns: true if expansion would help
+#let _givenname-expansion-would-help(key, entries, ambiguous) = {
+  let entry = entries.find(e => e.key == key)
+  if entry == none { return false }
+
+  let authors = entry
+    .entry
+    .at("parsed_names", default: (:))
+    .at("author", default: ())
+
+  if authors.len() == 0 { return false }
+
+  // Find other entries in same ambiguous group
+  for (group-key, group-keys) in ambiguous {
+    if key in group-keys {
+      for other-key in group-keys {
+        if other-key != key {
+          let other-entry = entries.find(e => e.key == other-key)
+          if other-entry != none {
+            let other-authors = other-entry
+              .entry
+              .at("parsed_names", default: (:))
+              .at("author", default: ())
+            // Check if first given name differs
+            if other-authors.len() > 0 {
+              let first-given = authors.first().at("given", default: "")
+              let other-first-given = other-authors
+                .first()
+                .at("given", default: "")
+              if first-given != other-first-given {
+                return true
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  false
+}
+
+/// Try to expand names for an entry if possible
+///
+/// - key: The entry key
+/// - state: Current disambiguation state
+/// - entry-map: Map of key -> entry
+/// - et-al-use-first: Number of names shown before et al
+/// Returns: (can-expand, new-state)
+#let _try-expand-names(key, state, entry-map, et-al-use-first) = {
+  let e = entry-map.at(key)
+  let authors = get-all-authors(e.entry)
+
+  if state.names-expanded + et-al-use-first < authors.len() {
+    (
+      can-expand: true,
+      new-state: (..state, names-expanded: state.names-expanded + 1),
+    )
+  } else {
+    (can-expand: false, new-state: state)
+  }
+}
+
+/// Assign year suffixes to ambiguous groups
+///
+/// - ambiguous: Array of (citation-key, entry-keys) for ambiguous groups
+/// - entries: All entries (for ordering)
+/// - states: Current states dict (will be mutated)
+/// Returns: Updated states dict
+#let _assign-year-suffixes(ambiguous, entries, states) = {
+  let suffix-chars = "abcdefghijklmnopqrstuvwxyz"
+  let new-states = states
+
+  for (citation-key, entry-keys) in ambiguous {
+    // Sort by bibliography order (entry position in entries array)
+    let key-order = (:)
+    for (i, e) in entries.enumerate() {
+      if e.key in entry-keys {
+        key-order.insert(e.key, i)
+      }
+    }
+
+    let sorted-keys = entry-keys.sorted(key: k => key-order.at(k, default: 999))
+
+    for (i, key) in sorted-keys.enumerate() {
+      if i < suffix-chars.len() {
+        let state = new-states.at(key)
+        new-states.insert(key, (..state, year-suffix: suffix-chars.at(i)))
+      }
+    }
+  }
+
+  new-states
+}
+
+// =============================================================================
 // Main Disambiguation Algorithm
 // =============================================================================
 
@@ -499,62 +605,15 @@
   if add-givenname and ambiguous.len() > 0 {
     // Try expanding givenname for ambiguous entries
     for level in range(1, max-givenname-level + 1) {
-      // Get keys of still-ambiguous entries
       let ambiguous-keys = ambiguous.map(((k, v)) => v).flatten()
 
-      // For each ambiguous group, check if expanding givenname would help
-      // Only expand if the entries have different authors that could be
-      // distinguished by showing given names
+      // Check each ambiguous entry for potential givenname expansion
       for key in ambiguous-keys {
         let state = states.at(key)
         if state.givenname-level < level {
-          // Check if this entry's author differs from others in its group
-          let entry = entries.find(e => e.key == key)
-          if entry != none {
-            let authors = entry
-              .entry
-              .at("parsed_names", default: (:))
-              .at("author", default: ())
-            let would-help = false
-
-            // Find other entries in same ambiguous group
-            for (group-key, group-keys) in ambiguous {
-              if key in group-keys {
-                for other-key in group-keys {
-                  if other-key != key {
-                    let other-entry = entries.find(e => e.key == other-key)
-                    if other-entry != none {
-                      let other-authors = other-entry
-                        .entry
-                        .at(
-                          "parsed_names",
-                          default: (:),
-                        )
-                        .at("author", default: ())
-                      // Check if any given name differs
-                      if authors.len() > 0 and other-authors.len() > 0 {
-                        let first-given = authors
-                          .first()
-                          .at("given", default: "")
-                        let other-first-given = other-authors
-                          .first()
-                          .at("given", default: "")
-                        if first-given != other-first-given {
-                          would-help = true
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-
-            if would-help {
-              states.insert(key, (
-                ..state,
-                givenname-level: level,
-              ))
-            }
+          // Only expand if it would actually help disambiguate
+          if _givenname-expansion-would-help(key, entries, ambiguous) {
+            states.insert(key, (..state, givenname-level: level))
           }
         }
       }
@@ -571,38 +630,31 @@
   // Method 2: disambiguate-add-names
   // ==========================================================================
   if add-names and not primary-only and ambiguous.len() > 0 {
+    // Get et-al-use-first setting
+    let et-al-use-first = citation.at("et-al-use-first", default: none)
+    if et-al-use-first == none { et-al-use-first = 1 }
+    if type(et-al-use-first) == str { et-al-use-first = int(et-al-use-first) }
+
     // Try adding more names for still-ambiguous entries
     let max-iterations = 10
     let iteration = 0
 
     while ambiguous.len() > 0 and iteration < max-iterations {
       iteration += 1
-
-      // Get keys of still-ambiguous entries
       let ambiguous-keys = ambiguous.map(((k, v)) => v).flatten()
 
-      // Check if any entry can still expand
-      let can-expand = false
+      // Try to expand names for each ambiguous entry
+      let any-expanded = false
       for key in ambiguous-keys {
         let state = states.at(key)
-        let e = entry-map.at(key)
-        let authors = get-all-authors(e.entry)
-        let et-al-use-first = citation.at("et-al-use-first", default: none)
-        if et-al-use-first == none { et-al-use-first = 1 }
-        if type(et-al-use-first) == str {
-          et-al-use-first = int(et-al-use-first)
-        }
-
-        if state.names-expanded + et-al-use-first < authors.len() {
-          can-expand = true
-          states.insert(key, (
-            ..state,
-            names-expanded: state.names-expanded + 1,
-          ))
+        let result = _try-expand-names(key, state, entry-map, et-al-use-first)
+        if result.can-expand {
+          any-expanded = true
+          states.insert(key, result.new-state)
         }
       }
 
-      if not can-expand { break }
+      if not any-expanded { break }
 
       // Re-group and check
       let new-groups = group-by-citation-key(entries, states, style)
@@ -632,34 +684,7 @@
   // Method 4: disambiguate-add-year-suffix
   // ==========================================================================
   if add-year-suffix and ambiguous.len() > 0 {
-    // Assign year suffixes to still-ambiguous entries
-    // Suffixes are assigned in bibliography order within each ambiguous group
-    let suffix-chars = "abcdefghijklmnopqrstuvwxyz"
-
-    for (citation-key, entry-keys) in ambiguous {
-      // Sort by bibliography order (entry position in entries array)
-      let key-order = (:)
-      for (i, e) in entries.enumerate() {
-        if e.key in entry-keys {
-          key-order.insert(e.key, i)
-        }
-      }
-
-      let sorted-keys = entry-keys.sorted(key: k => key-order.at(
-        k,
-        default: 999,
-      ))
-
-      for (i, key) in sorted-keys.enumerate() {
-        if i < suffix-chars.len() {
-          let state = states.at(key)
-          states.insert(key, (
-            ..state,
-            year-suffix: suffix-chars.at(i),
-          ))
-        }
-      }
-    }
+    states = _assign-year-suffixes(ambiguous, entries, states)
   }
 
   // ==========================================================================
@@ -669,12 +694,6 @@
     ..e,
     disambig: states.at(e.key),
   ))
-}
-
-// Legacy function for backward compatibility
-// Kept for direct year-suffix computation when called separately
-#let compute-year-suffixes-legacy(entries, style) = {
-  compute-year-suffixes(entries, style)
 }
 
 /// Check if two entries have the same short author representation

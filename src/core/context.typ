@@ -1,6 +1,21 @@
 // citeproc-typst - Interpretation Context
 //
 // Creates the context object used during CSL interpretation.
+//
+// =============================================================================
+// Naming Convention: parsed_names vs parsed-names
+// =============================================================================
+//
+// External data (from citegeist) uses Python/underscore convention:
+//   - entry.parsed_names  (underscore - as returned by citegeist)
+//   - entry.entry_type    (underscore - as returned by citegeist)
+//
+// Internal context uses Typst/hyphen convention:
+//   - ctx.parsed-names    (hyphen - Typst idiomatic)
+//   - ctx.entry-type      (hyphen - Typst idiomatic)
+//
+// This create-context function bridges the two conventions, reading from
+// external underscore format and exposing internal hyphen format.
 
 // =============================================================================
 // Context Creation
@@ -68,4 +83,106 @@
     abbreviations: abbreviations,
     disambiguate: disambiguate,
   )
+}
+
+// =============================================================================
+// Context Update Functions
+// =============================================================================
+//
+// These functions document the optional context fields that can be added
+// after initial creation. Using these functions makes the spreading pattern
+// explicit and provides a single source of truth for field names.
+
+/// Add year-suffix to context for disambiguation
+///
+/// - ctx: Base context
+/// - suffix: Year suffix string (e.g., "a", "b")
+/// Returns: Updated context
+#let with-year-suffix(ctx, suffix) = {
+  (..ctx, year-suffix: suffix)
+}
+
+/// Add position info to context for citation rendering
+///
+/// - ctx: Base context
+/// - position: Position type ("first", "subsequent", "ibid", "ibid-with-locator")
+/// Returns: Updated context
+#let with-position(ctx, position) = {
+  (..ctx, position: position)
+}
+
+/// Add disambiguation state to context
+///
+/// - ctx: Base context
+/// - names-expanded: Number of additional names to show
+/// - givenname-level: Given name expansion level (0=none, 1=initials, 2=full)
+/// Returns: Updated context
+#let with-disambiguation(ctx, names-expanded, givenname-level) = {
+  (
+    ..ctx,
+    names-expanded: names-expanded,
+    givenname-level: givenname-level,
+  )
+}
+
+/// Add render context type to context
+///
+/// - ctx: Base context
+/// - render-context: "citation" or "bibliography"
+/// Returns: Updated context
+#let with-render-context(ctx, render-context) = {
+  (..ctx, render-context: render-context)
+}
+
+/// Add citation-level et-al settings to context
+///
+/// - ctx: Base context
+/// - et-al-min: Minimum authors before et al
+/// - et-al-use-first: Number of authors to show before et al
+/// Returns: Updated context
+#let with-citation-et-al(ctx, et-al-min, et-al-use-first) = {
+  (
+    ..ctx,
+    citation-et-al-min: et-al-min,
+    citation-et-al-use-first: et-al-use-first,
+  )
+}
+
+/// Add first-reference-note-number for subsequent citations
+///
+/// - ctx: Base context
+/// - note-number: The note number of first occurrence (or none)
+/// Returns: Updated context
+#let with-first-note-number(ctx, note-number) = {
+  (
+    ..ctx,
+    first-reference-note-number: if note-number != none {
+      str(note-number)
+    } else { "" },
+  )
+}
+
+/// Add author substitution info for bibliography grouping
+///
+/// - ctx: Base context
+/// - substitute: Substitute string (e.g., "---")
+/// - rule: Substitution rule (e.g., "complete-all")
+/// - vars: Variables from first cs:names element
+/// Returns: Updated context
+#let with-author-substitute(ctx, substitute, rule, vars) = {
+  (
+    ..ctx,
+    author-substitute: substitute,
+    author-substitute-rule: rule,
+    substitute-vars: vars,
+  )
+}
+
+/// Add locale override to context
+///
+/// - ctx: Base context
+/// - locale: Locale object to use
+/// Returns: Updated context
+#let with-locale(ctx, locale) = {
+  (..ctx, locale: locale)
 }

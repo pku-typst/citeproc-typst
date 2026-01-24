@@ -1,16 +1,11 @@
-// citeproc-typst - CSL Interpreter Module (Recursive Reference Implementation)
+// citeproc-typst - CSL Interpreter Module
 //
-// NOTE: This recursive interpreter is NOT currently used in production.
-// All CSL interpretation now goes through the stack-based interpreter
-// in stack.typ, which provides better performance via macro memoization.
+// This module provides the recursive reference implementation of the CSL interpreter.
+// Production code uses the stack-based interpreter in stack.typ for better performance.
 //
-// This implementation is kept as a reference because:
-// 1. The recursive structure is clearer and easier to understand
-// 2. Useful for debugging and understanding CSL interpretation logic
-// 3. Can be used as a fallback if stack interpreter has issues
-//
-// Main entry point for CSL AST interpretation.
-// Uses a dispatch table for clean, extensible tag handling.
+// Exports:
+// - create-context: Context factory for CSL interpretation
+// - interpret-node: Recursive node interpreter (reference implementation only)
 
 #import "../core/mod.typ": is-empty
 
