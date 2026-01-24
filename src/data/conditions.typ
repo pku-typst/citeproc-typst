@@ -135,16 +135,32 @@
 #let eval-condition(attrs, ctx) = {
   let match-mode = attrs.at("match", default: "all")
 
+  // For "all" mode, use early return optimization
+  // This avoids evaluating remaining conditions once we know the result
+  let is-all-mode = match-mode == "all"
   let conditions = ()
+
+  // Helper to add condition result with early return for "all" mode
+  let add-condition(result) = {
+    if is-all-mode and not result {
+      return false // Early return - no need to check more
+    }
+    conditions.push(result)
+    true
+  }
 
   // Type condition
   if "type" in attrs {
-    conditions.push(check-type(ctx, attrs.type))
+    let result = check-type(ctx, attrs.type)
+    if is-all-mode and not result { return false }
+    conditions.push(result)
   }
 
   // Variable condition
   if "variable" in attrs {
-    conditions.push(check-variable(ctx, attrs.variable))
+    let result = check-variable(ctx, attrs.variable)
+    if is-all-mode and not result { return false }
+    conditions.push(result)
   }
 
   // Is-numeric condition

@@ -66,12 +66,11 @@
 }
 
 /// Check if a node calls a variable (directly or via macro)
-/// Optimized: macro calls are assumed to call variables (safe assumption)
+/// Optimized: avoid deep recursion - assume container elements call variables
 #let node-calls-variable(node, ctx) = {
   if type(node) != dictionary { return false }
   let tag = node.at("tag", default: "")
   let attrs = node.at("attrs", default: (:))
-  let children = node.at("children", default: ())
 
   // Elements that directly call variables
   if tag == "text" and attrs.at("variable", default: none) != none {
@@ -88,15 +87,17 @@
   }
 
   // Macro calls - assume they call variables (almost always true)
-  // This avoids expensive recursive macro expansion checking
   if tag == "text" and attrs.at("macro", default: none) != none {
     return true
   }
 
-  // Recursively check children
-  for child in children {
-    if node-calls-variable(child, ctx) { return true }
+  // Container elements - assume they may call variables
+  // This avoids expensive O(n) recursion; the CSL spec behavior is preserved
+  // because we still check if any variable has value via interpret results
+  if tag in ("group", "choose", "layout", "if", "else-if", "else") {
+    return true
   }
+
   false
 }
 
