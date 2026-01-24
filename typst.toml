@@ -2,7 +2,7 @@
 name = "citeproc-typst"
 version = "0.1.0"
 entrypoint = "lib.typ"
-authors = ["pku-typst"]
+authors = ["lucifer1004"]
 license = "MIT"
 description = "CSL (Citation Style Language) processor for Typst"
 repository = "https://github.com/pku-typst/citeproc-typst"
