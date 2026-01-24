@@ -1,11 +1,14 @@
 // citeproc-typst - Disambiguation Module
 //
-// Computes year suffixes and other disambiguation markers for author-date styles.
-// Implements CSL disambiguation options:
-// - disambiguate-add-year-suffix: Add a, b, c to years
-// - disambiguate-add-names: Add more author names
-// - disambiguate-add-givenname: Expand initials to full given names
-// - givenname-disambiguation-rule: Controls given name expansion scope
+// Implements CSL disambiguation according to the specification.
+// Disambiguation is applied in order:
+// 1. disambiguate-add-givenname: Expand initials to full given names
+// 2. disambiguate-add-names: Add more author names
+// 3. disambiguate condition: Render with disambiguate="true"
+// 4. disambiguate-add-year-suffix: Add a, b, c to years
+//
+// Key insight: Disambiguation is based on RENDERED citation form, not raw data.
+// Two citations are ambiguous if they render identically.
 
 #import "state.typ": get-entry-year, get-first-author-family
 
@@ -86,7 +89,8 @@
   let author-field = fields.at("author", default: none)
   if author-field == none { return () }
 
-  let parsed = entry.at("parsed-names", default: (:))
+  // Note: field name is parsed_names (underscore) from citegeist
+  let parsed = entry.at("parsed_names", default: (:))
   parsed.at("author", default: ())
 }
 
@@ -149,11 +153,16 @@
 
 /// Compute name disambiguation levels for entries
 ///
-/// Returns a dictionary of entry key -> (names-expanded, givenname-level)
+/// Implements CSL givenname-disambiguation-rule:
+/// - "all-names": Expand all ambiguous names in all cites
+/// - "all-names-with-initials": Same but limit to initials (level 1)
+/// - "primary-name": Only expand first name of each cite
+/// - "primary-name-with-initials": Only first name, only initials
+/// - "by-cite" (default): Only expand in ambiguous cites, stop when resolved
 ///
 /// - entries: Array of entry IRs
 /// - style: Parsed CSL style
-/// Returns: Dictionary of key -> (names-expanded: int, givenname-level: int)
+/// Returns: Dictionary of key -> (names-expanded: int, givenname-level: int, needs-disambiguate: bool)
 #let compute-name-disambiguation(entries, style) = {
   let citation = style.at("citation", default: none)
   if citation == none { return (:) }
@@ -174,6 +183,15 @@
   if type(et-al-min) == str { et-al-min = int(et-al-min) }
   if type(et-al-use-first) == str { et-al-use-first = int(et-al-use-first) }
 
+  // Determine max givenname level based on rule
+  // Level 0 = none, 1 = initials, 2 = full given name
+  let max-givenname-level = if givenname-rule.ends-with("-with-initials") {
+    1
+  } else { 2 }
+
+  // Determine if we only target primary (first) name
+  let primary-only = givenname-rule.starts-with("primary-name")
+
   // Build initial representations for all entries
   let disambig-state = (:)
   for e in entries {
@@ -183,6 +201,7 @@
       names-expanded: 0,
       givenname-level: 0,
       year: get-entry-year(e.entry),
+      needs-disambiguate: false, // Method 3 flag
     ))
   }
 
@@ -216,15 +235,15 @@
     for (full-key, colliding-keys) in keys.pairs() {
       if colliding-keys.len() > 1 {
         // Try disambiguation strategies in order:
-        // 1. Add givenname (initials first, then full)
+        // 1. Add givenname (initials first, then full - respecting rule limits)
         // 2. Add more names
 
         for entry-key in colliding-keys {
           let state = disambig-state.at(entry-key)
           let resolved = false
 
-          // Try expanding givenname first
-          if add-givenname and state.givenname-level < 2 {
+          // Try expanding givenname first (respecting max level from rule)
+          if add-givenname and state.givenname-level < max-givenname-level {
             let new-level = state.givenname-level + 1
             let new-key = build-author-key(
               state.authors,
@@ -250,7 +269,7 @@
               }
             }
 
-            if would-resolve or state.givenname-level < 2 {
+            if would-resolve or state.givenname-level < max-givenname-level {
               disambig-state.insert(entry-key, (
                 ..state,
                 givenname-level: new-level,
@@ -260,8 +279,8 @@
             }
           }
 
-          // Try adding more names
-          if not resolved and add-names {
+          // Try adding more names (skip if primary-only rule)
+          if not resolved and add-names and not primary-only {
             let max-names = state.authors.len()
             if state.names-expanded + et-al-use-first < max-names {
               disambig-state.insert(entry-key, (
@@ -278,43 +297,329 @@
     if not made-change { break }
   }
 
+  // Final pass: check for remaining collisions and mark for Method 3
+  let final-keys = (:)
+  for (entry-key, state) in disambig-state.pairs() {
+    let author-key = build-author-key(
+      state.authors,
+      et-al-use-first,
+      expand-names: state.names-expanded,
+      givenname-level: state.givenname-level,
+    )
+    let full-key = author-key + "|" + str(state.year)
+
+    if full-key not in final-keys {
+      final-keys.insert(full-key, ())
+    }
+    final-keys.at(full-key).push(entry-key)
+  }
+
+  // Mark entries that still have collisions as needing Method 3
+  for (full-key, colliding-keys) in final-keys.pairs() {
+    if colliding-keys.len() > 1 {
+      for entry-key in colliding-keys {
+        let state = disambig-state.at(entry-key)
+        disambig-state.insert(entry-key, (
+          ..state,
+          needs-disambiguate: true,
+        ))
+      }
+    }
+  }
+
   // Convert to result format
   let result = (:)
   for (entry-key, state) in disambig-state.pairs() {
     result.insert(entry-key, (
       names-expanded: state.names-expanded,
       givenname-level: state.givenname-level,
+      needs-disambiguate: state.needs-disambiguate,
     ))
   }
 
   result
 }
 
-/// Apply disambiguation to entry IRs
+// =============================================================================
+// Citation Key for Comparison
+// =============================================================================
+
+/// Build a citation key string for disambiguation comparison
+///
+/// This represents what the citation would render as (minus year-suffix).
+/// Two entries with the same citation key are ambiguous.
+///
+/// - entry: Entry from citegeist
+/// - state: Current disambiguation state for this entry
+/// - style: Parsed CSL style
+/// Returns: String key for comparison
+#let build-citation-key(entry, state, style) = {
+  let citation = style.at("citation", default: none)
+  if citation == none { return "" }
+
+  let et-al-min = citation.at("et-al-min", default: 4)
+  let et-al-use-first = citation.at("et-al-use-first", default: 1)
+  if type(et-al-min) == str { et-al-min = int(et-al-min) }
+  if type(et-al-use-first) == str { et-al-use-first = int(et-al-use-first) }
+
+  // Get authors
+  let authors = get-all-authors(entry)
+  if authors.len() == 0 { return "?" }
+
+  // Apply names-expanded to et-al-use-first
+  let effective-use-first = et-al-use-first + state.names-expanded
+
+  // Build author key with current disambiguation state
+  let author-key = build-author-key(
+    authors,
+    effective-use-first,
+    expand-names: 0, // Already included in effective-use-first
+    givenname-level: state.givenname-level,
+  )
+
+  // Add year
+  let year = get-entry-year(entry)
+
+  author-key + "|" + str(year)
+}
+
+/// Group entries by citation key
 ///
 /// - entries: Array of entry IRs
+/// - states: Dictionary of key -> disambiguation state
+/// - style: Parsed CSL style
+/// Returns: Dictionary of citation_key -> [entry_key, ...]
+#let group-by-citation-key(entries, states, style) = {
+  let groups = (:)
+
+  for e in entries {
+    let state = states.at(e.key)
+    let citation-key = build-citation-key(e.entry, state, style)
+
+    if citation-key not in groups {
+      groups.insert(citation-key, ())
+    }
+    groups.at(citation-key).push(e.key)
+  }
+
+  groups
+}
+
+/// Get ambiguous groups (groups with more than one entry)
+///
+/// - groups: Dictionary of citation_key -> [entry_key, ...]
+/// Returns: Array of (citation_key, [entry_key, ...]) where len > 1
+#let get-ambiguous-groups(groups) = {
+  groups.pairs().filter(((k, v)) => v.len() > 1)
+}
+
+// =============================================================================
+// Main Disambiguation Algorithm
+// =============================================================================
+
+/// Apply disambiguation to entry IRs
+///
+/// Implements CSL disambiguation in order:
+/// 1. disambiguate-add-givenname: Expand given names (initials → full)
+/// 2. disambiguate-add-names: Add more authors from et-al list
+/// 3. disambiguate condition: Set disambiguate=true in context
+/// 4. disambiguate-add-year-suffix: Add a, b, c to years
+///
+/// Key: Each method only applies to entries still ambiguous after previous methods.
+///
+/// - entries: Array of entry IRs (already sorted by bibliography order)
 /// - style: Parsed CSL style
 /// Returns: Array of entry IRs with disambig field populated
 #let apply-disambiguation(entries, style) = {
-  let suffixes = compute-year-suffixes(entries, style)
-  let name-disambig = compute-name-disambiguation(entries, style)
-
-  entries.map(e => {
-    let suffix = suffixes.at(e.key, default: "")
-    let name-info = name-disambig.at(e.key, default: (
-      names-expanded: 0,
-      givenname-level: 0,
-    ))
-
-    (
+  let citation = style.at("citation", default: none)
+  if citation == none {
+    // No citation element, return entries unchanged
+    return entries.map(e => (
       ..e,
       disambig: (
-        year-suffix: suffix,
-        names-expanded: name-info.names-expanded,
-        givenname-level: name-info.givenname-level,
+        year-suffix: "",
+        names-expanded: 0,
+        givenname-level: 0,
+        needs-disambiguate: false,
       ),
-    )
-  })
+    ))
+  }
+
+  // Get disambiguation options
+  let add-givenname = citation.at("disambiguate-add-givenname", default: false)
+  let add-names = citation.at("disambiguate-add-names", default: false)
+  let add-year-suffix = citation.at(
+    "disambiguate-add-year-suffix",
+    default: false,
+  )
+  let givenname-rule = citation.at(
+    "givenname-disambiguation-rule",
+    default: "by-cite",
+  )
+
+  // Determine max givenname level based on rule
+  let max-givenname-level = if givenname-rule.ends-with("-with-initials") {
+    1
+  } else { 2 }
+  let primary-only = givenname-rule.starts-with("primary-name")
+
+  // Get et-al settings for names expansion limit
+  let et-al-min = citation.at("et-al-min", default: 4)
+  if type(et-al-min) == str { et-al-min = int(et-al-min) }
+
+  // Initialize disambiguation state for each entry
+  let states = (:)
+  let entry-map = (:) // key -> entry for quick lookup
+
+  for e in entries {
+    states.insert(e.key, (
+      givenname-level: 0,
+      names-expanded: 0,
+      needs-disambiguate: false,
+      year-suffix: "",
+    ))
+    entry-map.insert(e.key, e)
+  }
+
+  // Initial grouping
+  let groups = group-by-citation-key(entries, states, style)
+  let ambiguous = get-ambiguous-groups(groups)
+
+  // ==========================================================================
+  // Method 1: disambiguate-add-givenname
+  // ==========================================================================
+  if add-givenname and ambiguous.len() > 0 {
+    // Try expanding givenname for ambiguous entries
+    for level in range(1, max-givenname-level + 1) {
+      // Get keys of still-ambiguous entries
+      let ambiguous-keys = ambiguous.map(((k, v)) => v).flatten()
+
+      // Expand givenname level for ambiguous entries
+      for key in ambiguous-keys {
+        let state = states.at(key)
+        if state.givenname-level < level {
+          states.insert(key, (
+            ..state,
+            givenname-level: level,
+          ))
+        }
+      }
+
+      // Re-group and check
+      let new-groups = group-by-citation-key(entries, states, style)
+      ambiguous = get-ambiguous-groups(new-groups)
+
+      if ambiguous.len() == 0 { break }
+    }
+  }
+
+  // ==========================================================================
+  // Method 2: disambiguate-add-names
+  // ==========================================================================
+  if add-names and not primary-only and ambiguous.len() > 0 {
+    // Try adding more names for still-ambiguous entries
+    let max-iterations = 10
+    let iteration = 0
+
+    while ambiguous.len() > 0 and iteration < max-iterations {
+      iteration += 1
+
+      // Get keys of still-ambiguous entries
+      let ambiguous-keys = ambiguous.map(((k, v)) => v).flatten()
+
+      // Check if any entry can still expand
+      let can-expand = false
+      for key in ambiguous-keys {
+        let state = states.at(key)
+        let e = entry-map.at(key)
+        let authors = get-all-authors(e.entry)
+        let et-al-use-first = citation.at("et-al-use-first", default: 1)
+        if type(et-al-use-first) == str {
+          et-al-use-first = int(et-al-use-first)
+        }
+
+        if state.names-expanded + et-al-use-first < authors.len() {
+          can-expand = true
+          states.insert(key, (
+            ..state,
+            names-expanded: state.names-expanded + 1,
+          ))
+        }
+      }
+
+      if not can-expand { break }
+
+      // Re-group and check
+      let new-groups = group-by-citation-key(entries, states, style)
+      ambiguous = get-ambiguous-groups(new-groups)
+    }
+  }
+
+  // ==========================================================================
+  // Method 3: disambiguate condition
+  // ==========================================================================
+  // Mark remaining ambiguous entries for the disambiguate condition
+  if ambiguous.len() > 0 {
+    let ambiguous-keys = ambiguous.map(((k, v)) => v).flatten()
+    for key in ambiguous-keys {
+      let state = states.at(key)
+      states.insert(key, (
+        ..state,
+        needs-disambiguate: true,
+      ))
+    }
+    // Note: We don't re-group here because we can't easily simulate
+    // what the disambiguate condition would render. This is left to
+    // the style author's judgment.
+  }
+
+  // ==========================================================================
+  // Method 4: disambiguate-add-year-suffix
+  // ==========================================================================
+  if add-year-suffix and ambiguous.len() > 0 {
+    // Assign year suffixes to still-ambiguous entries
+    // Suffixes are assigned in bibliography order within each ambiguous group
+    let suffix-chars = "abcdefghijklmnopqrstuvwxyz"
+
+    for (citation-key, entry-keys) in ambiguous {
+      // Sort by bibliography order (entry position in entries array)
+      let key-order = (:)
+      for (i, e) in entries.enumerate() {
+        if e.key in entry-keys {
+          key-order.insert(e.key, i)
+        }
+      }
+
+      let sorted-keys = entry-keys.sorted(key: k => key-order.at(
+        k,
+        default: 999,
+      ))
+
+      for (i, key) in sorted-keys.enumerate() {
+        if i < suffix-chars.len() {
+          let state = states.at(key)
+          states.insert(key, (
+            ..state,
+            year-suffix: suffix-chars.at(i),
+          ))
+        }
+      }
+    }
+  }
+
+  // ==========================================================================
+  // Apply states to entries
+  // ==========================================================================
+  entries.map(e => (
+    ..e,
+    disambig: states.at(e.key),
+  ))
+}
+
+// Legacy function for backward compatibility
+// Kept for direct year-suffix computation when called separately
+#let compute-year-suffixes-legacy(entries, style) = {
+  compute-year-suffixes(entries, style)
 }
 
 /// Check if two entries have the same short author representation

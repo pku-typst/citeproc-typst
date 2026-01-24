@@ -88,13 +88,52 @@
   let formatted-family = format-name-part(family, family-part-attrs)
   let formatted-given = given
 
-  // Short form: only family name
-  if name-form == "short" {
+  // Get disambiguation givenname-level from context (CSL Method 1)
+  // Level 0 = default, 1 = initials, 2 = full given name
+  let givenname-level = ctx.at("givenname-level", default: 0)
+
+  // Short form: only family name (unless disambiguation requires more)
+  if name-form == "short" and givenname-level == 0 {
     return formatted-family
   }
 
-  // Initialize given name if required
-  if initialize-with != none and given != "" and not is-chinese {
+  // If disambiguation requires showing given name but form is "short",
+  // show the given name with family name in standard order (Given Family)
+  if name-form == "short" and givenname-level > 0 {
+    // Show initials (level 1) or full name (level 2)
+    if givenname-level == 2 {
+      // Full given name - don't initialize
+      formatted-given = format-name-part(given, given-part-attrs)
+    } else {
+      // Level 1: show initials
+      if given != "" and not is-chinese {
+        let parts = given.split(regex("[ -]+")).filter(p => p != "")
+        // Use initialize-with from style, default to ". "
+        let init-sep = if initialize-with != none { initialize-with } else {
+          ". "
+        }
+        let initials = parts.map(p => {
+          if p.len() > 0 { upper(p.first()) + init-sep } else { "" }
+        })
+        formatted-given = initials.join("").trim(at: end)
+      }
+      formatted-given = format-name-part(formatted-given, given-part-attrs)
+    }
+    // CSL spec: disambiguated short names show as "G. Family" not "Family, G."
+    if formatted-given != "" {
+      return [#formatted-given #formatted-family]
+    } else {
+      return formatted-family
+    }
+  }
+
+  // Initialize given name if required (and not overridden by disambiguation)
+  if (
+    initialize-with != none
+      and given != ""
+      and not is-chinese
+      and givenname-level != 2
+  ) {
     // Split given names and take initials
     let parts = given.split(regex("[ -]+")).filter(p => p != "")
     let initialize-hyphen = ctx.style.initialize-with-hyphen
@@ -233,6 +272,13 @@
   // Convert string to int if needed
   if type(et-al-min) == str { et-al-min = int(et-al-min) }
   if type(et-al-use-first) == str { et-al-use-first = int(et-al-use-first) }
+
+  // Apply disambiguation: add more names if names-expanded > 0
+  // (CSL Method 2: disambiguate-add-names)
+  let names-expanded = ctx.at("names-expanded", default: 0)
+  if names-expanded > 0 {
+    et-al-use-first = et-al-use-first + names-expanded
+  }
 
   // Determine how many names to show
   let use-et-al = names.len() >= et-al-min

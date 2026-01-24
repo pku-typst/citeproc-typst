@@ -139,6 +139,7 @@
         // Get citation info from precomputed cache
         let citations = precomputed.citations
         let suffixes = precomputed.suffixes
+        let disambig-states = precomputed.at("disambig-states", default: (:))
 
         let cite-number = citations.order.at(key, default: citations.count + 1)
 
@@ -161,6 +162,12 @@
         // Get year suffix from precomputed cache (O(1) lookup)
         let year-suffix = suffixes.at(key, default: "")
 
+        // Get disambiguation state for name rendering
+        let disambig = disambig-states.at(key, default: (
+          names-expanded: 0,
+          givenname-level: 0,
+        ))
+
         // Get first note number for ibid/subsequent citations
         let first-note-number = citations.first-note-numbers.at(
           key,
@@ -178,6 +185,8 @@
           position: position,
           first-note-number: first-note-number,
           abbreviations: abbrevs,
+          names-expanded: disambig.at("names-expanded", default: 0),
+          givenname-level: disambig.at("givenname-level", default: 0),
         )
 
         // Note styles: wrap in footnote (unless prose/author/year form)
@@ -215,19 +224,24 @@
     // "The assignment of year-suffixes follows the order of the bibliographies entries"
     let processed = process-entries(bib, citations, style)
 
-    // Extract suffixes from processed entries
+    // Extract suffixes and full disambiguation state from processed entries
     let suffixes = (:)
+    let disambig-states = (:)
     for e in processed {
-      let suffix = e.disambig.at("year-suffix", default: "")
+      let disambig = e.disambig
+      let suffix = disambig.at("year-suffix", default: "")
       if suffix != "" {
         suffixes.insert(e.key, suffix)
       }
+      // Store full disambiguation state for citation rendering
+      disambig-states.insert(e.key, disambig)
     }
 
     // Store as queryable metadata
     [#metadata((
       citations: citations,
       suffixes: suffixes,
+      disambig-states: disambig-states,
     ))<citeproc-precomputed>]
   }
 }
@@ -302,6 +316,7 @@
         // Get citation info from precomputed cache
         let citations = precomputed.citations
         let suffixes = precomputed.suffixes
+        let disambig-states = precomputed.at("disambig-states", default: (:))
 
         let cite-number = citations.order.at(key, default: citations.count + 1)
 
@@ -324,6 +339,12 @@
         // Get year suffix from precomputed cache (O(1) lookup)
         let year-suffix = suffixes.at(key, default: "")
 
+        // Get disambiguation state for name rendering
+        let disambig = disambig-states.at(key, default: (
+          names-expanded: 0,
+          givenname-level: 0,
+        ))
+
         // Get first note number for ibid/subsequent citations
         let first-note-number = citations.first-note-numbers.at(
           key,
@@ -341,6 +362,8 @@
           position: position,
           first-note-number: first-note-number,
           abbreviations: abbrevs,
+          names-expanded: disambig.at("names-expanded", default: 0),
+          givenname-level: disambig.at("givenname-level", default: 0),
         )
 
         // Note styles: wrap in footnote (unless prose/author/year form)
@@ -376,19 +399,24 @@
     // "The assignment of year-suffixes follows the order of the bibliographies entries"
     let processed = process-entries(bib, citations, style)
 
-    // Extract suffixes from processed entries
+    // Extract suffixes and full disambiguation state from processed entries
     let suffixes = (:)
+    let disambig-states = (:)
     for e in processed {
-      let suffix = e.disambig.at("year-suffix", default: "")
+      let disambig = e.disambig
+      let suffix = disambig.at("year-suffix", default: "")
       if suffix != "" {
         suffixes.insert(e.key, suffix)
       }
+      // Store full disambiguation state for citation rendering
+      disambig-states.insert(e.key, disambig)
     }
 
     // Store as queryable metadata
     [#metadata((
       citations: citations,
       suffixes: suffixes,
+      disambig-states: disambig-states,
     ))<citeproc-precomputed>]
   }
 }

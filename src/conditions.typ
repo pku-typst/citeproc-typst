@@ -236,6 +236,17 @@
     conditions.push(has-locator)
   }
 
+  // Disambiguate condition (CSL Method 3)
+  // CSL spec: "A disambiguation attempt can also be made by rendering
+  // ambiguous cites with the disambiguate condition testing 'true'."
+  // The context should have a 'disambiguate' flag set when the cite
+  // needs additional disambiguation beyond methods 1, 2, and 4.
+  if "disambiguate" in attrs {
+    let disambiguate-value = attrs.at("disambiguate")
+    let needs-disambig = ctx.at("disambiguate", default: false)
+    conditions.push(disambiguate-value == "true" and needs-disambig)
+  }
+
   // =========================================================================
   // CSL-M Extension Conditions
   // =========================================================================

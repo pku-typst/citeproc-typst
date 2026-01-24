@@ -213,6 +213,10 @@
       default: "false",
     )
       == "true",
+    givenname-disambiguation-rule: citation-node.attrs.at(
+      "givenname-disambiguation-rule",
+      default: "by-cite",
+    ),
     disambiguate-add-year-suffix: citation-node.attrs.at(
       "disambiguate-add-year-suffix",
       default: "false",

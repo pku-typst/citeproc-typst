@@ -163,16 +163,25 @@
   year-suffix: "",
   include-number: true,
   abbreviations: (:),
+  names-expanded: 0,
+  givenname-level: 0,
+  needs-disambiguate: false,
 ) = {
   let ctx = create-context(
     style,
     entry,
     cite-number: cite-number,
     abbreviations: abbreviations,
+    disambiguate: needs-disambiguate,
   )
 
-  // Inject year suffix into context for rendering
-  let ctx = (..ctx, year-suffix: year-suffix)
+  // Inject year suffix and disambiguation info into context for rendering
+  let ctx = (
+    ..ctx,
+    year-suffix: year-suffix,
+    names-expanded: names-expanded,
+    givenname-level: givenname-level,
+  )
 
   let entry-lang = detect-language(entry.at("fields", default: (:)))
 
@@ -219,13 +228,17 @@
   include-number: true,
   abbreviations: (:),
 ) = {
+  let disambig = entry-ir.disambig
   render-entry(
     entry-ir.entry,
     style,
     cite-number: entry-ir.order,
-    year-suffix: entry-ir.disambig.at("year-suffix", default: ""),
+    year-suffix: disambig.at("year-suffix", default: ""),
     include-number: include-number,
     abbreviations: abbreviations,
+    names-expanded: disambig.at("names-expanded", default: 0),
+    givenname-level: disambig.at("givenname-level", default: 0),
+    needs-disambiguate: disambig.at("needs-disambiguate", default: false),
   )
 }
 
@@ -256,6 +269,8 @@
   suppress-affixes: false,
   first-note-number: none,
   abbreviations: (:),
+  names-expanded: 0,
+  givenname-level: 0,
 ) = {
   let ctx = create-context(
     style,
@@ -270,6 +285,9 @@
     first-reference-note-number: if first-note-number != none {
       str(first-note-number)
     } else { "" },
+    // Disambiguation state for name rendering
+    names-expanded: names-expanded,
+    givenname-level: givenname-level,
   )
 
   let citation = style.citation
