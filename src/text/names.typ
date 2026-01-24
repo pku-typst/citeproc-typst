@@ -5,6 +5,7 @@
 
 #import "../parsing/locales.typ": is-cjk-name, lookup-term
 #import "../core/constants.typ": POSITION
+#import "../core/utils.typ": capitalize-first-char
 
 // =============================================================================
 // Module-level regex patterns (avoid recompilation)
@@ -164,12 +165,9 @@
     } else if text-case == "lowercase" {
       result = lower(result)
     } else if text-case == "capitalize-first" and result.len() > 0 {
-      result = upper(result.first()) + result.slice(1)
+      result = capitalize-first-char(result)
     } else if text-case == "capitalize-all" {
-      result = result
-        .split(" ")
-        .map(w => if w.len() > 0 { upper(w.first()) + w.slice(1) } else { w })
-        .join(" ")
+      result = result.split(" ").map(w => capitalize-first-char(w)).join(" ")
     }
   }
 

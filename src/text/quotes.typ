@@ -48,11 +48,14 @@
   let max-level = 0
 
   for char in text {
-    if char == chars.open-quote.at(0) or char == chars.open-inner-quote.at(0) {
+    if (
+      char == chars.open-quote.first() or char == chars.open-inner-quote.first()
+    ) {
       level += 1
       if level > max-level { max-level = level }
     } else if (
-      char == chars.close-quote.at(0) or char == chars.close-inner-quote.at(0)
+      char == chars.close-quote.first()
+        or char == chars.close-inner-quote.first()
     ) {
       level -= 1
     }
