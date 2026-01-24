@@ -272,7 +272,8 @@
               }
             }
 
-            if would-resolve or state.givenname-level < max-givenname-level {
+            // Only expand givenname if it would actually resolve the collision
+            if would-resolve {
               disambig-state.insert(entry-key, (
                 ..state,
                 givenname-level: new-level,
@@ -501,14 +502,60 @@
       // Get keys of still-ambiguous entries
       let ambiguous-keys = ambiguous.map(((k, v)) => v).flatten()
 
-      // Expand givenname level for ambiguous entries
+      // For each ambiguous group, check if expanding givenname would help
+      // Only expand if the entries have different authors that could be
+      // distinguished by showing given names
       for key in ambiguous-keys {
         let state = states.at(key)
         if state.givenname-level < level {
-          states.insert(key, (
-            ..state,
-            givenname-level: level,
-          ))
+          // Check if this entry's author differs from others in its group
+          let entry = entries.find(e => e.key == key)
+          if entry != none {
+            let authors = entry
+              .entry
+              .at("parsed_names", default: (:))
+              .at("author", default: ())
+            let would-help = false
+
+            // Find other entries in same ambiguous group
+            for (group-key, group-keys) in ambiguous {
+              if key in group-keys {
+                for other-key in group-keys {
+                  if other-key != key {
+                    let other-entry = entries.find(e => e.key == other-key)
+                    if other-entry != none {
+                      let other-authors = other-entry
+                        .entry
+                        .at(
+                          "parsed_names",
+                          default: (:),
+                        )
+                        .at("author", default: ())
+                      // Check if any given name differs
+                      if authors.len() > 0 and other-authors.len() > 0 {
+                        let first-given = authors
+                          .first()
+                          .at("given", default: "")
+                        let other-first-given = other-authors
+                          .first()
+                          .at("given", default: "")
+                        if first-given != other-first-given {
+                          would-help = true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            if would-help {
+              states.insert(key, (
+                ..state,
+                givenname-level: level,
+              ))
+            }
+          }
         }
       }
 

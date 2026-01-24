@@ -97,8 +97,10 @@ COUNT=0
 # Results file
 RESULTS_FILE="$OUTPUT_DIR/results.txt"
 FAILED_FILE="$OUTPUT_DIR/failed.txt"
+TIMING_FILE="$OUTPUT_DIR/timing.txt"
 echo "Test Results - $(date)" > "$RESULTS_FILE"
 echo "" > "$FAILED_FILE"
+echo "" > "$TIMING_FILE"
 
 # Test each CSL file
 while IFS= read -r csl_file; do
@@ -122,18 +124,25 @@ while IFS= read -r csl_file; do
 
   # Run typst compile with project root set to project directory
   # Use relative path for CSL file and include fonts directory
+  START_TIME=$(python3 -c 'import time; print(time.time())')
   if typst compile "$PROJECT_DIR/tests/test-csl-compatibility.typ" "$OUTPUT_PDF" \
        --root "$PROJECT_DIR" \
        --font-path "$PROJECT_DIR/fonts" \
        --input "csl=$REL_PATH" 2>"$OUTPUT_DIR/error.log"; then
-    echo "✓ PASS"
+    END_TIME=$(python3 -c 'import time; print(time.time())')
+    ELAPSED=$(python3 -c "print(f'{$END_TIME - $START_TIME:.3f}')")
+    echo "✓ PASS (${ELAPSED}s)"
     PASSED=$((PASSED + 1))
-    echo "PASS: $REL_PATH" >> "$RESULTS_FILE"
+    echo "PASS: $REL_PATH (${ELAPSED}s)" >> "$RESULTS_FILE"
+    echo "${ELAPSED} $NAME" >> "$OUTPUT_DIR/timing.txt"
   else
-    echo "✗ FAIL"
+    END_TIME=$(python3 -c 'import time; print(time.time())')
+    ELAPSED=$(python3 -c "print(f'{$END_TIME - $START_TIME:.3f}')")
+    echo "✗ FAIL (${ELAPSED}s)"
     FAILED=$((FAILED + 1))
-    echo "FAIL: $REL_PATH" >> "$RESULTS_FILE"
+    echo "FAIL: $REL_PATH (${ELAPSED}s)" >> "$RESULTS_FILE"
     echo "$REL_PATH" >> "$FAILED_FILE"
+    echo "${ELAPSED} $NAME (FAIL)" >> "$OUTPUT_DIR/timing.txt"
 
     if [ "$VERBOSE" = true ]; then
       echo "  Error:"
@@ -162,6 +171,12 @@ if [ "$FAILED" -gt 0 ]; then
   echo "First 10 failures:"
   head -10 "$FAILED_FILE" | sed 's/^/  /'
 fi
+
+echo ""
+echo "Top 20 slowest CSL files:"
+sort -rn "$TIMING_FILE" | head -20 | sed 's/^/  /'
+echo ""
+echo "Timing data saved to: $TIMING_FILE"
 
 # Exit with error if any failed
 if [ "$FAILED" -gt 0 ]; then

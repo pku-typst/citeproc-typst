@@ -17,15 +17,76 @@
 /// Find first cs:names element in a node tree (recursive)
 ///
 /// CSL spec: "The comparison is limited to the output of the (first) cs:names element"
-#let find-first-names-node(node) = {
+/// This version follows macro references to find names inside macros.
+///
+/// - node: Current node to search
+/// - macros: Dictionary of macro definitions (from style.macros)
+/// Returns: First names node found, or none
+#let find-first-names-node(node, macros: (:)) = {
   if type(node) != dictionary { return none }
 
   let tag = node.at("tag", default: "")
   if tag == "names" { return node }
 
+  // Handle macro references: <text macro="name"/>
+  if tag == "text" {
+    let macro-name = node.at("attrs", default: (:)).at("macro", default: none)
+    if macro-name != none {
+      let macro-def = macros.at(macro-name, default: none)
+      if macro-def != none {
+        // Search inside the macro's children
+        let macro-children = macro-def.at("children", default: ())
+        for child in macro-children {
+          let found = find-first-names-node(child, macros: macros)
+          if found != none { return found }
+        }
+      }
+    }
+  }
+
   let children = node.at("children", default: ())
   for child in children {
-    let found = find-first-names-node(child)
+    let found = find-first-names-node(child, macros: macros)
+    if found != none { return found }
+  }
+  none
+}
+
+/// Find the first macro that calls cs:names in a layout node
+///
+/// Returns the macro name (string) if found via <text macro="...">, or none
+/// This is used to render the full macro for display (not just the names node).
+///
+/// - node: Current node to search
+/// - macros: Dictionary of macro definitions (from style.macros)
+/// Returns: (macro-name, text-node) tuple if found, or none
+#let find-first-names-macro(node, macros: (:)) = {
+  if type(node) != dictionary { return none }
+
+  let tag = node.at("tag", default: "")
+
+  // Handle macro references: <text macro="name"/>
+  if tag == "text" {
+    let macro-name = node.at("attrs", default: (:)).at("macro", default: none)
+    if macro-name != none {
+      let macro-def = macros.at(macro-name, default: none)
+      if macro-def != none {
+        // Check if this macro contains names
+        let macro-children = macro-def.at("children", default: ())
+        for child in macro-children {
+          let found = find-first-names-node(child, macros: macros)
+          if found != none {
+            // This macro contains names - return the macro name and the text node
+            return (macro-name: macro-name, text-node: node)
+          }
+        }
+      }
+    }
+  }
+
+  let children = node.at("children", default: ())
+  for child in children {
+    let found = find-first-names-macro(child, macros: macros)
     if found != none { return found }
   }
   none
@@ -132,16 +193,20 @@
   let layout = select-layout(layouts, entry-lang)
   if layout == none { return "" }
 
-  // Find first cs:names element in citation layout
-  let names-node = find-first-names-node(layout)
+  // Find first cs:names element in citation layout (follows macro references)
+  let macros = style.at("macros", default: (:))
+  let names-node = find-first-names-node(layout, macros: macros)
   if names-node == none { return "" }
 
-  // Create context for rendering
+  // Create context for rendering with citation-level et-al settings
   let ctx = create-context(style, entry)
   let ctx = (
     ..ctx,
     names-expanded: names-expanded,
     givenname-level: givenname-level,
+    // Citation-level et-al settings (inheritable name options)
+    citation-et-al-min: citation.at("et-al-min", default: none),
+    citation-et-al-use-first: citation.at("et-al-use-first", default: none),
   )
 
   // Render the names node
@@ -149,6 +214,66 @@
 
   // Convert content to string for comparison
   content-to-string(rendered)
+}
+
+/// Render names for citation display (not just comparison)
+///
+/// This renders the full macro that calls names, preserving correct formatting.
+/// Used by multicite for displaying author names.
+///
+/// - entry: Bibliography entry
+/// - style: Parsed CSL style
+/// - names-expanded: Name expansion level for disambiguation
+/// - givenname-level: Given name expansion level
+/// Returns: Rendered content for display
+#let render-names-for-citation-display(
+  entry,
+  style,
+  names-expanded: 0,
+  givenname-level: 0,
+) = {
+  let citation = style.at("citation", default: none)
+  if citation == none { return [] }
+
+  // CSL-M: Select layout based on entry language
+  let entry-lang = detect-language(entry.at("fields", default: (:)))
+  let layouts = citation.at("layouts", default: ())
+  let layout = select-layout(layouts, entry-lang)
+  if layout == none { return [] }
+
+  // Find first macro that contains names
+  let macros = style.at("macros", default: (:))
+  let macro-info = find-first-names-macro(layout, macros: macros)
+
+  if macro-info == none {
+    // Fall back to direct names node rendering
+    let names-node = find-first-names-node(layout, macros: macros)
+    if names-node == none { return [] }
+
+    let ctx = create-context(style, entry)
+    let ctx = (
+      ..ctx,
+      names-expanded: names-expanded,
+      givenname-level: givenname-level,
+      // Citation-level et-al settings (inheritable name options)
+      citation-et-al-min: citation.at("et-al-min", default: none),
+      citation-et-al-use-first: citation.at("et-al-use-first", default: none),
+    )
+    return interpret-node(names-node, ctx)
+  }
+
+  // Render the text node that calls the macro (this interprets the macro fully)
+  let ctx = create-context(style, entry)
+  let ctx = (
+    ..ctx,
+    names-expanded: names-expanded,
+    givenname-level: givenname-level,
+    // Citation-level et-al settings (inheritable name options)
+    citation-et-al-min: citation.at("et-al-min", default: none),
+    citation-et-al-use-first: citation.at("et-al-use-first", default: none),
+  )
+
+  interpret-node(macro-info.text-node, ctx)
 }
 
 /// Get the first cs:names node in bibliography layout
@@ -164,7 +289,8 @@
 
   // Use the first layout (typically the default/fallback layout)
   let layout = layouts.first()
-  find-first-names-node(layout)
+  let macros = style.at("macros", default: (:))
+  find-first-names-node(layout, macros: macros)
 }
 
 /// Render the first cs:names element in bibliography for author substitution comparison

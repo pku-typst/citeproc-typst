@@ -302,6 +302,9 @@
       let author-parts = ()
       for (author, _) in author-order {
         let author-items = by-author.at(author)
+        // Use author-display from first item for display (fall back to author string)
+        let first-item = author-items.first()
+        let display-author = first-item.at("author-display", default: author)
         let years = author-items.map(it => {
           let year-str = (
             str(it.at("year", default: "")) + it.at("suffix", default: "")
@@ -312,7 +315,7 @@
             year-str
           }
         })
-        author-parts.push([#author, #years.join(cite-group-delimiter)])
+        author-parts.push([#display-author, #years.join(cite-group-delimiter)])
       }
       return author-parts.join(delimiter)
     }
@@ -374,6 +377,10 @@
     // Iterate in first-occurrence order
     for (author, _) in author-order {
       let author-items = by-author.at(author)
+      // Use author-display from first item for display (fall back to author string)
+      let first-item = author-items.first()
+      let display-author = first-item.at("author-display", default: author)
+
       if collapse-mode == "year" {
         // Year collapsing: just show author once with all years
         let years = author-items.map(it => {
@@ -386,7 +393,7 @@
             year-str
           }
         })
-        author-parts.push([#author, #years.join(cite-group-delimiter)])
+        author-parts.push([#display-author, #years.join(cite-group-delimiter)])
       } else {
         // year-suffix or year-suffix-ranged: group by base year too
         let by-year = (:)
@@ -427,7 +434,9 @@
           }
         }
 
-        author-parts.push([#author, #year-parts.join(cite-group-delimiter)])
+        author-parts.push(
+          [#display-author, #year-parts.join(cite-group-delimiter)],
+        )
       }
     }
 

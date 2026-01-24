@@ -23,7 +23,8 @@
 #import "src/interpreter/mod.typ": create-context, interpret-node
 #import "src/output/mod.typ": (
   collapse-punctuation, get-rendered-entries, process-entries, render-citation,
-  render-entry, render-names-for-grouping, select-layout,
+  render-entry, render-names-for-citation-display, render-names-for-grouping,
+  select-layout,
 )
 #import "src/parsing/locales.typ": detect-language
 #import "src/core/mod.typ": (
@@ -621,19 +622,29 @@
             givenname-level: 0,
           ))
 
-          // Render names for grouping comparison (uses first cs:names output)
+          // Render names for grouping comparison (string, uses first cs:names output)
           let author = render-names-for-grouping(
             entry,
             style,
             names-expanded: disambig.at("names-expanded", default: 0),
             givenname-level: disambig.at("givenname-level", default: 0),
           )
+
+          // Render names for display (content, uses full macro rendering)
+          let author-display = render-names-for-citation-display(
+            entry,
+            style,
+            names-expanded: disambig.at("names-expanded", default: 0),
+            givenname-level: disambig.at("givenname-level", default: 0),
+          )
+
           let year = get-entry-year(entry)
           let suffix = suffixes.at(item.key, default: "")
 
           (
             key: item.key,
             author: author,
+            author-display: author-display,
             year: year,
             suffix: suffix,
             supplement: item.supplement,
@@ -715,10 +726,12 @@
         // No collapsing or grouping - format each citation separately
         let parts = cite-items.map(it => {
           let year-str = str(it.year) + it.suffix
+          // Use author-display for display (fall back to author string)
+          let display-author = it.at("author-display", default: it.author)
           if it.supplement != none {
-            [#it.author, #year-str: #it.supplement]
+            [#display-author, #year-str: #it.supplement]
           } else {
-            [#it.author, #year-str]
+            [#display-author, #year-str]
           }
         })
         parts.join("; ")
