@@ -22,3 +22,7 @@ Thumbs.db
 
 # CI temporary directories
 /zotero-styles/
+
+# Tytanic test artifacts (out/ and diff/ are generated, ref/ is committed)
+tests/*/out/
+tests/*/diff/

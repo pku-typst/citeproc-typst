@@ -14,7 +14,7 @@
 // - Year-suffix only assigned to entries that cannot be disambiguated
 //   by given name expansion or adding more author names
 
-#import "../lib.typ": csl-bibliography, init-csl
+#import "/lib.typ": csl-bibliography, init-csl
 
 // Style with all disambiguation methods enabled
 #let test-csl = ```xml

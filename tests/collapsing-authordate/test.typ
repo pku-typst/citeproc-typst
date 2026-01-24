@@ -1,6 +1,6 @@
 // Test author-date citation collapsing functionality
 
-#import "../lib.typ": csl-bibliography, init-csl, multicite
+#import "/lib.typ": csl-bibliography, init-csl, multicite
 
 // Author-date style with year-suffix collapse
 // year-suffix-delimiter defaults to layout delimiter per CSL spec

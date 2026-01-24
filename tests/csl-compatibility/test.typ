@@ -4,7 +4,7 @@
 //
 // Usage: typst compile test-csl-compatibility.typ --root . --input csl=path/to/style.csl
 
-#import "../lib.typ": csl-bibliography, init-csl, multicite
+#import "/lib.typ": csl-bibliography, init-csl, multicite
 
 #let csl-path = sys.inputs.at("csl", default: none)
 
@@ -14,7 +14,7 @@
     "ERROR: No CSL file specified. Use --input csl=path/to/file.csl",
   )
 } else {
-  let bib-content = read("test-gb7714.bib") // Relative to this file (tests/)
+  let bib-content = read("/tests/test-gb7714.bib") // Absolute path from project root
   // CSL path is relative to project root, so use "/" prefix for absolute path from root
   let csl-content = read("/" + csl-path)
 

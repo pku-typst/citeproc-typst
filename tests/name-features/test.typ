@@ -6,7 +6,7 @@
 // 3. subsequent-author-substitute: Replace repeated authors with substitute string
 // 4. names-min/use-first/use-last: Override et-al in sort keys
 
-#import "../lib.typ": csl-bibliography, init-csl
+#import "/lib.typ": csl-bibliography, init-csl
 
 // =============================================================================
 // Test CSL Style with comprehensive name features

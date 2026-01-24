@@ -3,7 +3,7 @@
 // This test verifies that CSL-M multilingual layout selection works correctly.
 // Different layouts are selected based on the entry's language.
 
-#import "../lib.typ": csl-bibliography, init-csl-json
+#import "/lib.typ": csl-bibliography, init-csl-json
 
 // CSL-M style with locale-specific layouts
 // - Chinese entries: Use "和" for "and", "编" for editor

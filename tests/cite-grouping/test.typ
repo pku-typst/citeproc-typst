@@ -3,7 +3,7 @@
 // CSL spec: "Cite grouping can be activated by setting the cite-group-delimiter
 // attribute or the collapse attributes on cs:citation."
 
-#import "../lib.typ": csl-bibliography, init-csl, multicite
+#import "/lib.typ": csl-bibliography, init-csl, multicite
 
 // Style with cite-group-delimiter but NO collapse attribute
 #let test-csl = ```xml

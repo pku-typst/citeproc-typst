@@ -1,5 +1,5 @@
 // Test CSL-JSON with numeric style (GB7714)
-#import "../lib.typ": csl-bibliography, init-csl-json
+#import "/lib.typ": csl-bibliography, init-csl-json
 
 #let test-json = `[
   {
@@ -25,7 +25,7 @@
 
 #show: init-csl-json.with(
   test-json,
-  read("../examples/gb7714-2025-numeric.csl"),
+  read("/examples/gb7714-2025-numeric.csl"),
 )
 
 = CSL-JSON Numeric Test

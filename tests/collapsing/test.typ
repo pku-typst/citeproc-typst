@@ -1,6 +1,6 @@
 // Test citation collapsing functionality
 
-#import "../lib.typ": csl-bibliography, init-csl, multicite
+#import "/lib.typ": csl-bibliography, init-csl, multicite
 
 // Simple test CSL with collapse="citation-number"
 #let test-csl-numeric = ```xml

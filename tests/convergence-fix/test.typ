@@ -3,7 +3,7 @@
 // when using counter-based occurrence tracking.
 // Fixed by using complex labels + selector.before(here()) instead.
 
-#import "../lib.typ": csl-bibliography, init-csl
+#import "/lib.typ": csl-bibliography, init-csl
 
 #let test-csl = ```xml
 <?xml version="1.0" encoding="utf-8"?>

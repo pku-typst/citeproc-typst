@@ -5,7 +5,7 @@
 // This test verifies that year-suffixes are assigned according to bibliography order,
 // not by title alphabetical order.
 
-#import "../lib.typ": csl-bibliography, init-csl, multicite
+#import "/lib.typ": csl-bibliography, init-csl, multicite
 
 // ============================================================================
 // TEST 1: Author-date style with bibliography sorted by citation order

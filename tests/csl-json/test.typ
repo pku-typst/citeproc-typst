@@ -1,7 +1,7 @@
 // Test CSL-JSON input support
 // This test verifies that CSL-JSON entries are correctly parsed and rendered
 
-#import "../lib.typ": csl-bibliography, init-csl-json
+#import "/lib.typ": csl-bibliography, init-csl-json
 
 // CSL-JSON test data (inline)
 #let test-json = `[
@@ -80,7 +80,7 @@
 
 #show: init-csl-json.with(
   test-json,
-  read("../examples/chicago-fullnote-bibliography.csl"),
+  read("/examples/chicago-fullnote-bibliography.csl"),
 )
 
 = CSL-JSON Input Test

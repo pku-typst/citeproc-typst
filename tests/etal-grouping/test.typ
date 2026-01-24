@@ -2,7 +2,7 @@
 //
 // CSL spec: "The comparison is limited to the output of the (first) cs:names element"
 
-#import "../lib.typ": csl-bibliography, init-csl, multicite
+#import "/lib.typ": csl-bibliography, init-csl, multicite
 
 // Style with et-al settings: 3+ authors become "First et al."
 #let test-csl = ```xml

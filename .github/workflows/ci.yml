@@ -129,7 +129,7 @@ jobs:
             SAFE_NAME=$(echo "$NAME" | tr ' /' '__')
 
             # Run typst compile and save PDF
-            if typst compile tests/test-csl-compatibility.typ "build/csl-results/${SAFE_NAME}.pdf" \
+            if typst compile tests/csl-compatibility/test.typ "build/csl-results/${SAFE_NAME}.pdf" \
                  --root . \
                  --font-path fonts/ \
                  --input "csl=$csl_file" 2>/dev/null; then

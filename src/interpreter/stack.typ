@@ -7,6 +7,7 @@
 // For a clearer recursive reference implementation, see mod.typ.
 
 #import "../core/mod.typ": finalize, is-empty
+#import "../data/conditions.typ": eval-condition
 #import "../data/variables.typ": get-variable
 #import "../parsing/locales.typ": lookup-term
 #import "../text/ranges.typ": format-page-range
@@ -89,18 +90,13 @@
   if children.len() == 0 { return [] }
 
   // Work stack: (node, state, meta)
-  let stack = ()
   // Result stack: stores results as they complete
-  let results = ()
   // Macro cache (mutable within this function!)
   let macro-cache = (:)
+  let results = ()
 
   // Initialize stack with children (reversed for correct order)
-  let i = children.len() - 1
-  while i >= 0 {
-    stack.push((node: children.at(i), state: "pending", meta: (:)))
-    i -= 1
-  }
+  let stack = children.rev().map(c => (node: c, state: "pending", meta: (:)))
 
   // Process stack
   while stack.len() > 0 {
@@ -150,14 +146,8 @@
               ),
             ))
             // Push macro children (reversed)
-            let j = macro-def.children.len() - 1
-            while j >= 0 {
-              stack.push((
-                node: macro-def.children.at(j),
-                state: "pending",
-                meta: (:),
-              ))
-              j -= 1
+            for c in macro-def.children.rev() {
+              stack.push((node: c, state: "pending", meta: (:)))
             }
           } else {
             // Empty or missing macro
@@ -174,73 +164,48 @@
             meta: (child-count: node-children.len(), attrs: attrs),
           ))
           // Push children (reversed)
-          let j = node-children.len() - 1
-          while j >= 0 {
-            stack.push((node: node-children.at(j), state: "pending", meta: (:)))
-            j -= 1
+          for c in node-children.rev() {
+            stack.push((node: c, state: "pending", meta: (:)))
           }
         } else {
           results.push([])
         }
       } else if tag == "choose" {
-        // Choose needs to evaluate conditions - delegate to existing logic
-        // For simplicity, process inline
-        let branch-result = []
+        // Choose: evaluate conditions and process matching branch
+        let matched = false
         for branch in node-children {
           if type(branch) != dictionary { continue }
           let branch-tag = branch.at("tag", default: "")
           let branch-attrs = branch.at("attrs", default: (:))
           let branch-children = branch.at("children", default: ())
 
-          if branch-tag == "if" or branch-tag == "else-if" {
-            // Import condition evaluation
-            import "../data/conditions.typ": eval-condition
-            if eval-condition(branch-attrs, ctx) {
-              // Process this branch's children
-              if branch-children.len() > 0 {
-                stack.push((
-                  node: node,
-                  state: "choose-pending",
-                  meta: (child-count: branch-children.len()),
-                ))
-                let j = branch-children.len() - 1
-                while j >= 0 {
-                  stack.push((
-                    node: branch-children.at(j),
-                    state: "pending",
-                    meta: (:),
-                  ))
-                  j -= 1
-                }
-              } else {
-                results.push([])
-              }
-              break
-            }
+          let should-take = if branch-tag == "if" or branch-tag == "else-if" {
+            eval-condition(branch-attrs, ctx)
           } else if branch-tag == "else" {
+            true
+          } else {
+            false
+          }
+
+          if should-take {
             if branch-children.len() > 0 {
               stack.push((
                 node: node,
                 state: "choose-pending",
                 meta: (child-count: branch-children.len()),
               ))
-              let j = branch-children.len() - 1
-              while j >= 0 {
-                stack.push((
-                  node: branch-children.at(j),
-                  state: "pending",
-                  meta: (:),
-                ))
-                j -= 1
+              for c in branch-children.rev() {
+                stack.push((node: c, state: "pending", meta: (:)))
               }
             } else {
               results.push([])
             }
+            matched = true
             break
           }
         }
         // If no branch matched, push empty result
-        if stack.len() == 0 or stack.last().state != "choose-pending" {
+        if not matched {
           results.push([])
         }
       } else {
@@ -248,23 +213,11 @@
         results.push(process-leaf(node, ctx))
       }
     } else if state == "macro-pending" {
-      // Macro children completed, collect results
+      // Macro children completed - collect last N results (already in correct order)
       let child-count = meta.child-count
-      let collected = ()
-      let k = 0
-      while k < child-count {
-        if results.len() > 0 {
-          collected.push(results.pop())
-        }
-        k += 1
-      }
-      // Reverse to get correct order
-      let ordered = ()
-      let m = collected.len() - 1
-      while m >= 0 {
-        ordered.push(collected.at(m))
-        m -= 1
-      }
+      let ordered = results.slice(-child-count)
+      results = results.slice(0, results.len() - child-count)
+
       // Join non-empty results
       let joined = ordered.filter(x => not is-empty(x)).join()
 
@@ -274,28 +227,16 @@
       // Apply formatting and push
       results.push(finalize(joined, meta.attrs))
     } else if state == "group-pending" {
-      // Group children completed
+      // Group children completed - collect last N results (already in correct order)
       let child-count = meta.child-count
-      let collected = ()
-      let k = 0
-      while k < child-count {
-        if results.len() > 0 {
-          collected.push(results.pop())
-        }
-        k += 1
-      }
-      // Reverse
-      let ordered = ()
-      let m = collected.len() - 1
-      while m >= 0 {
-        ordered.push(collected.at(m))
-        m -= 1
-      }
+      let ordered = results.slice(-child-count)
+      results = results.slice(0, results.len() - child-count)
+
       // Join with delimiter
-      let delimiter = meta.attrs.at("delimiter", default: "")
+      let group-delimiter = meta.attrs.at("delimiter", default: "")
       let parts = ordered.filter(x => not is-empty(x))
-      let joined = if delimiter != "" and parts.len() > 1 {
-        parts.join(delimiter)
+      let joined = if group-delimiter != "" and parts.len() > 1 {
+        parts.join(group-delimiter)
       } else {
         parts.join()
       }
@@ -309,23 +250,11 @@
         results.push([])
       }
     } else if state == "choose-pending" {
-      // Choose branch completed
+      // Choose branch completed - collect last N results (already in correct order)
       let child-count = meta.child-count
-      let collected = ()
-      let k = 0
-      while k < child-count {
-        if results.len() > 0 {
-          collected.push(results.pop())
-        }
-        k += 1
-      }
-      // Reverse and join
-      let ordered = ()
-      let m = collected.len() - 1
-      while m >= 0 {
-        ordered.push(collected.at(m))
-        m -= 1
-      }
+      let ordered = results.slice(-child-count)
+      results = results.slice(0, results.len() - child-count)
+
       let joined = ordered.filter(x => not is-empty(x)).join()
       results.push(joined)
     }

@@ -23,6 +23,18 @@ watch-en:
 watch-zh:
     typst watch examples/example-zh.typ build/example-zh.pdf --root . --font-path fonts/
 
+# Run all unit tests with tytanic
+test:
+    tt run --font-path fonts/
+
+# Update test references (after intentional changes)
+test-update:
+    tt update --font-path fonts/ --force
+
+# Run specific test
+test-one name:
+    tt run --font-path fonts/ {{name}}
+
 # Run CSL compatibility tests (requires styles in references/styles/src)
 test-csl:
     ./scripts/test-all-csl.sh --limit 10
