@@ -2,6 +2,7 @@
 //
 // Shared initialization logic for CSL processing.
 
+#import "../core/constants.typ": POSITION
 #import "../parsing/mod.typ": parse-csl, parse-locale-file
 #import "../output/mod.typ": (
   collapse-punctuation, get-rendered-entries, process-entries, render-citation,
@@ -182,9 +183,9 @@
           p.at("occurrence", default: -1) == occurrence
         ))
         let position = if pos-info != none {
-          pos-info.at("position", default: "first")
+          pos-info.at("position", default: POSITION.first)
         } else {
-          "first"
+          POSITION.first
         }
 
         let year-suffix = suffixes.at(key, default: "")

@@ -4,6 +4,7 @@
 // Includes CSL-M extension conditions
 
 #import "variables.typ": get-variable, has-variable  // Same directory
+#import "../core/constants.typ": POSITION, RENDER-CONTEXT
 
 // =============================================================================
 // Module-level constants (avoid recreating on each call)
@@ -215,7 +216,7 @@
   // Position condition (first, subsequent, ibid, ibid-with-locator, near-note)
   if "position" in attrs {
     let pos-value = attrs.at("position")
-    let current-pos = ctx.at("position", default: "first")
+    let current-pos = ctx.at("position", default: POSITION.first)
     let positions = pos-value.split(" ")
 
     // Pre-compute note distance if needed (avoid repeated lookups)
@@ -233,8 +234,11 @@
     let matches = positions.any(p => {
       if p == current-pos {
         true
-      } else if p == "subsequent" {
-        current-pos in ("subsequent", "ibid", "ibid-with-locator")
+      } else if p == POSITION.subsequent {
+        (
+          current-pos
+            in (POSITION.subsequent, POSITION.ibid, POSITION.ibid-with-locator)
+        )
       } else if p == "near-note" {
         note-distance != none and note-distance <= near-note-threshold
       } else if p == "far-note" {
@@ -270,7 +274,10 @@
   // Context condition (CSL-M): check if rendering in citation or bibliography
   if "context" in attrs {
     let context-value = attrs.at("context")
-    let current-context = ctx.at("render-context", default: "bibliography")
+    let current-context = ctx.at(
+      "render-context",
+      default: RENDER-CONTEXT.bibliography,
+    )
     conditions.push(context-value == current-context)
   }
 
