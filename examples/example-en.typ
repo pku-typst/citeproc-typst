@@ -1,6 +1,6 @@
-// citeproc-typst: English Documentation & Example
+// citeproc: English Documentation & Example
 //
-// This document demonstrates the features of citeproc-typst
+// This document demonstrates the features of citeproc
 // using the Chicago Manual of Style (Full Note with Bibliography).
 
 #import "../lib.typ": csl-bibliography, init-csl, multicite
@@ -19,7 +19,7 @@
 )
 
 #align(center)[
-  #text(size: 18pt, weight: "bold")[citeproc-typst]
+  #text(size: 18pt, weight: "bold")[citeproc]
   #v(0.3em)
   #text(size: 12pt)[CSL Processor for Typst]
   #v(1em)
@@ -27,7 +27,7 @@
 
 = Introduction
 
-*citeproc-typst* is a Citation Style Language (CSL) processor for Typst. It allows you to use standard CSL style files—the same format used by Zotero, Mendeley, and thousands of other citation managers—to format citations and bibliographies in your Typst documents.
+*citeproc* is a Citation Style Language (CSL) processor for Typst. It allows you to use standard CSL style files—the same format used by Zotero, Mendeley, and thousands of other citation managers—to format citations and bibliographies in your Typst documents.
 
 This document serves as both documentation and a working example. It uses the Chicago Manual of Style (Full Note with Bibliography) format.
 
@@ -56,7 +56,7 @@ You can also add page numbers to individual citations:
 
 = Citation Collapsing
 
-For numeric and author-date styles, citeproc-typst supports automatic collapsing:
+For numeric and author-date styles, citeproc supports automatic collapsing:
 
 - `citation-number`: Collapse consecutive numeric citations (e.g., `[1-4]`)
 - `year`: Collapse same-author citations by year
@@ -76,7 +76,7 @@ The library supports different citation forms:
 
 = Year Disambiguation
 
-When the same author has multiple publications in the same year, citeproc-typst automatically adds letter suffixes for disambiguation:
+When the same author has multiple publications in the same year, citeproc automatically adds letter suffixes for disambiguation:
 
 - First Smith 2020 paper: @smith2020climate
 - Second Smith 2020 paper: @smith2020policy

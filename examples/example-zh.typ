@@ -1,6 +1,6 @@
-// citeproc-typst: 中文文档与示例
+// citeproc: 中文文档与示例
 //
-// 本文档展示 citeproc-typst 的功能特性
+// 本文档展示 citeproc 的功能特性
 // 使用 GB/T 7714—2025（顺序编码制）格式
 
 #import "../lib.typ": csl-bibliography, init-csl, multicite
@@ -22,7 +22,7 @@
 )
 
 #align(center)[
-  #text(size: 18pt, weight: "bold")[citeproc-typst 使用指南]
+  #text(size: 18pt, weight: "bold")[citeproc 使用指南]
   #v(0.3em)
   #text(size: 12pt)[面向 Typst 的 CSL 引用处理器]
   #v(1em)
@@ -30,7 +30,7 @@
 
 = 简介
 
-*citeproc-typst* 是一个用于 Typst 的 CSL（Citation Style Language，引文样式语言）处理器。它允许你使用标准的 CSL 样式文件——与 Zotero、Mendeley 等引文管理软件相同的格式——在 Typst 文档中格式化引文和参考文献。
+*citeproc* 是一个用于 Typst 的 CSL（Citation Style Language，引文样式语言）处理器。它允许你使用标准的 CSL 样式文件——与 Zotero、Mendeley 等引文管理软件相同的格式——在 Typst 文档中格式化引文和参考文献。
 
 本文档既是使用说明，也是一个完整的工作示例。文档采用 GB/T 7714—2025（顺序编码制）格式。
 
@@ -59,7 +59,7 @@
 
 = 引用折叠
 
-对于顺序编码制，citeproc-typst 支持自动折叠连续编号的引用。
+对于顺序编码制，citeproc 支持自动折叠连续编号的引用。
 
 连续三篇文献（自动折叠为 `[2–4]`）：#multicite("wang2010abstract", "liu2015method", "li2018deep")
 
@@ -78,7 +78,7 @@
 
 = 年份消歧
 
-当同一作者在同一年份有多篇发表时，citeproc-typst 自动添加字母后缀进行区分：
+当同一作者在同一年份有多篇发表时，citeproc 自动添加字母后缀进行区分：
 
 - Smith 2020 年第一篇论文：@smith2020climate
 - Smith 2020 年第二篇论文：@smith2020policy

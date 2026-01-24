@@ -7,13 +7,13 @@ Use standard CSL style files — the same format used by Zotero, Mendeley, and t
 ## Installation
 
 ```typst
-#import "@preview/citeproc-typst:0.1.0": init-csl, csl-bibliography
+#import "@preview/citeproc:0.1.0": init-csl, csl-bibliography
 ```
 
 ## Quick Start
 
 ```typst
-#import "@preview/citeproc-typst:0.1.0": init-csl, csl-bibliography
+#import "@preview/citeproc:0.1.0": init-csl, csl-bibliography
 
 #show: init-csl.with(
   read("references.bib"),
@@ -64,7 +64,7 @@ Initialize the CSL processor with BibTeX bibliography data and style.
 Initialize the CSL processor with CSL-JSON bibliography data. CSL-JSON is the native format for CSL processors — properties map directly to CSL variables, avoiding translation losses from BibTeX.
 
 ```typst
-#import "@preview/citeproc-typst:0.1.0": init-csl-json, csl-bibliography
+#import "@preview/citeproc:0.1.0": init-csl-json, csl-bibliography
 
 #show: init-csl-json.with(
   read("references.json"),   // CSL-JSON file content
