@@ -308,6 +308,12 @@
     "delimiter-precedes-last",
     default: "contextual",
   )
+  // CSL spec: delimiter-precedes-et-al controls delimiter before "et al."
+  // Default is "contextual" (delimiter only if list has 2+ names)
+  let delimiter-precedes-et-al = attrs.at(
+    "delimiter-precedes-et-al",
+    default: "contextual",
+  )
 
   // Get the "and" term
   let and-term = if and-mode == "symbol" {
@@ -346,7 +352,25 @@
   // Add et al if needed
   if use-et-al {
     let et-al = lookup-term(ctx, "et-al", form: "long")
-    [#result#delimiter#et-al]
+
+    // CSL spec: delimiter-precedes-et-al determines when to add delimiter before "et al."
+    // "contextual" (default): delimiter only if 2+ names shown
+    // "always": always add delimiter
+    // "never": never add delimiter (just space)
+    // "after-inverted-name": delimiter only after inverted name
+    let use-delimiter-before-et-al = (
+      (delimiter-precedes-et-al == "always")
+        or (
+          delimiter-precedes-et-al == "contextual" and formatted.len() >= 2
+        )
+    )
+
+    if use-delimiter-before-et-al {
+      [#result#delimiter#et-al]
+    } else {
+      // Use explicit space (not content space which can be collapsed)
+      [#result#" "#et-al]
+    }
   } else {
     result
   }

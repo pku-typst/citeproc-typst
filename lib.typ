@@ -21,7 +21,8 @@
 #import "src/parser.typ": parse-csl, parse-locale-file
 #import "src/interpreter.typ": create-context, interpret-node
 #import "src/renderer.typ": (
-  get-rendered-entries, process-entries, render-citation, render-entry,
+  collapse-punctuation, get-rendered-entries, process-entries, render-citation,
+  render-entry, render-names-for-grouping,
 )
 #import "src/state.typ": (
   _abbreviations, _bib-data, _config, _csl-style, cite-marker,
@@ -175,7 +176,8 @@
         )
 
         let abbrevs = _abbreviations.get()
-        let result = render-citation(
+        // Apply punctuation collapsing to CSL citation output
+        let result = collapse-punctuation(render-citation(
           entry,
           style,
           form: it.form,
@@ -187,7 +189,7 @@
           abbreviations: abbrevs,
           names-expanded: disambig.at("names-expanded", default: 0),
           givenname-level: disambig.at("givenname-level", default: 0),
-        )
+        ))
 
         // Note styles: wrap in footnote (unless prose/author/year form)
         let is-note-style = style.class == "note"
@@ -352,7 +354,8 @@
         )
 
         let abbrevs = _abbreviations.get()
-        let result = render-citation(
+        // Apply punctuation collapsing to CSL citation output
+        let result = collapse-punctuation(render-citation(
           entry,
           style,
           form: it.form,
@@ -364,7 +367,7 @@
           abbreviations: abbrevs,
           names-expanded: disambig.at("names-expanded", default: 0),
           givenname-level: disambig.at("givenname-level", default: 0),
-        )
+        ))
 
         // Note styles: wrap in footnote (unless prose/author/year form)
         let is-note-style = style.class == "note"
@@ -652,14 +655,15 @@
     if is-note-style {
       // Note/footnote style: render each citation fully and join with delimiter
       // Wrap in footnote unless using prose/author/year form
-      import "src/renderer.typ": render-citation
+      import "src/renderer.typ": collapse-punctuation, render-citation
 
       let is-multicite = normalized.len() > 1
 
       let cite-parts = normalized.map(item => {
         let entry = bib.at(item.key, default: none)
         if entry == none { return [] }
-        render-citation(
+        // Apply punctuation collapsing to each citation
+        collapse-punctuation(render-citation(
           entry,
           style,
           supplement: item.supplement,
@@ -667,7 +671,7 @@
           // Suppress affixes for individual citations in multi-cite context
           // (affixes applied once at the end)
           suppress-affixes: is-multicite,
-        )
+        ))
       })
 
       let joined = cite-parts.filter(p => p != []).join(delimiter)
@@ -693,15 +697,29 @@
       // Get collapse mode from citation style
       let collapse-mode = style.citation.at("collapse", default: none)
 
-      // Use precomputed suffixes (O(1) lookup instead of O(N) recomputation)
+      // Get disambiguation states for proper name rendering
+      let disambig-states = precomputed.at("disambig-states", default: (:))
 
-      // Build items with author, year, suffix
+      // Build items with rendered author (for grouping), year, suffix
+      // CSL spec: "The comparison is limited to the output of the (first) cs:names element"
       let cite-items = normalized
         .map(item => {
           let entry = bib.at(item.key, default: none)
           if entry == none { return none }
 
-          let author = get-first-author-family(entry)
+          // Get disambiguation state for this entry
+          let disambig = disambig-states.at(item.key, default: (
+            names-expanded: 0,
+            givenname-level: 0,
+          ))
+
+          // Render names for grouping comparison (uses first cs:names output)
+          let author = render-names-for-grouping(
+            entry,
+            style,
+            names-expanded: disambig.at("names-expanded", default: 0),
+            givenname-level: disambig.at("givenname-level", default: 0),
+          )
           let year = get-entry-year(entry)
           let suffix = suffixes.at(item.key, default: "")
 
@@ -750,19 +768,35 @@
           != none
       )
 
+      // CSL spec: "year-suffix" and "year-suffix-ranged" fall back to "year"
+      // when disambiguate-add-year-suffix is "false"
+      let has-year-suffix = style.citation.at(
+        "disambiguate-add-year-suffix",
+        default: "false",
+      )
+      let effective-collapse-mode = if (
+        collapse-mode in ("year-suffix", "year-suffix-ranged")
+          and has-year-suffix != "true"
+          and has-year-suffix != true
+      ) {
+        "year" // Fallback to "year" mode
+      } else {
+        collapse-mode
+      }
+
       // Enable grouping if collapse is set OR cite-group-delimiter is set
       let enable-grouping = (
-        collapse-mode != none or has-cite-group-delim
+        effective-collapse-mode != none or has-cite-group-delim
       )
 
       // Apply collapsing/grouping
       let result = if (
-        collapse-mode in ("year", "year-suffix", "year-suffix-ranged")
+        effective-collapse-mode in ("year", "year-suffix", "year-suffix-ranged")
           or enable-grouping
       ) {
         apply-collapse(
           cite-items,
-          collapse-mode,
+          effective-collapse-mode,
           enable-grouping: enable-grouping,
           delimiter: "; ",
           cite-group-delimiter: cite-group-delim,

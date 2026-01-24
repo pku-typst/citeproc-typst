@@ -135,36 +135,15 @@
   false
 }
 
-/// Strip trailing punctuation from content for delimiter collapsing
-#let strip-trailing-punct(content) = {
-  let s = repr(content)
-  s.ends-with(".]") or s.ends-with(".])") or s.ends-with(".\"]")
-}
-
-/// Join parts with delimiter, collapsing duplicate punctuation
+/// Join parts with delimiter
+///
+/// Note: Punctuation collapsing (e.g., ".." → ".") is now handled by
+/// show rules in lib.typ using regex replacement. This is more reliable
+/// than trying to detect punctuation in complex nested content structures.
 #let join-with-delimiter(parts, delimiter) = {
   if parts.len() == 0 { return [] }
   if parts.len() == 1 { return parts.first() }
-  if delimiter == "" { return parts.join() }
-
-  let delim-first = delimiter.first()
-  let is-punct-delim = delim-first in (".", ",", ";", ":")
-
-  if not is-punct-delim {
-    return parts.join(delimiter)
-  }
-
-  // Join with punctuation collapsing
-  let result = parts.first()
-  for part in parts.slice(1) {
-    if strip-trailing-punct(result) {
-      let rest = if delimiter.len() > 1 { delimiter.slice(1) } else { "" }
-      result = [#result#rest#part]
-    } else {
-      result = [#result#delimiter#part]
-    }
-  }
-  result
+  parts.join(delimiter)
 }
 
 // Minor words for title case (defined once, not per call)
@@ -414,8 +393,48 @@
   }
 }
 
+/// Check if a node calls a variable (directly or via macro)
+/// Optimized: macro calls are assumed to call variables (safe assumption)
+#let node-calls-variable(node, ctx) = {
+  if type(node) != dictionary { return false }
+  let tag = node.at("tag", default: "")
+  let attrs = node.at("attrs", default: (:))
+  let children = node.at("children", default: ())
+
+  // Elements that directly call variables
+  if tag == "text" and attrs.at("variable", default: none) != none {
+    return true
+  }
+  if tag == "number" and attrs.at("variable", default: none) != none {
+    return true
+  }
+  if tag == "names" and attrs.at("variable", default: none) != none {
+    return true
+  }
+  if tag == "date" and attrs.at("variable", default: none) != none {
+    return true
+  }
+
+  // Macro calls - assume they call variables (almost always true)
+  // This avoids expensive recursive macro expansion checking
+  if tag == "text" and attrs.at("macro", default: none) != none {
+    return true
+  }
+
+  // Recursively check children
+  for child in children {
+    if node-calls-variable(child, ctx) { return true }
+  }
+  false
+}
+
 /// Handle <group> element
 /// Supports CSL-M require/reject for comma-safe locators
+///
+/// CSL spec: "Groups implicitly act as a conditional: cs:group and its child
+/// elements are suppressed if a) at least one rendering element in cs:group
+/// calls a variable (directly or via a macro), and b) all variables that are
+/// called are empty."
 #let handle-group(node, ctx, interpret) = {
   let attrs = node.at("attrs", default: (:))
   let children = node.at("children", default: ())
@@ -424,9 +443,13 @@
   let require-val = attrs.at("require", default: none)
   let reject-val = attrs.at("reject", default: none)
 
-  // Collect renderable parts, flattening choose/if/else structures
-  let collect-parts(nodes, ctx, interpret) = {
+  // Collect renderable parts, tracking variable calls and their outputs
+  // This combines variable checking and rendering in a single pass
+  let collect-parts-with-tracking(nodes, ctx, interpret) = {
     let parts = ()
+    let has-variable-call = false
+    let any-variable-has-value = false
+
     for n in nodes {
       if type(n) != dictionary { continue }
       let child-tag = n.at("tag", default: "")
@@ -442,29 +465,56 @@
 
           if branch-tag == "if" or branch-tag == "else-if" {
             if eval-condition(branch-attrs, ctx) {
-              for part in collect-parts(branch-children, ctx, interpret) {
-                parts.push(part)
-              }
+              let sub = collect-parts-with-tracking(
+                branch-children,
+                ctx,
+                interpret,
+              )
+              for part in sub.parts { parts.push(part) }
+              if sub.has-variable-call { has-variable-call = true }
+              if sub.any-variable-has-value { any-variable-has-value = true }
               break
             }
           } else if branch-tag == "else" {
-            for part in collect-parts(branch-children, ctx, interpret) {
-              parts.push(part)
-            }
+            let sub = collect-parts-with-tracking(
+              branch-children,
+              ctx,
+              interpret,
+            )
+            for part in sub.parts { parts.push(part) }
+            if sub.has-variable-call { has-variable-call = true }
+            if sub.any-variable-has-value { any-variable-has-value = true }
             break
           }
         }
       } else {
+        // Check if this node calls a variable (fast check, no interpret)
+        let calls-var = node-calls-variable(n, ctx)
+        if calls-var { has-variable-call = true }
+
+        // Render the node
         let result = interpret(n, ctx)
         if not is-empty(result) {
           parts.push(result)
+          if calls-var { any-variable-has-value = true }
         }
       }
     }
-    parts
+    (
+      parts: parts,
+      has-variable-call: has-variable-call,
+      any-variable-has-value: any-variable-has-value,
+    )
   }
 
-  let parts = collect-parts(children, ctx, interpret)
+  let collected = collect-parts-with-tracking(children, ctx, interpret)
+
+  // CSL spec: If group calls variables but all are empty, suppress entire group
+  if collected.has-variable-call and not collected.any-variable-has-value {
+    return []
+  }
+
+  let parts = collected.parts
 
   if parts.len() == 0 {
     []

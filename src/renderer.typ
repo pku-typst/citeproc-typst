@@ -3,11 +3,161 @@
 // High-level rendering functions with IR pipeline integration.
 
 #import "interpreter.typ": create-context, interpret-node
+
+/// Apply CSL punctuation collapsing to content
+///
+/// CSL spec: When a rendered item ends with punctuation, subsequent
+/// affixes starting with the same (or weaker) punctuation have it suppressed.
+///
+/// Rules:
+/// 1. Duplicate punctuation collapses: ".." → ".", ",," → ",", etc.
+/// 2. Period is absorbed by stronger punctuation: ".,", ".;", ".:", ".!", ".?" → the stronger one
+/// 3. Supports both Western and CJK punctuation
+///
+/// This wrapper limits the show rules to CSL output only,
+/// avoiding interference with user content.
+#let collapse-punctuation(content) = {
+  // Rule 1: Same-class punctuation collapses (keeps first character)
+  // Western + CJK periods
+  show regex("[.。]{2,}"): it => it.text.first()
+  // Western + CJK commas (、is CJK enumeration comma)
+  show regex("[,，、]{2,}"): it => it.text.first()
+  // Western + CJK semicolons
+  show regex("[;；]{2,}"): it => it.text.first()
+  // Western + CJK colons
+  show regex("[:：]{2,}"): it => it.text.first()
+  // Western + CJK exclamation marks
+  show regex("[!！]{2,}"): it => it.text.first()
+  // Western + CJK question marks
+  show regex("[?？]{2,}"): it => it.text.first()
+
+  // Rule 2: Period absorbed by stronger punctuation (keeps the stronger one)
+  // Period + comma → comma
+  show regex("[.。][,，、]|[,，、][.。]"): it => {
+    let chars = it.text.clusters()
+    chars.find(c => c in (",", "，", "、"))
+  }
+  // Period + semicolon → semicolon
+  show regex("[.。][;；]|[;；][.。]"): it => {
+    let chars = it.text.clusters()
+    chars.find(c => c in (";", "；"))
+  }
+  // Period + colon → colon
+  show regex("[.。][:：]|[:：][.。]"): it => {
+    let chars = it.text.clusters()
+    chars.find(c => c in (":", "："))
+  }
+  // Period + exclamation → exclamation
+  show regex("[.。][!！]|[!！][.。]"): it => {
+    let chars = it.text.clusters()
+    chars.find(c => c in ("!", "！"))
+  }
+  // Period + question → question
+  show regex("[.。][?？]|[?？][.。]"): it => {
+    let chars = it.text.clusters()
+    chars.find(c => c in ("?", "？"))
+  }
+
+  content
+}
 #import "locales.typ": detect-language, locale-matches
 #import "names.typ": format-names
 #import "state.typ": create-entry-ir, get-entry-year, get-first-author-family
 #import "sorting.typ": sort-bibliography-entries
 #import "disambiguation.typ": apply-disambiguation
+
+/// Find first cs:names element in a node tree (recursive)
+///
+/// CSL spec: "The comparison is limited to the output of the (first) cs:names element"
+#let find-first-names-node(node) = {
+  if type(node) != dictionary { return none }
+
+  let tag = node.at("tag", default: "")
+  if tag == "names" { return node }
+
+  let children = node.at("children", default: ())
+  for child in children {
+    let found = find-first-names-node(child)
+    if found != none { return found }
+  }
+  none
+}
+
+/// Extract plain text from content recursively
+#let content-to-string(c) = {
+  if c == none or c == [] { return "" }
+  if type(c) == str { return c }
+  if type(c) == int or type(c) == float { return str(c) }
+
+  // For content, try to get its text representation
+  // This handles sequences, text nodes, etc.
+  let text-func = c.func()
+  let fields = c.fields()
+
+  if text-func == text {
+    // Text node - extract the body
+    let body = fields.at("body", default: fields.at("text", default: ""))
+    if type(body) == str { body } else { content-to-string(body) }
+  } else if "children" in fields {
+    // Sequence or container with children
+    fields.children.map(content-to-string).join("")
+  } else if "body" in fields {
+    // Container with body
+    content-to-string(fields.body)
+  } else if "child" in fields {
+    // Container with single child
+    content-to-string(fields.child)
+  } else if "text" in fields {
+    // Direct text field
+    if type(fields.text) == str { fields.text } else {
+      content-to-string(fields.text)
+    }
+  } else {
+    // Fallback: just return empty string for unknown content types
+    ""
+  }
+}
+
+/// Render the first cs:names element for cite grouping comparison
+///
+/// CSL spec: "cites with identical rendered names are grouped together...
+/// The comparison is limited to the output of the (first) cs:names element,
+/// but includes output rendered through cs:substitute."
+///
+/// - entry: Bibliography entry
+/// - style: Parsed CSL style
+/// - disambig-state: Disambiguation state (names-expanded, givenname-level)
+/// Returns: String representation of rendered names for grouping comparison
+#let render-names-for-grouping(
+  entry,
+  style,
+  names-expanded: 0,
+  givenname-level: 0,
+) = {
+  let citation = style.at("citation", default: none)
+  if citation == none { return "" }
+
+  let layout = citation.at("layout", default: none)
+  if layout == none { return "" }
+
+  // Find first cs:names element in citation layout
+  let names-node = find-first-names-node(layout)
+  if names-node == none { return "" }
+
+  // Create context for rendering
+  let ctx = create-context(style, entry)
+  let ctx = (
+    ..ctx,
+    names-expanded: names-expanded,
+    givenname-level: givenname-level,
+  )
+
+  // Render the names node
+  let rendered = interpret-node(names-node, ctx)
+
+  // Convert content to string for comparison
+  content-to-string(rendered)
+}
 
 /// Check if style uses citation-number variable
 /// Uses simple string search on macro definitions instead of recursive AST traversal
@@ -212,7 +362,9 @@
 
   // Apply layout suffix (usually ".")
   let layout-suffix = layout.at("suffix", default: ".")
-  [#result#layout-suffix]
+
+  // Apply punctuation collapsing to CSL output only
+  collapse-punctuation([#result#layout-suffix])
 }
 
 /// Render a bibliography entry from an entry IR
