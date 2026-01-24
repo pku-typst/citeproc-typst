@@ -221,10 +221,12 @@
     // "The assignment of year-suffixes follows the order of the bibliographies entries"
     let processed = process-entries(bib, citations, style)
 
-    // Extract suffixes and full disambiguation state from processed entries
+    // Extract suffixes, disambiguation state, and sorted order from processed entries
     let suffixes = (:)
     let disambig-states = (:)
+    let sorted-keys = () // Preserve sorted order to avoid re-sorting
     for e in processed {
+      sorted-keys.push(e.key)
       let disambig = e.disambig
       let suffix = disambig.at("year-suffix", default: "")
       if suffix != "" {
@@ -239,6 +241,7 @@
       citations: citations,
       suffixes: suffixes,
       disambig-states: disambig-states,
+      sorted-keys: sorted-keys, // Cache sorted order
     ))<citeproc-precomputed>]
   }
 }
@@ -358,13 +361,14 @@
   let precomputed = _get-precomputed()
   let citations = precomputed.citations
 
-  // Process entries through IR pipeline
+  // Process entries through IR pipeline (using cached sort order)
   let abbrevs = _abbreviations.get()
   let rendered-entries = get-rendered-entries(
     bib,
     citations,
     style,
     abbreviations: abbrevs,
+    precomputed: precomputed, // Use cached sorted-keys and disambig-states
   )
 
   // Build rich entry data

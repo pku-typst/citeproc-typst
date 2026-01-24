@@ -773,9 +773,44 @@
 /// - citations: Citation info from collect-citations()
 /// - style: Parsed CSL style
 /// - abbreviations: Optional abbreviation lookup table
+/// - precomputed: Optional precomputed data with sorted-keys and disambig-states
 /// Returns: Array of (entry-ir, rendered, rendered-body, rendered-number, label) tuples
-#let get-rendered-entries(bib-data, citations, style, abbreviations: (:)) = {
-  let entries = process-entries(bib-data, citations, style)
+#let get-rendered-entries(
+  bib-data,
+  citations,
+  style,
+  abbreviations: (:),
+  precomputed: none,
+) = {
+  // Use precomputed sorted order and disambig states if available
+  let entries = if (
+    precomputed != none
+      and precomputed.at(
+        "sorted-keys",
+        default: none,
+      )
+        != none
+  ) {
+    let sorted-keys = precomputed.sorted-keys
+    let disambig-states = precomputed.at("disambig-states", default: (:))
+
+    // Reconstruct entries in cached sorted order with cached disambig
+    sorted-keys
+      .enumerate()
+      .map(((idx, key)) => {
+        let entry = bib-data.at(key, default: none)
+        if entry == none { return none }
+        let order = citations.order.at(key, default: idx)
+        let ir = create-entry-ir(key, entry, order, style)
+        // Apply cached disambiguation state
+        let disambig = disambig-states.at(key, default: ir.disambig)
+        (..ir, disambig: disambig)
+      })
+      .filter(x => x != none)
+  } else {
+    // Fall back to full processing
+    process-entries(bib-data, citations, style)
+  }
 
   // Get subsequent-author-substitute settings
   let bib-settings = style.at("bibliography", default: (:))
