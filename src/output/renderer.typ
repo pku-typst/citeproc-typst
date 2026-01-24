@@ -3,6 +3,7 @@
 // High-level rendering functions with IR pipeline integration.
 
 #import "../interpreter/mod.typ": create-context, interpret-node
+#import "../interpreter/stack.typ": interpret-children-stack
 #import "punctuation.typ": collapse-punctuation
 #import "../parsing/locales.typ": (
   create-fallback-locale, detect-language, locale-matches,
@@ -519,11 +520,9 @@
     layout.children.filter(node => not _node-uses-citation-number(node))
   }
 
-  // Interpret layout children
-  let result = children
-    .map(node => interpret-node(node, ctx))
-    .filter(x => x != [] and x != "")
-    .join()
+  // Use stack-based interpreter with built-in memoization
+  // This reduces O(calls * depth) to O(unique macros) for macro expansion
+  let result = interpret-children-stack(children, ctx)
 
   // Apply layout suffix (usually ".")
   let layout-suffix = layout.at("suffix", default: ".")

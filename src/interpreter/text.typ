@@ -27,14 +27,22 @@
     } else { [] }
   } else if "macro" in attrs {
     let macro-name = attrs.macro
-    let macro-def = ctx.macros.at(macro-name, default: none)
-    if macro-def != none {
-      macro-def
-        .children
-        .map(n => interpret(n, ctx))
-        .filter(x => not is-empty(x))
-        .join()
-    } else { [] }
+    // Check if we have precomputed results (memoization)
+    let precomputed = ctx.at("macro-results", default: none)
+    if precomputed != none and macro-name in precomputed {
+      // Use precomputed result - O(1) lookup instead of recursive expansion
+      precomputed.at(macro-name)
+    } else {
+      // Fallback to normal expansion (for sorting, etc.)
+      let macro-def = ctx.macros.at(macro-name, default: none)
+      if macro-def != none {
+        macro-def
+          .children
+          .map(n => interpret(n, ctx))
+          .filter(x => not is-empty(x))
+          .join()
+      } else { [] }
+    }
   } else if "value" in attrs {
     attrs.value
   } else if "term" in attrs {
