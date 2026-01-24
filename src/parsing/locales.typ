@@ -396,6 +396,32 @@
   is-cjk-text(family + given)
 }
 
+// Language name to code mappings (module-level constant)
+#let _language-name-map = (
+  "chinese": "zh",
+  "english": "en",
+  "german": "de",
+  "french": "fr",
+  "spanish": "es",
+  "japanese": "ja",
+  "korean": "ko",
+  "portuguese": "pt",
+  "russian": "ru",
+)
+
+// Language code prefixes for detection
+#let _language-code-prefixes = (
+  "zh",
+  "en",
+  "de",
+  "fr",
+  "es",
+  "ja",
+  "ko",
+  "pt",
+  "ru",
+)
+
 /// Detect language from context or fields
 ///
 /// Priority:
@@ -421,29 +447,15 @@
   if lang != "" {
     let lower-lang = lower(lang)
 
-    // Language name to code mappings
-    let name-map = (
-      "chinese": "zh",
-      "english": "en",
-      "german": "de",
-      "french": "fr",
-      "spanish": "es",
-      "japanese": "ja",
-      "korean": "ko",
-      "portuguese": "pt",
-      "russian": "ru",
-    )
-
     // Check for language names
-    for (name, code) in name-map.pairs() {
+    for (name, code) in _language-name-map.pairs() {
       if lower-lang.contains(name) {
         return code
       }
     }
 
     // Check for language codes (e.g., "zh-CN", "en-US", "de")
-    let code-prefixes = ("zh", "en", "de", "fr", "es", "ja", "ko", "pt", "ru")
-    for prefix in code-prefixes {
+    for prefix in _language-code-prefixes {
       if lower-lang.starts-with(prefix) {
         return prefix
       }

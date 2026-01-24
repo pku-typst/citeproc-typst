@@ -5,6 +5,16 @@
 // - year-range-format: same options
 
 // =============================================================================
+// Module-level regex patterns (avoid recompilation)
+// =============================================================================
+
+// Pattern for splitting ranges on dash or en-dash
+#let _range-split-pattern = regex("[\\-–\\u2013]")
+
+// Pattern for detecting digits
+#let _digit-pattern = regex("[0-9]")
+
+// =============================================================================
 // Range Delimiter
 // =============================================================================
 
@@ -34,7 +44,7 @@
   let str = str(range-str)
 
   // Match patterns like "123-456", "123–456", "A123-A456", "123a-123b"
-  let parts = str.split(regex("[\\-–\\u2013]"))
+  let parts = str.split(_range-split-pattern)
 
   if parts.len() == 2 {
     let start = parts.at(0).trim()
@@ -65,7 +75,7 @@
   let after-number = false
 
   for char in str.clusters() {
-    let is-digit = char.match(regex("[0-9]")) != none
+    let is-digit = char.match(_digit-pattern) != none
 
     if is-digit {
       if after-number {

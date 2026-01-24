@@ -6,6 +6,15 @@
 // Module-level constants (avoid recreating on each call)
 // =============================================================================
 
+// Date parsing regex patterns
+#let _iso-date-pattern = regex("^(\\d{4})[-/](\\d{1,2})(?:[-/](\\d{1,2}))?$")
+#let _year-only-pattern = regex("^(\\d{4})$")
+#let _text-date-pattern = regex(
+  "^([A-Za-z]+)\\s+(?:(\\d{1,2}),?\\s+)?(\\d{4})$",
+)
+#let _any-year-pattern = regex("(\\d{4})")
+#let _full-iso-pattern = regex("\\d{4}-\\d{2}-\\d{2}")
+
 // Month name to number mapping
 #let _month-map = (
   "january": 1,
@@ -45,7 +54,7 @@
   let s = str(date-str).trim()
 
   // Try ISO format: YYYY-MM-DD or YYYY/MM/DD
-  let iso-match = s.match(regex("^(\d{4})[-/](\d{1,2})(?:[-/](\d{1,2}))?$"))
+  let iso-match = s.match(_iso-date-pattern)
   if iso-match != none {
     let captures = iso-match.captures
     let year = int(captures.at(0))
@@ -75,13 +84,13 @@
   }
 
   // Try just year
-  let year-match = s.match(regex("^(\d{4})$"))
+  let year-match = s.match(_year-only-pattern)
   if year-match != none {
     return datetime(year: int(year-match.captures.at(0)), month: 1, day: 1)
   }
 
   // Try "Month Year" or "Month Day, Year"
-  let text-match = s.match(regex("^([A-Za-z]+)\s+(?:(\d{1,2}),?\s+)?(\d{4})$"))
+  let text-match = s.match(_text-date-pattern)
   if text-match != none {
     let captures = text-match.captures
     let month-name = lower(captures.at(0))
@@ -94,7 +103,7 @@
   }
 
   // Fallback: try to extract year
-  let any-year = s.match(regex("(\d{4})"))
+  let any-year = s.match(_any-year-pattern)
   if any-year != none {
     return datetime(year: int(any-year.captures.at(0)), month: 1, day: 1)
   }
@@ -161,8 +170,7 @@
   } else if component == "day" {
     (
       fields.at("day", default: "") != ""
-        or fields.at("date", default: "").matches(regex("\d{4}-\d{2}-\d{2}"))
-          != none
+        or fields.at("date", default: "").matches(_full-iso-pattern) != none
     )
   } else {
     false
