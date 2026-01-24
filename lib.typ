@@ -505,6 +505,9 @@
 /// // Custom title
 /// #csl-bibliography(title: heading(level: 2)[References])
 ///
+/// // No title
+/// #csl-bibliography(title: none)
+///
 /// // Full custom rendering
 /// #csl-bibliography(full-control: entries => {
 ///   for e in entries [
@@ -535,11 +538,11 @@
         actual-title
       }
 
-      // Use pre-rendered content or full-control callback
+      // Use full-control callback or pre-rendered content
       if full-control != none {
         full-control(data.entries)
       } else {
-        // Use pre-rendered bibliography content directly
+        // Use pre-rendered content
         data.rendered-content
       }
     }

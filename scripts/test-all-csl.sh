@@ -125,7 +125,7 @@ while IFS= read -r csl_file; do
   # Run typst compile with project root set to project directory
   # Use relative path for CSL file and include fonts directory
   START_TIME=$(python3 -c 'import time; print(time.time())')
-  if typst compile "$PROJECT_DIR/tests/test-csl-compatibility.typ" "$OUTPUT_PDF" \
+  if typst compile "$PROJECT_DIR/tests/csl-compatibility/test.typ" "$OUTPUT_PDF" \
        --root "$PROJECT_DIR" \
        --font-path "$PROJECT_DIR/fonts" \
        --input "csl=$REL_PATH" 2>"$OUTPUT_DIR/error.log"; then
