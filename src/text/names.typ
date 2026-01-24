@@ -143,23 +143,64 @@
 // Name Part Formatting
 // =============================================================================
 
-/// Apply name-part formatting (text-case)
+/// Apply name-part formatting
+/// Handles CSL formatting attributes: font-style, font-weight, font-variant,
+/// text-decoration, text-case, and affixes (prefix/suffix)
+///
+/// - text: Name part text to format
+/// - attrs: Attributes from <name-part> element
+/// Returns: Formatted content
 #let format-name-part(text, attrs) = {
   if text == "" { return "" }
+  if attrs.len() == 0 { return text }
 
   let result = text
 
-  if "text-case" in attrs {
-    let text-case = attrs.at("text-case")
+  // Apply text-case first (works on strings)
+  let text-case = attrs.at("text-case", default: none)
+  if text-case != none {
     if text-case == "uppercase" {
       result = upper(result)
     } else if text-case == "lowercase" {
       result = lower(result)
-    } else if text-case == "capitalize-first" {
-      if result.len() > 0 {
-        result = upper(result.first()) + result.slice(1)
-      }
+    } else if text-case == "capitalize-first" and result.len() > 0 {
+      result = upper(result.first()) + result.slice(1)
+    } else if text-case == "capitalize-all" {
+      result = result
+        .split(" ")
+        .map(w => if w.len() > 0 { upper(w.first()) + w.slice(1) } else { w })
+        .join(" ")
     }
+  }
+
+  // Apply affixes
+  let prefix = attrs.at("prefix", default: "")
+  let suffix = attrs.at("suffix", default: "")
+  if prefix != "" or suffix != "" {
+    result = prefix + result + suffix
+  }
+
+  // Apply font formatting (convert to content if needed)
+  let font-style = attrs.at("font-style", default: none)
+  if font-style == "italic" or font-style == "oblique" {
+    result = emph(result)
+  }
+
+  let font-weight = attrs.at("font-weight", default: none)
+  if font-weight == "bold" {
+    result = strong(result)
+  } else if font-weight == "light" {
+    result = text(weight: "light", result)
+  }
+
+  let text-decoration = attrs.at("text-decoration", default: none)
+  if text-decoration == "underline" {
+    result = underline(result)
+  }
+
+  let font-variant = attrs.at("font-variant", default: none)
+  if font-variant == "small-caps" {
+    result = smallcaps(result)
   }
 
   result
@@ -348,7 +389,17 @@
 /// - names: Array of parsed name dicts
 /// - attrs: Name formatting attributes
 /// - ctx: Context
-#let format-names(names, attrs, ctx) = {
+/// - name-parts: Dict of name-part formatting from <name-part> elements
+/// - substitute-string: String to use for substituted names (for subsequent-author-substitute)
+/// - substitute-count: Number of names from start to substitute (0 = no substitution)
+#let format-names(
+  names,
+  attrs,
+  ctx,
+  name-parts: (:),
+  substitute-string: none,
+  substitute-count: 0,
+) = {
   if names.len() == 0 { return [] }
 
   // ==========================================================================
@@ -404,21 +455,23 @@
   let use-et-al = names.len() >= et-al-min and et-al-use-first < names.len()
   let show-count = if use-et-al { et-al-use-first } else { names.len() }
 
-  // Parse name-part elements if present (would be passed via attrs in a more complete impl)
-  let name-parts = (:)
-
   // Format individual names
   let formatted = ()
   for (i, name) in names
     .slice(0, calc.min(show-count, names.len()))
     .enumerate() {
-    formatted.push(format-single-name(
-      name,
-      attrs,
-      ctx,
-      position: i + 1,
-      name-parts: name-parts,
-    ))
+    // Check if this name should be substituted
+    if substitute-string != none and i < substitute-count {
+      formatted.push(substitute-string)
+    } else {
+      formatted.push(format-single-name(
+        name,
+        attrs,
+        ctx,
+        position: i + 1,
+        name-parts: name-parts,
+      ))
+    }
   }
 
   // Get delimiters
@@ -579,11 +632,17 @@
 /// - attrs: Name formatting attributes
 /// - institution-attrs: Institution formatting attributes (from cs:institution)
 /// - ctx: Context
+/// - name-parts: Dict of name-part formatting from <name-part> elements
+/// - substitute-string: String to use for substituted names
+/// - substitute-count: Number of names from start to substitute
 #let format-names-with-institutions(
   names,
   attrs,
   institution-attrs,
   ctx,
+  name-parts: (:),
+  substitute-string: none,
+  substitute-count: 0,
 ) = {
   if names.len() == 0 { return [] }
 
@@ -610,7 +669,14 @@
 
   // If no institutions, just format as regular names
   if inst-groups.len() == 0 {
-    return format-names(names, attrs, ctx)
+    return format-names(
+      names,
+      attrs,
+      ctx,
+      name-parts: name-parts,
+      substitute-string: substitute-string,
+      substitute-count: substitute-count,
+    )
   }
 
   // Format each group
@@ -624,7 +690,12 @@
 
     // Format personal names in this group
     if group.personal.len() > 0 {
-      parts.push(format-names(group.personal, attrs, ctx))
+      parts.push(format-names(
+        group.personal,
+        attrs,
+        ctx,
+        name-parts: name-parts,
+      ))
     }
 
     // Format institution
@@ -646,12 +717,17 @@
   let result = if unaffiliated.len() > 0 and formatted-groups.len() > 0 {
     let with-term = lookup-term(ctx, "with", form: "long")
     if with-term == "" { with-term = "with" }
-    let unaffiliated-formatted = format-names(unaffiliated, attrs, ctx)
+    let unaffiliated-formatted = format-names(
+      unaffiliated,
+      attrs,
+      ctx,
+      name-parts: name-parts,
+    )
     [#unaffiliated-formatted #with-term #formatted-groups.join(group-delimiter)]
   } else if formatted-groups.len() > 0 {
     formatted-groups.join(group-delimiter)
   } else {
-    format-names(names, attrs, ctx)
+    format-names(names, attrs, ctx, name-parts: name-parts)
   }
 
   result

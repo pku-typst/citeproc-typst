@@ -12,6 +12,42 @@
 #import "entry.typ": render-citation-number, render-entry-ir
 
 // =============================================================================
+// Name Comparison Helpers for Subsequent Author Substitute
+// =============================================================================
+
+/// Check if two name dicts are equal
+/// Compares family, given, and literal fields
+#let _names-equal(name1, name2) = {
+  if name1 == none or name2 == none { return false }
+  let family1 = name1.at("family", default: "")
+  let family2 = name2.at("family", default: "")
+  let given1 = name1.at("given", default: "")
+  let given2 = name2.at("given", default: "")
+  let literal1 = name1.at("literal", default: "")
+  let literal2 = name2.at("literal", default: "")
+
+  if literal1 != "" or literal2 != "" {
+    literal1 == literal2
+  } else {
+    family1 == family2 and given1 == given2
+  }
+}
+
+/// Count how many names match from the start of two name lists
+#let _count-matching-names(names1, names2) = {
+  let count = 0
+  let min-len = calc.min(names1.len(), names2.len())
+  for i in range(min-len) {
+    if _names-equal(names1.at(i), names2.at(i)) {
+      count += 1
+    } else {
+      break
+    }
+  }
+  count
+}
+
+// =============================================================================
 // IR Pipeline
 // =============================================================================
 
@@ -119,7 +155,10 @@
   } else { "author" }
 
   // Track previous entry's names for substitution
+  // prev-names: rendered string for comparison
+  // prev-names-list: parsed names list for per-name comparison (partial-* rules)
   let prev-names = none
+  let prev-names-list = none
   let result = ()
 
   for e in entries {
@@ -132,20 +171,54 @@
       givenname-level: e.disambig.at("givenname-level", default: 0),
     )
 
-    // Determine if we should substitute
+    // Get the parsed names list for the substitute variable (for per-name comparison)
+    let substitute-var = substitute-vars.split(" ").first()
+    let current-names-list = e
+      .entry
+      .at("parsed_names", default: (:))
+      .at(
+        substitute-var,
+        default: (),
+      )
+
+    // Determine if we should substitute and how
     let should-substitute = false
+    let matching-count = 0 // Number of matching names from the start
+
     if substitute != none and prev-names != none and current-names != "" {
       // CSL spec: comparison is limited to output of first cs:names element
-      if (
-        substitute-rule == "complete-all" or substitute-rule == "complete-each"
-      ) {
+      if substitute-rule == "complete-all" {
         // Only substitute if all names match exactly
         should-substitute = current-names == prev-names
-      } else if substitute-rule.starts-with("partial") {
-        // Partial match: at least first name must match
-        // For simplicity, we check if names start the same
-        // A full implementation would compare name by name
+      } else if substitute-rule == "complete-each" {
+        // Substitute each name if ALL match
         should-substitute = current-names == prev-names
+        if should-substitute {
+          matching-count = current-names-list.len()
+        }
+      } else if substitute-rule == "partial-each" {
+        // Substitute matching names from start until first mismatch
+        if prev-names-list != none {
+          matching-count = _count-matching-names(
+            current-names-list,
+            prev-names-list,
+          )
+          should-substitute = matching-count > 0
+        }
+      } else if substitute-rule == "partial-first" {
+        // Substitute only first name if it matches
+        if prev-names-list != none and prev-names-list.len() > 0 {
+          if (
+            current-names-list.len() > 0
+              and _names-equal(
+                current-names-list.first(),
+                prev-names-list.first(),
+              )
+          ) {
+            should-substitute = true
+            matching-count = 1
+          }
+        }
       }
     }
 
@@ -158,6 +231,7 @@
         abbreviations: abbreviations,
         author-substitute: if should-substitute { substitute } else { none },
         author-substitute-rule: substitute-rule,
+        author-substitute-count: matching-count,
         substitute-vars: substitute-vars,
       ),
       rendered-body: render-entry-ir(
@@ -167,6 +241,7 @@
         abbreviations: abbreviations,
         author-substitute: if should-substitute { substitute } else { none },
         author-substitute-rule: substitute-rule,
+        author-substitute-count: matching-count,
         substitute-vars: substitute-vars,
       ),
       rendered-number: render-citation-number(
@@ -179,6 +254,7 @@
 
     // Update previous names for next iteration
     prev-names = current-names
+    prev-names-list = current-names-list
   }
 
   result

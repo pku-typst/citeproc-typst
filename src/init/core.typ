@@ -70,6 +70,7 @@
   show-url: true,
   show-doi: true,
   show-accessed: true,
+  auto-links: true,
   doc,
   bib-bytes,
 ) = {
@@ -82,6 +83,7 @@
     show-url: show-url,
     show-doi: show-doi,
     show-accessed: show-accessed,
+    auto-links: auto-links,
   ))
 
   // Intercept cite elements

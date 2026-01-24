@@ -53,7 +53,9 @@
 /// - include-number: Whether to include citation number in output
 /// - author-substitute: String to replace author names with (for subsequent-author-substitute)
 /// - author-substitute-rule: Rule for how to substitute
+/// - author-substitute-count: Number of matching names to substitute (for partial-* rules)
 /// - substitute-vars: Variable names of the first cs:names to substitute
+/// - auto-links: Whether to auto-link DOI/URL/PMID/PMCID (default: true)
 /// Returns: Typst content
 #let render-entry(
   entry,
@@ -67,7 +69,9 @@
   needs-disambiguate: false,
   author-substitute: none,
   author-substitute-rule: "complete-all",
+  author-substitute-count: 0,
   substitute-vars: "author",
+  auto-links: true,
 ) = {
   let ctx = create-context(
     style,
@@ -88,7 +92,9 @@
     render-context: RENDER-CONTEXT.bibliography,
     author-substitute: author-substitute,
     author-substitute-rule: author-substitute-rule,
+    author-substitute-count: author-substitute-count,
     substitute-vars: substitute-vars, // Variables from first cs:names element
+    auto-links: auto-links,
   )
 
   let entry-lang = detect-language(entry.at("fields", default: (:)))
@@ -150,7 +156,9 @@
 /// - abbreviations: Optional abbreviation lookup table
 /// - author-substitute: String to replace author names with (for subsequent-author-substitute)
 /// - author-substitute-rule: Rule for how to substitute
+/// - author-substitute-count: Number of matching names to substitute (for partial-* rules)
 /// - substitute-vars: Variable names of the first cs:names to substitute
+/// - auto-links: Whether to auto-link DOI/URL/PMID/PMCID (default: true)
 /// Returns: Typst content
 #let render-entry-ir(
   entry-ir,
@@ -159,7 +167,9 @@
   abbreviations: (:),
   author-substitute: none,
   author-substitute-rule: "complete-all",
+  author-substitute-count: 0,
   substitute-vars: "author",
+  auto-links: true,
 ) = {
   let disambig = entry-ir.disambig
   render-entry(
@@ -174,6 +184,8 @@
     needs-disambiguate: disambig.at("needs-disambiguate", default: false),
     author-substitute: author-substitute,
     author-substitute-rule: author-substitute-rule,
+    author-substitute-count: author-substitute-count,
     substitute-vars: substitute-vars,
+    auto-links: auto-links,
   )
 }

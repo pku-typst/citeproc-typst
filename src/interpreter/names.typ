@@ -69,28 +69,38 @@
     let target-vars = substitute-vars.split(" ")
     let is-target-element = target-vars.contains(used-var)
 
+    // Determine substitution parameters for format-names
+    // These will be passed to format-names to handle inline substitution
+    let substitute-string-to-use = none
+    let substitute-count-to-use = 0
+
     if author-substitute != none and is-target-element {
-      // Return the substitute string instead of rendering names
       // CSL spec: "replaces the entire name list (including punctuation and terms
       // like 'et al' and 'and'), except for the affixes set on the cs:names element"
       let substitute-rule = ctx.at(
         "author-substitute-rule",
         default: "complete-all",
       )
+      let substitute-count = ctx.at("author-substitute-count", default: 0)
 
-      // IMPLEMENTATION NOTE:
-      // "complete-each" and "partial-*" rules require per-name substitution and
-      // partial matching between consecutive entries. Current implementation treats
-      // them equivalently to "complete-all" (substitute entire name list when all
-      // names match). This covers the most common use case (em-dash substitution).
-      let result = if substitute-rule == "complete-each" {
-        author-substitute
-      } else {
-        // "complete-all" (default): replace entire name list
-        author-substitute
+      if substitute-rule == "complete-all" {
+        // Replace entire name list with substitute string (no inline substitution)
+        return finalize(author-substitute, attrs)
+      } else if substitute-rule == "complete-each" {
+        // All names match: substitute each name inline
+        substitute-string-to-use = author-substitute
+        substitute-count-to-use = substitute-count
+      } else if substitute-rule == "partial-each" {
+        // Substitute matching names from start inline
+        substitute-string-to-use = author-substitute
+        substitute-count-to-use = substitute-count
+      } else if substitute-rule == "partial-first" {
+        // Substitute only first name inline
+        if substitute-count > 0 {
+          substitute-string-to-use = author-substitute
+          substitute-count-to-use = 1
+        }
       }
-
-      return finalize(result, attrs)
     }
 
     // Find name formatting options
@@ -100,6 +110,25 @@
     let name-attrs = if name-node != none {
       name-node.at("attrs", default: (:))
     } else { (:) }
+
+    // Parse <name-part> children from <name> element
+    // CSL spec: <name-part name="family"> and <name-part name="given"> control formatting
+    let name-parts = (:)
+    if name-node != none {
+      let name-children = name-node.at("children", default: ())
+      for child in name-children {
+        if (
+          type(child) == dictionary
+            and child.at("tag", default: "") == "name-part"
+        ) {
+          let part-attrs = child.at("attrs", default: (:))
+          let part-name = part-attrs.at("name", default: "")
+          if part-name in ("family", "given") {
+            name-parts.insert(part-name, part-attrs)
+          }
+        }
+      }
+    }
 
     // Find institution formatting options (CSL-M extension)
     let institution-node = children.find(c => (
@@ -123,10 +152,26 @@
     } else { [] }
 
     // Format names (with institution support if cs:institution is present)
+    // Pass substitute parameters for inline substitution
     let names-content = if institution-attrs != none {
-      format-names-with-institutions(names, name-attrs, institution-attrs, ctx)
+      format-names-with-institutions(
+        names,
+        name-attrs,
+        institution-attrs,
+        ctx,
+        name-parts: name-parts,
+        substitute-string: substitute-string-to-use,
+        substitute-count: substitute-count-to-use,
+      )
     } else {
-      format-names(names, name-attrs, ctx)
+      format-names(
+        names,
+        name-attrs,
+        ctx,
+        name-parts: name-parts,
+        substitute-string: substitute-string-to-use,
+        substitute-count: substitute-count-to-use,
+      )
     }
 
     // Combine with label

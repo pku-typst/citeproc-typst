@@ -2,6 +2,9 @@
 //
 // Uses Typst's native datetime for formatting
 
+#import "../core/mod.typ": zero-pad
+#import "../parsing/locales.typ": lookup-term
+
 // =============================================================================
 // Module-level constants (avoid recreating on each call)
 // =============================================================================
@@ -41,6 +44,48 @@
   "nov": 11,
   "dec": 12,
 )
+
+/// Get ordinal suffix for a day number using locale terms
+///
+/// Uses CSL ordinal term priority:
+/// 1. ordinal-10 through ordinal-99 (last-two-digits matching)
+/// 2. ordinal-00 through ordinal-09 (last-digit matching)
+/// 3. Generic "ordinal" term
+///
+/// - day: Day number (1-31)
+/// - ctx: Context with locale terms
+/// Returns: Ordinal suffix string
+#let _get-day-ordinal-suffix(day, ctx) = {
+  let last-two = calc.rem(day, 100)
+  let last-one = calc.rem(day, 10)
+
+  // Try ordinal-10 through ordinal-99 first
+  if last-two >= 10 {
+    let key = "ordinal-" + zero-pad(last-two, 2)
+    let suffix = lookup-term(ctx, key, form: "long", plural: false)
+    if suffix != "" and suffix != key {
+      return suffix
+    }
+  }
+
+  // Try ordinal-00 through ordinal-09
+  let single-key = "ordinal-" + zero-pad(last-one, 2)
+  let single-suffix = lookup-term(ctx, single-key, form: "long", plural: false)
+  if single-suffix != "" and single-suffix != single-key {
+    return single-suffix
+  }
+
+  // Fallback to generic ordinal term
+  let generic = lookup-term(ctx, "ordinal", form: "long", plural: false)
+  if generic != "" and generic != "ordinal" {
+    return generic
+  }
+
+  // Ultimate fallback: English ordinals
+  if day == 1 or day == 21 or day == 31 { "st" } else if day == 2 or day == 22 {
+    "nd"
+  } else if day == 3 or day == 23 { "rd" } else { "th" }
+}
 
 /// Parse a date string into a datetime object
 ///
@@ -207,12 +252,17 @@
     } else if form == "numeric-leading-zeros" {
       dt.display("[day]")
     } else if form == "ordinal" {
-      // Typst doesn't have built-in ordinal, so we add suffix manually
       let day = dt.day()
-      let suffix = if day == 1 or day == 21 or day == 31 { "st" } else if (
-        day == 2 or day == 22
-      ) { "nd" } else if day == 3 or day == 23 { "rd" } else { "th" }
-      str(day) + suffix
+      // CSL locale option: limit-day-ordinals-to-day-1
+      // If true, only day 1 uses ordinal form, others use numeric
+      let limit-ordinals = ctx.at("limit-day-ordinals-to-day-1", default: false)
+      if limit-ordinals and day != 1 {
+        str(day)
+      } else {
+        // Use locale-aware ordinal suffixes
+        let suffix = _get-day-ordinal-suffix(day, ctx)
+        str(day) + suffix
+      }
     } else {
       dt.display("[day]")
     }

@@ -37,6 +37,7 @@ As demonstrated by @smith2020, this approach works well.
 - **Citation collapsing** — Numeric ranges `[1-4]`, year-suffix `(Smith, 2020a, b)`
 - **Multiple citations** — Combine citations with `multicite()`
 - **Full formatting** — Italics, bold, small-caps, text-case, and more
+- **Bibliography linking** — Auto-link DOI, URL, PMID, PMCID in bibliography
 
 ## Documentation
 
@@ -54,6 +55,7 @@ Initialize the CSL processor with BibTeX bibliography data and style.
   bib-content,      // BibTeX file content (string)
   csl-content,      // CSL style file content (string)
   locales: (:),     // Optional: external locale files
+  auto-links: true, // Optional: auto-link DOI/URL/PMID/PMCID
 )
 ```
 
@@ -68,6 +70,7 @@ Initialize the CSL processor with CSL-JSON bibliography data. CSL-JSON is the na
   read("references.json"),   // CSL-JSON file content
   read("style.csl"),         // CSL style file content
   locales: (:),              // Optional: external locale files
+  auto-links: true,          // Optional: auto-link DOI/URL/PMID/PMCID
 )
 
 As shown by @smith2023...
@@ -224,15 +227,86 @@ The `mark` field follows GB/T 7714 document type codes:
 - `G` — Collection, `EB` — Electronic resource, `DB` — Database
 - `A` — Analytic (chapter), `Z` — Other
 
+## CSL 1.0.2 Specification Coverage
+
+This library implements the full CSL 1.0.2 specification. Key features include:
+
+### Rendering Elements
+
+| Element         | Status | Notes                                       |
+| --------------- | ------ | ------------------------------------------- |
+| `cs:text`       | ✅     | Variables, macros, terms, values            |
+| `cs:number`     | ✅     | Numeric, ordinal, long-ordinal, roman forms |
+| `cs:date`       | ✅     | Localized and non-localized date formatting |
+| `cs:names`      | ✅     | Full name formatting with et-al, delimiter  |
+| `cs:name`       | ✅     | Name order, form, delimiter-precedes-\*     |
+| `cs:name-part`  | ✅     | Per-part formatting (family/given)          |
+| `cs:label`      | ✅     | Variable labels with plural detection       |
+| `cs:group`      | ✅     | Conditional groups with delimiter           |
+| `cs:choose`     | ✅     | if/else-if/else conditions                  |
+| `cs:substitute` | ✅     | Fallback rendering for empty names          |
+
+### Style Structure
+
+| Element           | Status | Notes                                   |
+| ----------------- | ------ | --------------------------------------- |
+| `cs:style`        | ✅     | Style metadata, class, locale           |
+| `cs:info`         | ✅     | Style information (parsed but not used) |
+| `cs:locale`       | ✅     | Inline locale overrides                 |
+| `cs:macro`        | ✅     | Reusable formatting macros              |
+| `cs:citation`     | ✅     | Citation formatting with layout         |
+| `cs:bibliography` | ✅     | Bibliography formatting with layout     |
+| `cs:sort`         | ✅     | Sorting by variable or macro            |
+
+### Disambiguation
+
+| Feature                  | Status | Notes                             |
+| ------------------------ | ------ | --------------------------------- |
+| Year suffixes (a, b, c)  | ✅     | Automatic for same-author-year    |
+| Add names                | ✅     | Expand truncated name lists       |
+| Add givenname            | ✅     | Show initials or full given names |
+| `disambiguate` condition | ✅     | CSL disambiguate="true" condition |
+
+### Bibliography Features
+
+| Feature                        | Status | Notes                          |
+| ------------------------------ | ------ | ------------------------------ |
+| `subsequent-author-substitute` | ✅     | Em-dash for repeated authors   |
+| `complete-all` rule            | ✅     | Substitute entire name list    |
+| `complete-each` rule           | ✅     | Per-name substitution          |
+| `partial-each` rule            | ✅     | Partial name matching          |
+| `partial-first` rule           | ✅     | First-name-only matching       |
+| Bibliography linking           | ✅     | Auto-link DOI/URL/PMID/PMCID   |
+| Hanging indent                 | ✅     | Via `hanging-indent` attribute |
+| Second-field-align             | ✅     | Label alignment modes          |
+
+### Formatting & Affixes
+
+| Feature           | Status | Notes                                      |
+| ----------------- | ------ | ------------------------------------------ |
+| `font-style`      | ✅     | italic, oblique, normal                    |
+| `font-weight`     | ✅     | bold, light, normal                        |
+| `font-variant`    | ✅     | small-caps, normal                         |
+| `text-decoration` | ✅     | underline, none                            |
+| `text-case`       | ✅     | lowercase, uppercase, capitalize-\*, title |
+| `vertical-align`  | ✅     | sup, sub, baseline                         |
+| `prefix`/`suffix` | ✅     | Affixes on all elements                    |
+| `delimiter`       | ✅     | Element and group delimiters               |
+| `quotes`          | ✅     | Locale-aware quotation marks               |
+| `strip-periods`   | ✅     | Remove periods from abbreviations          |
+
+### Localization
+
+| Feature              | Status | Notes                                 |
+| -------------------- | ------ | ------------------------------------- |
+| Built-in locales     | ✅     | 10 languages with automatic fallback  |
+| External locales     | ✅     | Load via `locales` parameter          |
+| Ordinal suffixes     | ✅     | Full ordinal-00 to ordinal-99 support |
+| Long ordinals        | ✅     | "first" through "tenth" with fallback |
+| Term forms           | ✅     | long, short, verb, verb-short, symbol |
+| `limit-day-ordinals` | ✅     | Locale option for day ordinals        |
+
 ## Known Limitations
-
-### Standard CSL 1.0.2 Features Not Yet Fully Implemented
-
-| Feature                 | Description                      | Status                |
-| ----------------------- | -------------------------------- | --------------------- |
-| `cs:name-part` elements | Name-part specific formatting    | Partially implemented |
-| `complete-each` rule    | Per-name author substitution     | Simplified            |
-| `partial-*` rules       | Partial author matching for subs | Simplified            |
 
 ### Bilingual Styles (CSL-M `original-*` variables)
 
