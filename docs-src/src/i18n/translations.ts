@@ -63,6 +63,11 @@ export const translations = {
       current: "中文",
       switchTo: "English",
     },
+    theme: {
+      system: "跟随系统",
+      light: "浅色",
+      dark: "深色",
+    },
   },
   en: {
     meta: {
@@ -128,6 +133,11 @@ export const translations = {
     langSwitch: {
       current: "English",
       switchTo: "中文",
+    },
+    theme: {
+      system: "System",
+      light: "Light",
+      dark: "Dark",
     },
   },
 } as const;

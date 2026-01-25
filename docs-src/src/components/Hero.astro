@@ -1,6 +1,7 @@
 ---
 import LanguageSwitcher from "./LanguageSwitcher.astro";
-import type { Locale } from "../i18n";
+import ThemeSwitcher from "./ThemeSwitcher.svelte";
+import { type Locale, useTranslation } from "../i18n";
 
 interface Props {
   locale: Locale;
@@ -10,6 +11,7 @@ interface Props {
 }
 
 const { locale, title, description, stats = [] } = Astro.props;
+const t = useTranslation(locale);
 ---
 
 <div
@@ -25,8 +27,9 @@ const { locale, title, description, stats = [] } = Astro.props;
   >
   </div>
 
-  <!-- Language Switcher -->
-  <div class="absolute top-4 right-4 sm:top-6 sm:right-6 z-20">
+  <!-- Controls: Theme + Language -->
+  <div class="absolute top-4 right-4 sm:top-6 sm:right-6 z-20 flex items-center gap-2">
+    <ThemeSwitcher client:load t={t.theme} />
     <LanguageSwitcher locale={locale} />
   </div>
 

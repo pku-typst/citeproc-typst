@@ -28,6 +28,15 @@ const { title, lang = "zh-CN", locale = "zh" } = Astro.props;
         <link rel="alternate" hreflang="zh" href="/citeproc-typst/" />
       )
     }
+    <!-- Theme initialization (prevents flash) -->
+    <script is:inline>
+      (function () {
+        const saved = localStorage.getItem("theme");
+        if (saved === "dark" || saved === "light") {
+          document.documentElement.setAttribute("data-theme", saved);
+        }
+      })();
+    </script>
   </head>
   <body class="max-w-5xl mx-auto px-6 py-8">
     <slot />
