@@ -1,5 +1,7 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import Hero from "../components/Hero.astro";
+import Section from "../components/Section.astro";
 import StatsCard from "../components/StatsCard.astro";
 import StatsGrid from "../components/StatsGrid.astro";
 import CategoryGrid from "../components/CategoryGrid.astro";
@@ -32,84 +34,113 @@ const cslRate =
   data.csl.total > 0
     ? ((data.csl.passed / data.csl.total) * 100).toFixed(1)
     : "0";
+
+const heroStats = [
+  { label: "CSL 样式", value: `${data.csl.passed}/${data.csl.total}` },
+  { label: "测试用例", value: `${data.citeproc.compiled}/${data.citeproc.total}` },
+  { label: "Benchmark 样式", value: String(data.benchmark.styles.length) },
+];
 ---
 
 <Layout title="citeproc-typst 兼容性测试">
-  <h1 class="text-3xl font-bold mb-2">🔬 citeproc-typst 兼容性测试</h1>
-  <p class="text-muted-foreground mb-8">
-    CSL (Citation Style Language) 处理器的 Typst 实现
-  </p>
+  <Hero
+    title="🔬 citeproc-typst"
+    description="CSL (Citation Style Language) 处理器的 Typst 原生实现。支持学术文献引用格式化，兼容 Zotero 等工具的 CSL 样式。"
+    stats={heroStats}
+  />
 
   <!-- citeproc-js Test Suite Section -->
-  <h2 class="text-xl font-semibold mt-10 mb-4 pb-2 border-b-2 border-border">
-    📋 citeproc-js 测试套件
-  </h2>
-  <p class="text-muted-foreground mb-4">
-    使用
-    <a href="https://github.com/Juris-M/citeproc-js" class="text-primary hover:underline">
-      citeproc-js
-    </a>
-    测试套件中的 CSL 样式和数据进行编译测试。
-    <br />
-    <small class="text-muted-foreground">
-      注：编译通过仅表示 citeproc-typst 能够处理该测试用例，不保证输出结果与
-      citeproc-js 完全一致。
-    </small>
-  </p>
+  <Section
+    title="citeproc-js 测试套件"
+    icon="📋"
+    note="编译通过仅表示 citeproc-typst 能够处理该测试用例，不保证输出结果与 citeproc-js 完全一致。"
+  >
+    <p slot="description" class="text-muted-foreground text-sm mb-4">
+      使用
+      <a
+        href="https://github.com/Juris-M/citeproc-js"
+        class="text-primary hover:underline"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        citeproc-js
+      </a>
+      测试套件中的 CSL 样式和数据进行编译测试。
+    </p>
 
-  <StatsGrid>
-    <StatsCard value={data.citeproc.total} label="总测试数" />
-    <StatsCard
-      value={data.citeproc.compiled}
-      label="编译通过"
-      variant="success"
-    />
-    <StatsCard value={data.citeproc.errors} label="编译错误" variant="warning" />
-    <StatsCard value={`${citeprocRate}%`} label="编译通过率" />
-  </StatsGrid>
+    <StatsGrid>
+      <StatsCard value={data.citeproc.total} label="总测试数" />
+      <StatsCard
+        value={data.citeproc.compiled}
+        label="编译通过"
+        variant="success"
+      />
+      <StatsCard
+        value={data.citeproc.errors}
+        label="编译错误"
+        variant="warning"
+      />
+      <StatsCard value={`${citeprocRate}%`} label="通过率" />
+    </StatsGrid>
 
-  <CategoryGrid categories={data.citeproc.categories} />
+    <CategoryGrid categories={data.citeproc.categories} />
+  </Section>
 
   <!-- CSL Styles Section -->
-  <h2 class="text-xl font-semibold mt-10 mb-4 pb-2 border-b-2 border-border">
-    📚 CSL 样式兼容性
-  </h2>
-  <p class="text-muted-foreground mb-4">
-    测试
-    <a href="https://github.com/zotero-chinese/styles" class="text-primary hover:underline">
-      zotero-chinese/styles
-    </a>
-    中的所有 CSL 样式是否可以正常编译。
-    <br />
-    <small class="text-muted-foreground">
-      注：编译通过仅表示 citeproc-typst
-      能够解析并处理该样式，不保证输出格式完全符合预期。
-    </small>
-  </p>
+  <Section
+    title="CSL 样式兼容性"
+    icon="📚"
+    note="编译通过仅表示 citeproc-typst 能够解析并处理该样式，不保证输出格式完全符合预期。"
+  >
+    <p slot="description" class="text-muted-foreground text-sm mb-4">
+      测试
+      <a
+        href="https://github.com/zotero-chinese/styles"
+        class="text-primary hover:underline"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        zotero-chinese/styles
+      </a>
+      中的所有 CSL 样式是否可以正常编译。
+    </p>
 
-  <StatsGrid>
-    <StatsCard value={data.csl.total} label="总样式数" />
-    <StatsCard value={data.csl.passed} label="编译通过" variant="success" />
-    <StatsCard value={data.csl.failed} label="编译失败" variant="warning" />
-    <StatsCard value={`${cslRate}%`} label="编译通过率" />
-  </StatsGrid>
+    <StatsGrid>
+      <StatsCard value={data.csl.total} label="总样式数" />
+      <StatsCard value={data.csl.passed} label="编译通过" variant="success" />
+      <StatsCard value={data.csl.failed} label="编译失败" variant="warning" />
+      <StatsCard value={`${cslRate}%`} label="通过率" />
+    </StatsGrid>
 
-  <StyleGrid client:load styles={data.csl.styles} />
+    <StyleGrid client:load styles={data.csl.styles} />
+  </Section>
 
   <!-- Benchmark Section -->
-  <h2 class="text-xl font-semibold mt-10 mb-4 pb-2 border-b-2 border-border">
-    📈 性能趋势
-  </h2>
-  <p class="text-muted-foreground mb-4">
-    追踪代表性 CSL 样式的编译时间变化（单位：毫秒）
-  </p>
+  <Section
+    title="性能趋势"
+    icon="📈"
+  >
+    <p slot="description" class="text-muted-foreground text-sm mb-4">
+      追踪代表性 CSL 样式的编译时间变化，用于检测性能回归。
+    </p>
 
-  <TrendChart client:load history={data.benchmark} />
+    <TrendChart client:load history={data.benchmark} />
+  </Section>
 
-  <footer class="mt-8 pt-4 border-t border-border text-muted-foreground text-sm text-center">
-    构建时间: {data.buildTime} ·
-    <a href="https://github.com/lucifer1004/citeproc-typst" class="text-primary hover:underline">
-      GitHub
-    </a>
+  <footer
+    class="mt-4 pt-4 border-t border-border text-muted-foreground text-xs sm:text-sm text-center"
+  >
+    <div class="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2">
+      <span>构建时间: {data.buildTime}</span>
+      <span class="hidden sm:inline">·</span>
+      <a
+        href="https://github.com/lucifer1004/citeproc-typst"
+        class="text-primary hover:underline"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        GitHub
+      </a>
+    </div>
   </footer>
 </Layout>

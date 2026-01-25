@@ -53,7 +53,10 @@
             position: "bottom",
             labels: {
               boxWidth: 12,
-              padding: 15,
+              padding: 10,
+              font: {
+                size: 11,
+              },
             },
           },
           tooltip: {
@@ -87,15 +90,19 @@
 </script>
 
 {#if history.runs.length > 0}
-  <div
-    class="h-[350px] bg-card border border-border rounded-lg p-4"
-  >
-    <canvas bind:this={canvas}></canvas>
+  <div class="overflow-x-auto -mx-2 px-2">
+    <div
+      class="min-w-[500px] h-[300px] sm:h-[350px] bg-card border border-border rounded-xl p-4"
+    >
+      <canvas bind:this={canvas}></canvas>
+    </div>
   </div>
 {:else}
   <div
-    class="py-8 text-center text-muted-foreground bg-card border border-border rounded-lg"
+    class="py-12 text-center text-muted-foreground bg-card border border-border rounded-xl"
   >
-    暂无性能数据
+    <div class="text-4xl mb-2">📊</div>
+    <div>暂无性能数据</div>
+    <div class="text-sm mt-1">首次 CI 运行后将显示趋势图</div>
   </div>
 {/if}

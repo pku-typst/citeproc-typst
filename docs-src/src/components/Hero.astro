@@ -1,0 +1,50 @@
+---
+interface Props {
+  title: string;
+  description: string;
+  stats?: { label: string; value: string }[];
+}
+
+const { title, description, stats = [] } = Astro.props;
+---
+
+<div
+  class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border border-border p-6 sm:p-8 mb-8"
+>
+  <!-- Decorative elements -->
+  <div
+    class="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-primary/10 rounded-full blur-2xl"
+  >
+  </div>
+  <div
+    class="absolute bottom-0 left-0 -mb-4 -ml-4 w-32 h-32 bg-success/10 rounded-full blur-2xl"
+  >
+  </div>
+
+  <!-- Content -->
+  <div class="relative z-10">
+    <h1 class="text-2xl sm:text-3xl lg:text-4xl font-bold mb-3">
+      {title}
+    </h1>
+    <p class="text-muted-foreground text-sm sm:text-base max-w-2xl">
+      {description}
+    </p>
+
+    {
+      stats.length > 0 && (
+        <div class="flex flex-wrap gap-4 sm:gap-6 mt-6">
+          {stats.map((stat) => (
+            <div class="text-center">
+              <div class="text-xl sm:text-2xl font-bold text-primary">
+                {stat.value}
+              </div>
+              <div class="text-xs sm:text-sm text-muted-foreground">
+                {stat.label}
+              </div>
+            </div>
+          ))}
+        </div>
+      )
+    }
+  </div>
+</div>

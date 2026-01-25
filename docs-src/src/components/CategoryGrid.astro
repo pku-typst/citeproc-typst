@@ -12,20 +12,34 @@ interface Props {
 const { categories } = Astro.props;
 ---
 
-<details class="my-4">
-  <summary class="cursor-pointer font-medium py-2 hover:text-primary">
-    📊 按类别查看
-  </summary>
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mt-4">
-    {
-      categories.map((cat) => (
-        <div class="flex justify-between items-center px-3 py-2 bg-card border border-border rounded text-sm">
-          <span class="font-medium">{cat.name}</span>
-          <span class="text-success">
-            {cat.compiled}/{cat.total}
-          </span>
-        </div>
-      ))
-    }
-  </div>
-</details>
+{
+  categories.length > 0 && (
+    <details class="mt-4 group">
+      <summary class="cursor-pointer font-medium py-2 text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2">
+        <span class="transition-transform group-open:rotate-90">▶</span>
+        <span>按类别查看详情</span>
+        <span class="text-xs bg-muted px-2 py-0.5 rounded-full">
+          {categories.length} 个类别
+        </span>
+      </summary>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mt-3 pt-3 border-t border-border">
+        {categories.map((cat) => {
+          const rate = cat.total > 0 ? (cat.compiled / cat.total) * 100 : 0;
+          return (
+            <div class="flex justify-between items-center px-3 py-2 bg-muted/50 rounded-lg text-sm">
+              <span class="font-medium truncate mr-2">{cat.name}</span>
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="text-success font-medium">
+                  {cat.compiled}/{cat.total}
+                </span>
+                <span class="text-xs text-muted-foreground">
+                  ({rate.toFixed(0)}%)
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </details>
+  )
+}

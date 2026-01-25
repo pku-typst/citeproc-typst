@@ -1,0 +1,39 @@
+---
+interface Props {
+  title: string;
+  icon: string;
+  description?: string;
+  note?: string;
+}
+
+const { title, icon, description, note } = Astro.props;
+---
+
+<section class="rounded-xl border border-border bg-card/50 p-4 sm:p-6 mb-6">
+  <h2
+    class="flex items-center gap-2 text-lg sm:text-xl font-semibold mb-4 pb-3 border-b border-border"
+  >
+    <span class="text-xl sm:text-2xl">{icon}</span>
+    <span>{title}</span>
+  </h2>
+
+  {
+    description && (
+      <p class="text-muted-foreground text-sm mb-4">
+        <slot name="description">
+          <Fragment set:html={description} />
+        </slot>
+      </p>
+    )
+  }
+
+  {
+    note && (
+      <p class="text-xs text-muted-foreground mb-4 pl-3 border-l-2 border-muted">
+        {note}
+      </p>
+    )
+  }
+
+  <slot />
+</section>

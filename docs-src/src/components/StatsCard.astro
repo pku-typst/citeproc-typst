@@ -7,16 +7,55 @@ interface Props {
 
 const { value, label, variant = "default" } = Astro.props;
 
-const valueColorClass = {
-  default: "text-primary",
-  success: "text-success",
-  warning: "text-destructive",
-}[variant];
+const variantStyles = {
+  default: {
+    valueColor: "text-primary",
+    iconBg: "bg-primary/10",
+    hoverBorder: "hover:border-primary/50",
+  },
+  success: {
+    valueColor: "text-success",
+    iconBg: "bg-success/10",
+    hoverBorder: "hover:border-success/50",
+  },
+  warning: {
+    valueColor: "text-destructive",
+    iconBg: "bg-destructive/10",
+    hoverBorder: "hover:border-destructive/50",
+  },
+};
+
+const styles = variantStyles[variant];
 ---
 
 <div
-  class="rounded-lg border border-border bg-card p-6 text-center shadow-sm"
+  class={`
+    group relative overflow-hidden
+    rounded-xl border border-border bg-card p-6 text-center
+    shadow-sm transition-all duration-300 ease-out
+    hover:shadow-lg hover:-translate-y-1 ${styles.hoverBorder}
+  `}
 >
-  <div class={`text-4xl font-bold ${valueColorClass}`}>{value}</div>
-  <div class="text-sm text-muted-foreground mt-1">{label}</div>
+  <!-- Subtle gradient overlay on hover -->
+  <div
+    class={`
+      absolute inset-0 opacity-0 group-hover:opacity-100
+      transition-opacity duration-300
+      bg-gradient-to-br from-transparent via-transparent to-primary/5
+    `}
+  >
+  </div>
+
+  <!-- Content -->
+  <div class="relative z-10">
+    <div
+      class={`
+        text-4xl font-bold ${styles.valueColor}
+        transition-transform duration-300 group-hover:scale-105
+      `}
+    >
+      {value}
+    </div>
+    <div class="text-sm text-muted-foreground mt-2 font-medium">{label}</div>
+  </div>
 </div>
