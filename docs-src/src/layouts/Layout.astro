@@ -1,22 +1,58 @@
 ---
 import "../app.css";
+import type { Locale } from "../i18n";
 
 interface Props {
   title: string;
+  lang?: string;
+  locale?: Locale;
 }
 
-const { title } = Astro.props;
+const { title, lang = "zh-CN", locale = "zh" } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="zh-CN">
+<html lang={lang}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{title}</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    {
+      locale === "zh" && (
+        <link rel="alternate" hreflang="en" href="/citeproc-typst/en/" />
+      )
+    }
+    {
+      locale === "en" && (
+        <link rel="alternate" hreflang="zh" href="/citeproc-typst/" />
+      )
+    }
   </head>
   <body class="max-w-5xl mx-auto px-6 py-8">
     <slot />
   </body>
 </html>
+
+{
+  locale === "zh" && (
+    <script is:inline>
+      // Auto-detect browser language and redirect to English if needed
+      // Only runs once per session to avoid redirect loops
+      (function () {
+        const path = location.pathname;
+        const isRoot =
+          path === "/citeproc-typst/" || path === "/citeproc-typst";
+        const checked = sessionStorage.getItem("lang-detected");
+
+        if (isRoot && !checked) {
+          sessionStorage.setItem("lang-detected", "1");
+          const browserLang = navigator.language || navigator.languages?.[0];
+          if (browserLang && browserLang.startsWith("en")) {
+            location.replace("/citeproc-typst/en/");
+          }
+        }
+      })();
+    </script>
+  )
+}

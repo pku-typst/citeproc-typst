@@ -1,0 +1,27 @@
+---
+import {
+  type Locale,
+  useTranslation,
+  getLocalePath,
+  getAlternateLocale,
+} from "../i18n";
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = useTranslation(locale);
+const altLocale = getAlternateLocale(locale);
+const altPath = getLocalePath(altLocale);
+---
+
+<a
+  href={altPath}
+  class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full border border-border bg-card hover:bg-accent transition-colors"
+  title={`Switch to ${t.langSwitch.switchTo}`}
+>
+  <span class="text-muted-foreground">{t.langSwitch.current}</span>
+  <span class="text-muted-foreground/50">→</span>
+  <span class="text-primary">{t.langSwitch.switchTo}</span>
+</a>

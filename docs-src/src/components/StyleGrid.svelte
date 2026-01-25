@@ -6,7 +6,23 @@
     url: string;
   }
 
-  let { styles }: { styles: Style[] } = $props();
+  interface Translations {
+    searchPlaceholder: string;
+    found: string;
+    styles: string;
+    total: string;
+    noResults: string;
+    clearSearch: string;
+  }
+
+  let {
+    styles,
+    t,
+  }: {
+    styles: Style[];
+    t: Translations;
+  } = $props();
+
   let query = $state("");
 
   let filteredStyles = $derived(
@@ -16,16 +32,12 @@
 
 <div class="space-y-3">
   <div class="relative">
-    <Input
-      type="text"
-      placeholder="🔍 搜索样式名称..."
-      bind:value={query}
-    />
+    <Input type="text" placeholder={t.searchPlaceholder} bind:value={query} />
     {#if query}
       <button
         class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
         onclick={() => (query = "")}
-        aria-label="清除搜索"
+        aria-label={t.clearSearch}
       >
         ✕
       </button>
@@ -36,12 +48,16 @@
   <div class="flex items-center justify-between text-sm text-muted-foreground">
     <span>
       {#if query}
-        找到 <span class="font-medium text-foreground">{filteredStyles.length}</span> 个样式
+        {t.found}
+        <span class="font-medium text-foreground">{filteredStyles.length}</span>
+        {t.styles}
         {#if filteredStyles.length !== styles.length}
-          （共 {styles.length} 个）
+          ({t.total} {styles.length})
         {/if}
       {:else}
-        共 <span class="font-medium text-foreground">{styles.length}</span> 个样式
+        {t.total}
+        <span class="font-medium text-foreground">{styles.length}</span>
+        {t.styles}
       {/if}
     </span>
   </div>
@@ -65,12 +81,12 @@
   {:else}
     <div class="py-8 text-center text-muted-foreground bg-muted/50 rounded-lg">
       <div class="text-3xl mb-2">🔍</div>
-      <div>未找到匹配的样式</div>
+      <div>{t.noResults}</div>
       <button
         class="mt-2 text-sm text-primary hover:underline"
         onclick={() => (query = "")}
       >
-        清除搜索
+        {t.clearSearch}
       </button>
     </div>
   {/if}

@@ -1,11 +1,15 @@
 ---
+import LanguageSwitcher from "./LanguageSwitcher.astro";
+import type { Locale } from "../i18n";
+
 interface Props {
+  locale: Locale;
   title: string;
   description: string;
   stats?: { label: string; value: string }[];
 }
 
-const { title, description, stats = [] } = Astro.props;
+const { locale, title, description, stats = [] } = Astro.props;
 ---
 
 <div
@@ -19,6 +23,11 @@ const { title, description, stats = [] } = Astro.props;
   <div
     class="absolute bottom-0 left-0 -mb-4 -ml-4 w-32 h-32 bg-success/10 rounded-full blur-2xl"
   >
+  </div>
+
+  <!-- Language Switcher -->
+  <div class="absolute top-4 right-4 sm:top-6 sm:right-6 z-20">
+    <LanguageSwitcher locale={locale} />
   </div>
 
   <!-- Content -->

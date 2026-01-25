@@ -1,4 +1,7 @@
 ---
+import type { Locale } from "../i18n";
+import { useTranslation } from "../i18n";
+
 interface Category {
   name: string;
   total: number;
@@ -6,10 +9,12 @@ interface Category {
 }
 
 interface Props {
+  locale: Locale;
   categories: Category[];
 }
 
-const { categories } = Astro.props;
+const { locale, categories } = Astro.props;
+const t = useTranslation(locale);
 ---
 
 {
@@ -17,9 +22,9 @@ const { categories } = Astro.props;
     <details class="mt-4 group">
       <summary class="cursor-pointer font-medium py-2 text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2">
         <span class="transition-transform group-open:rotate-90">▶</span>
-        <span>按类别查看详情</span>
+        <span>{t.category.viewByCategory}</span>
         <span class="text-xs bg-muted px-2 py-0.5 rounded-full">
-          {categories.length} 个类别
+          {categories.length} {t.category.categories}
         </span>
       </summary>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mt-3 pt-3 border-t border-border">

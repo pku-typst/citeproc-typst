@@ -13,7 +13,21 @@
     styles: string[];
   }
 
-  let { history }: { history: BenchmarkHistory } = $props();
+  interface Translations {
+    compileTime: string;
+    commit: string;
+    noData: string;
+    noDataHint: string;
+  }
+
+  let {
+    history,
+    t,
+  }: {
+    history: BenchmarkHistory;
+    t: Translations;
+  } = $props();
+
   let canvas: HTMLCanvasElement;
   let chart: Chart | null = null;
 
@@ -70,13 +84,13 @@
             beginAtZero: true,
             title: {
               display: true,
-              text: "编译时间 (ms)",
+              text: t.compileTime,
             },
           },
           x: {
             title: {
               display: true,
-              text: "Commit",
+              text: t.commit,
             },
           },
         },
@@ -102,7 +116,7 @@
     class="py-12 text-center text-muted-foreground bg-card border border-border rounded-xl"
   >
     <div class="text-4xl mb-2">📊</div>
-    <div>暂无性能数据</div>
-    <div class="text-sm mt-1">首次 CI 运行后将显示趋势图</div>
+    <div>{t.noData}</div>
+    <div class="text-sm mt-1">{t.noDataHint}</div>
   </div>
 {/if}
