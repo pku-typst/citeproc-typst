@@ -1,0 +1,6 @@
+{
+  "style": "default",
+  "tailwind": { "config": "", "css": "src/app.css", "baseColor": "slate" },
+  "aliases": { "components": "$lib/components", "utils": "$lib/utils" },
+  "typescript": true
+}

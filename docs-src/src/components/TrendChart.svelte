@@ -18,14 +18,15 @@
   let chart: Chart | null = null;
 
   const colors = [
-    "#1a73e8",
-    "#34a853",
-    "#ea4335",
-    "#fbbc04",
-    "#9334e6",
-    "#00acc1",
-    "#ff7043",
-    "#5c6bc0",
+    "#3b82f6", // blue-500
+    "#22c55e", // green-500
+    "#ef4444", // red-500
+    "#eab308", // yellow-500
+    "#a855f7", // purple-500
+    "#06b6d4", // cyan-500
+    "#f97316", // orange-500
+    "#6366f1", // indigo-500
+    "#ec4899", // pink-500
   ];
 
   onMount(() => {
@@ -86,28 +87,15 @@
 </script>
 
 {#if history.runs.length > 0}
-  <div class="chart-container">
+  <div
+    class="h-[350px] bg-card border border-border rounded-lg p-4"
+  >
     <canvas bind:this={canvas}></canvas>
   </div>
 {:else}
-  <div class="no-data">暂无性能数据</div>
+  <div
+    class="py-8 text-center text-muted-foreground bg-card border border-border rounded-lg"
+  >
+    暂无性能数据
+  </div>
 {/if}
-
-<style>
-  .chart-container {
-    height: 350px;
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 1rem;
-  }
-
-  .no-data {
-    padding: 2rem;
-    text-align: center;
-    color: var(--text-secondary);
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-  }
-</style>

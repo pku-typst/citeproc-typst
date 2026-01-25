@@ -12,14 +12,16 @@ interface Props {
 const { categories } = Astro.props;
 ---
 
-<details>
-  <summary>📊 按类别查看</summary>
-  <div class="category-grid">
+<details class="my-4">
+  <summary class="cursor-pointer font-medium py-2 hover:text-primary">
+    📊 按类别查看
+  </summary>
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mt-4">
     {
       categories.map((cat) => (
-        <div class="category-item">
-          <span class="category-name">{cat.name}</span>
-          <span class="category-count">
+        <div class="flex justify-between items-center px-3 py-2 bg-card border border-border rounded text-sm">
+          <span class="font-medium">{cat.name}</span>
+          <span class="text-success">
             {cat.compiled}/{cat.total}
           </span>
         </div>
@@ -27,40 +29,3 @@ const { categories } = Astro.props;
     }
   </div>
 </details>
-
-<style>
-  details {
-    margin: 1rem 0;
-  }
-
-  summary {
-    cursor: pointer;
-    font-weight: 500;
-    padding: 0.5rem 0;
-  }
-
-  .category-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 0.5rem;
-    margin-top: 1rem;
-  }
-
-  .category-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 0.5rem 0.75rem;
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    font-size: 0.85rem;
-  }
-
-  .category-name {
-    font-weight: 500;
-  }
-
-  .category-count {
-    color: var(--success);
-  }
-</style>

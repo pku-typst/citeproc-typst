@@ -8,13 +8,19 @@
     "preview": "astro preview"
   },
   "dependencies": {
-    "astro": "^5.16.15",
     "@astrojs/svelte": "^7.2.5",
+    "astro": "^5.16.15",
+    "bits-ui": "^2.15.4",
+    "chart.js": "^4.5.1",
+    "clsx": "^2.1.1",
     "svelte": "^5.48.2",
-    "chart.js": "^4.5.1"
+    "tailwind-merge": "^3.4.0",
+    "tailwind-variants": "^3.2.2"
   },
   "devDependencies": {
-    "typescript": "^5.9.3",
-    "@types/node": "^25.0.10"
+    "@tailwindcss/vite": "^4.1.18",
+    "@types/node": "^25.0.10",
+    "tailwindcss": "^4.1.18",
+    "typescript": "^5.9.3"
   }
 }
