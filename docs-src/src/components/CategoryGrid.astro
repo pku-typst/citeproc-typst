@@ -1,0 +1,66 @@
+---
+interface Category {
+  name: string;
+  total: number;
+  compiled: number;
+}
+
+interface Props {
+  categories: Category[];
+}
+
+const { categories } = Astro.props;
+---
+
+<details>
+  <summary>📊 按类别查看</summary>
+  <div class="category-grid">
+    {
+      categories.map((cat) => (
+        <div class="category-item">
+          <span class="category-name">{cat.name}</span>
+          <span class="category-count">
+            {cat.compiled}/{cat.total}
+          </span>
+        </div>
+      ))
+    }
+  </div>
+</details>
+
+<style>
+  details {
+    margin: 1rem 0;
+  }
+
+  summary {
+    cursor: pointer;
+    font-weight: 500;
+    padding: 0.5rem 0;
+  }
+
+  .category-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+
+  .category-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 0.85rem;
+  }
+
+  .category-name {
+    font-weight: 500;
+  }
+
+  .category-count {
+    color: var(--success);
+  }
+</style>

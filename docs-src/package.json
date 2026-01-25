@@ -1,0 +1,20 @@
+{
+  "name": "citeproc-typst-docs",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "astro": "^5.16.15",
+    "@astrojs/svelte": "^7.2.5",
+    "svelte": "^5.48.2",
+    "chart.js": "^4.5.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "@types/node": "^25.0.10"
+  }
+}

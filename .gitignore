@@ -3,6 +3,13 @@
 /build/
 /docs/
 
+# Frontend (docs-src)
+docs-src/node_modules/
+docs-src/.astro/
+docs-src/public/data.json
+docs-src/public/results/
+docs-src/public/history.json
+
 # Editor
 .vscode/
 .idea/

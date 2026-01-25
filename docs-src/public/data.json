@@ -1,0 +1,45 @@
+{
+  "csl": {
+    "total": 150,
+    "passed": 150,
+    "failed": 0,
+    "styles": []
+  },
+  "citeproc": {
+    "total": 1000,
+    "compiled": 800,
+    "errors": 200,
+    "categories": []
+  },
+  "benchmark": {
+    "runs": [
+      {
+        "date": "2026-01-25T00:40:58Z",
+        "commit": "local",
+        "results": {
+          "\u56db\u5ddd\u5916\u56fd\u8bed\u5927\u5b66-\u82f1\u8bed\u8bed\u8a00\u6587\u5b66\uff08\u8bed\u8a00\u5b66\u3001\u6559\u5b66\u6cd5\u65b9\u5411\uff09": 4040,
+          "\u516c\u5171\u884c\u653f\u8bc4\u8bba": 3820,
+          "\u6cd5\u5b66\u5f15\u6ce8\u624b\u518c\uff08\u591a\u8bed\u8a00\uff09": 1083,
+          "\u5fc3\u7406\u5b66\u62a5": 1095,
+          "IEEE\uff08\u53cc\u8bed\uff09": 528,
+          "\u5fae\u751f\u7269\u5b66\u62a5": 504,
+          "food-materials-research": 418,
+          "\u9a6c\u514b\u601d\u4e3b\u4e49\u7814\u7a76": 530,
+          "chicago-fullnote-bibliography": 1197
+        }
+      }
+    ],
+    "styles": [
+      "\u56db\u5ddd\u5916\u56fd\u8bed\u5927\u5b66-\u82f1\u8bed\u8bed\u8a00\u6587\u5b66\uff08\u8bed\u8a00\u5b66\u3001\u6559\u5b66\u6cd5\u65b9\u5411\uff09",
+      "\u516c\u5171\u884c\u653f\u8bc4\u8bba",
+      "\u6cd5\u5b66\u5f15\u6ce8\u624b\u518c\uff08\u591a\u8bed\u8a00\uff09",
+      "\u5fc3\u7406\u5b66\u62a5",
+      "IEEE\uff08\u53cc\u8bed\uff09",
+      "\u5fae\u751f\u7269\u5b66\u62a5",
+      "food-materials-research",
+      "\u9a6c\u514b\u601d\u4e3b\u4e49\u7814\u7a76",
+      "chicago-fullnote-bibliography"
+    ]
+  },
+  "buildTime": "2026-01-25 00:44:43 UTC"
+}

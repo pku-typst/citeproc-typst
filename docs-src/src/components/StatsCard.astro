@@ -1,0 +1,43 @@
+---
+interface Props {
+  value: number | string;
+  label: string;
+  variant?: "default" | "success" | "warning";
+}
+
+const { value, label, variant = "default" } = Astro.props;
+---
+
+<div class="stat">
+  <div class:list={["stat-value", variant]}>{value}</div>
+  <div class="stat-label">{label}</div>
+</div>
+
+<style>
+  .stat {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: center;
+  }
+
+  .stat-value {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: var(--primary);
+  }
+
+  .stat-value.success {
+    color: var(--success);
+  }
+
+  .stat-value.warning {
+    color: var(--warning);
+  }
+
+  .stat-label {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+  }
+</style>

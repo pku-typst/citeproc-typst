@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  # citeproc-js test suite compatibility (runs in parallel with csl-compatibility)
+  # citeproc-js test suite compatibility
   citeproc-tests:
     runs-on: ubuntu-latest
     steps:
@@ -92,7 +92,7 @@ jobs:
       compiled: ${{ steps.citeproc-test.outputs.compiled }}
       errors: ${{ steps.citeproc-test.outputs.errors }}
 
-  # CSL compatibility test with all zotero-chinese/styles (runs in parallel with citeproc-tests)
+  # CSL compatibility test with all zotero-chinese/styles
   csl-compatibility:
     runs-on: ubuntu-latest
     steps:
@@ -176,9 +176,32 @@ jobs:
       passed: ${{ steps.csl-test.outputs.passed }}
       failed: ${{ steps.csl-test.outputs.failed }}
 
-  # Generate GitHub Pages (after both test jobs complete)
+  # Benchmark representative CSL styles
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Clone zotero-chinese/styles
+        run: |
+          git clone --depth 1 https://github.com/zotero-chinese/styles.git zotero-chinese-styles
+
+      - name: Setup Typst
+        uses: typst-community/setup-typst@v4
+
+      - name: Run benchmark
+        run: bash scripts/benchmark-csl.sh
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: build/benchmark-results.json
+
+  # Generate GitHub Pages
   generate-pages:
-    needs: [citeproc-tests, csl-compatibility]
+    needs: [citeproc-tests, csl-compatibility, benchmark]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -194,21 +217,54 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: csl-test-results
-          path: docs/results/
+          path: docs-src/public/results/
 
-      - name: Generate index page
+      - name: Download benchmark results
+        uses: actions/download-artifact@v4
+        with:
+          name: benchmark-results
+          path: build/
+
+      - name: Fetch historical data from gh-pages
         run: |
-          python scripts/generate-pages.py \
+          git fetch origin gh-pages:gh-pages 2>/dev/null || true
+          if git show gh-pages:history.json > docs-src/public/history.json 2>/dev/null; then
+            echo "Found existing history"
+          else
+            echo '{"runs":[],"styles":[]}' > docs-src/public/history.json
+          fi
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate data.json
+        run: |
+          python scripts/generate-data.py \
             --csl-total ${{ needs.csl-compatibility.outputs.total }} \
             --csl-passed ${{ needs.csl-compatibility.outputs.passed }} \
             --csl-failed ${{ needs.csl-compatibility.outputs.failed }} \
             --citeproc-total ${{ needs.citeproc-tests.outputs.total }} \
             --citeproc-compiled ${{ needs.citeproc-tests.outputs.compiled }} \
             --citeproc-errors ${{ needs.citeproc-tests.outputs.errors }} \
-            --results-dir docs/results \
+            --results-dir docs-src/public/results \
             --categories-file build/citeproc-categories.json \
-            --template .github/pages/index.html \
-            --output docs/index.html
+            --benchmark-file build/benchmark-results.json \
+            --history-file docs-src/public/history.json \
+            --output docs-src/public/data.json
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Build docs site
+        run: |
+          cd docs-src
+          bun install --frozen-lockfile
+          bun run build
+
+      - name: Copy history.json to docs for persistence
+        run: cp docs-src/public/history.json docs/history.json
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
