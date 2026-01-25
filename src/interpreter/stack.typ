@@ -1,4 +1,4 @@
-// citeproc-typst - Stack-based Interpreter with Memoization
+// citrus - Stack-based Interpreter with Memoization
 //
 // This is the PRODUCTION interpreter for CSL AST interpretation.
 // Uses an explicit stack instead of recursion to enable mutable macro cache.

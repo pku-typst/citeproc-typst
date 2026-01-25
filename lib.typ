@@ -1,7 +1,7 @@
-// citeproc-typst - CSL (Citation Style Language) processor for Typst
+// citrus - CSL (Citation Style Language) processor for Typst
 //
 // Usage with BibTeX:
-//   #import "@preview/citeproc:0.1.0": init-csl, csl-bibliography
+//   #import "@preview/citrus:0.1.0": init-csl, csl-bibliography
 //   #show: init-csl.with(
 //     read("refs.bib"),
 //     read("style.csl"),
@@ -10,7 +10,7 @@
 //   #csl-bibliography()
 //
 // Usage with CSL-JSON:
-//   #import "@preview/citeproc:0.1.0": init-csl-json, csl-bibliography
+//   #import "@preview/citrus:0.1.0": init-csl-json, csl-bibliography
 //   #show: init-csl-json.with(
 //     read("refs.json"),
 //     read("style.csl"),

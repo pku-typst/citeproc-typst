@@ -1,4 +1,4 @@
-// citeproc-typst - CSL Interpreter Module
+// citrus - CSL Interpreter Module
 //
 // Re-exports the context creation function and stack-based interpreter.
 

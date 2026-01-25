@@ -1,4 +1,4 @@
-// citeproc-typst - CSL XML Parser
+// citrus - CSL XML Parser
 //
 // Parses CSL XML into a structured Typst object
 

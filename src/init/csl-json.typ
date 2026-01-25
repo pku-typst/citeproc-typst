@@ -1,4 +1,4 @@
-// citeproc-typst - CSL-JSON Initialization Module
+// citrus - CSL-JSON Initialization Module
 //
 // Provides init-csl-json() for CSL-JSON bibliography loading.
 

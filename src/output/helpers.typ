@@ -1,4 +1,4 @@
-// citeproc-typst - Output Helpers Module
+// citrus - Output Helpers Module
 //
 // Helper functions for CSL output processing.
 

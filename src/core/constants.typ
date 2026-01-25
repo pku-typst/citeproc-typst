@@ -1,4 +1,4 @@
-// citeproc-typst - Constants Module
+// citrus - Constants Module
 //
 // Defines named constants for magic strings used throughout the codebase.
 // Using these constants improves type safety and makes refactoring easier.

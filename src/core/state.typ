@@ -1,4 +1,4 @@
-// citeproc-typst - Global state management
+// citrus - Global state management
 //
 // Manages bibliography data, CSL style, and citation tracking.
 // Uses metadata + query pattern for citation collection.

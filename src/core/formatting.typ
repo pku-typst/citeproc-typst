@@ -1,4 +1,4 @@
-// citeproc-typst - CSL Formatting Functions
+// citrus - CSL Formatting Functions
 //
 // Apply CSL formatting attributes to content.
 

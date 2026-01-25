@@ -1,4 +1,4 @@
-// citeproc-typst - Locale Management
+// citrus - Locale Management
 //
 // Centralized language detection and built-in locale data.
 // Supports zh-CN and en-US out of the box, with extension mechanism for other languages.

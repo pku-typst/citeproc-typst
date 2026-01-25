@@ -1,4 +1,4 @@
-// citeproc-typst - Parsing Module
+// citrus - Parsing Module
 //
 // Re-exports all parsing functionality.
 

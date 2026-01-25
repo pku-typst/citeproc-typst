@@ -1,4 +1,4 @@
-// citeproc-typst - CSL-JSON Support
+// citrus - CSL-JSON Support
 //
 // Handles direct CSL-JSON input as an alternative to BibTeX.
 // CSL-JSON properties map directly to CSL variables, avoiding translation losses.

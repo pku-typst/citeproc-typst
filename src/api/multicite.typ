@@ -1,4 +1,4 @@
-// citeproc-typst - Multicite API Module
+// citrus - Multicite API Module
 //
 // Provides multicite() function for citing multiple sources at once.
 

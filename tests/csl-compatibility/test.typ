@@ -1,6 +1,6 @@
 // CSL Compatibility Test Script
 //
-// Tests citeproc-typst with a given CSL style using comprehensive test cases.
+// Tests citrus with a given CSL style using comprehensive test cases.
 //
 // Usage: typst compile test-csl-compatibility.typ --root . --input csl=path/to/style.csl
 

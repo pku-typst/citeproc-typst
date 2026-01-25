@@ -1,4 +1,4 @@
-// citeproc-typst - Names Rendering Module
+// citrus - Names Rendering Module
 //
 // Functions for rendering names in different contexts (grouping, display, bibliography).
 

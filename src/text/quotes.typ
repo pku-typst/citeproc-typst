@@ -1,4 +1,4 @@
-// citeproc-typst - Quote Handling Module
+// citrus - Quote Handling Module
 //
 // Implements CSL quote flipflopping:
 // - Alternates between outer and inner quotes for nested quotations

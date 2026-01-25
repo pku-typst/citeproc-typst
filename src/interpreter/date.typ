@@ -1,4 +1,4 @@
-// citeproc-typst - Date Handler
+// citrus - Date Handler
 //
 // Handles <date> CSL element.
 

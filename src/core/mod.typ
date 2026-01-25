@@ -1,4 +1,4 @@
-// citeproc-typst - Core Module
+// citrus - Core Module
 //
 // Re-exports all core functionality.
 

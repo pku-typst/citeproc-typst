@@ -1,4 +1,4 @@
-// citeproc-typst - Sorting Module
+// citrus - Sorting Module
 //
 // Extracts sort keys from CSL <sort> element and sorts entries.
 

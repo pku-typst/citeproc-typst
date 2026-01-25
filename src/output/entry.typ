@@ -1,4 +1,4 @@
-// citeproc-typst - Entry Rendering Module
+// citrus - Entry Rendering Module
 //
 // Functions for rendering bibliography entries.
 

@@ -1,4 +1,4 @@
-// citeproc-typst - Citation Rendering Module
+// citrus - Citation Rendering Module
 //
 // Functions for rendering in-text citations.
 

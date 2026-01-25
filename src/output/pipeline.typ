@@ -1,4 +1,4 @@
-// citeproc-typst - IR Pipeline Module
+// citrus - IR Pipeline Module
 //
 // Functions for processing entries through the full IR (Intermediate Representation) pipeline.
 

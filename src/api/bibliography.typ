@@ -1,4 +1,4 @@
-// citeproc-typst - Bibliography API Module
+// citrus - Bibliography API Module
 //
 // Provides csl-bibliography() and get-cited-entries() functions.
 

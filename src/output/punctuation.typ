@@ -1,4 +1,4 @@
-// citeproc-typst - Punctuation Collapsing
+// citrus - Punctuation Collapsing
 //
 // Implements CSL punctuation collapsing rules based on citeproc-js LtoR_MAP.
 

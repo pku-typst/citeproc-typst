@@ -1,4 +1,4 @@
-// citeproc-typst - Range Formatting Module
+// citrus - Range Formatting Module
 //
 // Handles page and year range formatting according to CSL options:
 // - page-range-format: expanded, minimal, minimal-two, chicago, chicago-15, chicago-16

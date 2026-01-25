@@ -1,4 +1,4 @@
-// citeproc-typst - CSL Condition Evaluator
+// citrus - CSL Condition Evaluator
 //
 // Evaluates CSL conditional expressions (if/else-if)
 // Includes CSL-M extension conditions

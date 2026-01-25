@@ -1,4 +1,4 @@
-// citeproc-typst - BibTeX Initialization Module
+// citrus - BibTeX Initialization Module
 //
 // Provides init-csl() for BibTeX bibliography loading.
 

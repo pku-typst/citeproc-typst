@@ -1,4 +1,4 @@
-// citeproc-typst - Initialization Module
+// citrus - Initialization Module
 //
 // Re-exports initialization functions.
 

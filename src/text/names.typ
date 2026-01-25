@@ -1,4 +1,4 @@
-// citeproc-typst - Name Formatting
+// citrus - Name Formatting
 //
 // Formats author/editor names according to CSL rules
 // Includes CSL-M extension: cs:institution for institutional authors

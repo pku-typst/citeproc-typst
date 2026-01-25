@@ -1,4 +1,4 @@
-// citeproc-typst - API Module
+// citrus - API Module
 //
 // Re-exports public API functions.
 

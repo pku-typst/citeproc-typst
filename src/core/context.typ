@@ -1,4 +1,4 @@
-// citeproc-typst - Interpretation Context
+// citrus - Interpretation Context
 //
 // Creates the context object used during CSL interpretation.
 //

@@ -1,10 +1,10 @@
 [package]
-name = "citeproc"
+name = "citrus"
 version = "0.1.0"
 entrypoint = "lib.typ"
 authors = ["lucifer1004"]
 license = "MIT"
-description = "Format citations and bibliographies with standard CSL styles."
+description = "Fresh citations for Typst — format bibliographies with standard CSL styles, plus CSL-M support."
 repository = "https://github.com/pku-typst/citeproc-typst"
 keywords = ["bibliography", "citation", "csl", "reference"]
 categories = ["utility"]

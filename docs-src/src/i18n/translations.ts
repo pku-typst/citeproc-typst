@@ -1,13 +1,13 @@
 export const translations = {
   zh: {
     meta: {
-      title: "citeproc-typst 兼容性测试",
+      title: "citrus 🍋 兼容性测试",
       lang: "zh-CN",
     },
     hero: {
-      title: "citeproc-typst",
+      title: "citrus 🍋",
       description:
-        "CSL (Citation Style Language) 处理器的 Typst 原生实现。支持学术文献引用格式化，兼容 Zotero 等工具的 CSL 样式。",
+        "新鲜的引用，为 Typst 而生 — CSL (Citation Style Language) 处理器的纯 Typst 实现。支持学术文献引用格式化，兼容 Zotero 等工具的 CSL 样式。",
     },
     stats: {
       cslStyles: "CSL 样式",
@@ -25,13 +25,13 @@ export const translations = {
         title: "citeproc-js 测试套件",
         description:
           "使用 citeproc-js 测试套件中的 CSL 样式和数据进行编译测试。",
-        note: "编译通过仅表示 citeproc-typst 能够处理该测试用例，不保证输出结果与 citeproc-js 完全一致。",
+        note: "编译通过仅表示 citrus 能够处理该测试用例，不保证输出结果与 citeproc-js 完全一致。",
       },
       csl: {
         title: "CSL 样式兼容性",
         description:
           "测试 zotero-chinese/styles 中的所有 CSL 样式是否可以正常编译。",
-        note: "编译通过仅表示 citeproc-typst 能够解析并处理该样式，不保证输出格式完全符合预期。",
+        note: "编译通过仅表示 citrus 能够解析并处理该样式，不保证输出格式完全符合预期。",
       },
       benchmark: {
         title: "性能趋势",
@@ -71,13 +71,13 @@ export const translations = {
   },
   en: {
     meta: {
-      title: "citeproc-typst Compatibility Tests",
+      title: "citrus 🍋 Compatibility Tests",
       lang: "en",
     },
     hero: {
-      title: "citeproc-typst",
+      title: "citrus 🍋",
       description:
-        "Native Typst implementation of CSL (Citation Style Language) processor. Supports academic citation formatting, compatible with Zotero CSL styles.",
+        "Fresh citations for Typst — a pure Typst implementation of CSL (Citation Style Language) processor. Squeeze the zest out of your references!",
     },
     stats: {
       cslStyles: "CSL Styles",
@@ -95,13 +95,13 @@ export const translations = {
         title: "citeproc-js Test Suite",
         description:
           "Compile tests using CSL styles and data from the citeproc-js test suite.",
-        note: "Compilation success only indicates citeproc-typst can process the test case, not that output matches citeproc-js exactly.",
+        note: "Compilation success only indicates citrus can process the test case, not that output matches citeproc-js exactly.",
       },
       csl: {
         title: "CSL Style Compatibility",
         description:
           "Test all CSL styles from zotero-chinese/styles for successful compilation.",
-        note: "Compilation success only indicates citeproc-typst can parse and process the style, not that output format is fully compliant.",
+        note: "Compilation success only indicates citrus can parse and process the style, not that output format is fully compliant.",
       },
       benchmark: {
         title: "Performance Trends",

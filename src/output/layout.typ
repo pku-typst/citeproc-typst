@@ -1,4 +1,4 @@
-// citeproc-typst - Layout Selection Module
+// citrus - Layout Selection Module
 //
 // Provides layout selection logic for CSL-M multilingual support.
 

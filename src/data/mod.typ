@@ -1,4 +1,4 @@
-// citeproc-typst - Data Processing Module
+// citrus - Data Processing Module
 //
 // Re-exports all data processing functionality.
 

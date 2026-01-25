@@ -1,4 +1,4 @@
-// citeproc-typst - Names Handler
+// citrus - Names Handler
 //
 // Handles <names> CSL element.
 

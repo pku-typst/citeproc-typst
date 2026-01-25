@@ -1,4 +1,4 @@
-// citeproc-typst - Core Initialization Module
+// citrus - Core Initialization Module
 //
 // Shared initialization logic for CSL processing.
 

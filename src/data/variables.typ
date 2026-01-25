@@ -1,4 +1,4 @@
-// citeproc-typst - Variable Access
+// citrus - Variable Access
 //
 // Functions for accessing entry variables/fields
 // Includes CSL-M legal variable extensions

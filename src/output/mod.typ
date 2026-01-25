@@ -1,4 +1,4 @@
-// citeproc-typst - Output Module
+// citrus - Output Module
 //
 // Re-exports all output/rendering functionality.
 

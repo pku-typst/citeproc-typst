@@ -1,4 +1,4 @@
-// citeproc-typst - Text Processing Module
+// citrus - Text Processing Module
 //
 // Re-exports all text formatting functionality.
 

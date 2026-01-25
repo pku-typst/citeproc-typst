@@ -1,4 +1,4 @@
-// citeproc-typst - Disambiguation Module
+// citrus - Disambiguation Module
 //
 // Implements CSL disambiguation according to the specification.
 // Disambiguation is applied in order:

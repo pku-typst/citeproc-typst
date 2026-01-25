@@ -1,4 +1,4 @@
-// citeproc-typst - Date Formatting
+// citrus - Date Formatting
 //
 // Uses Typst's native datetime for formatting
 

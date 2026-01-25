@@ -1,8 +1,19 @@
 # citeproc-typst development tasks
 
-# Default recipe
-default:
-    @just --list
+set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
+set shell := ["bash", "-cu"]
+
+# =============================================================================
+# Build & Development
+# =============================================================================
+
+[unix]
+pre-commit:
+    @if command -v prek > /dev/null 2>&1; then prek run --all-files; else pre-commit run --all-files; fi
+
+[windows]
+pre-commit:
+    if (Get-Command prek -ErrorAction SilentlyContinue) { prek run --all-files } else { pre-commit run --all-files }
 
 # Compile English example
 build-en:
@@ -46,12 +57,3 @@ test-csl-all:
 # Clean build artifacts
 clean:
     rm -rf build/
-
-# Run pre-commit hooks (prefer prek, fallback to pre-commit)
-[unix]
-pre-commit:
-  @if command -v prek > /dev/null 2>&1; then prek run --all-files; else pre-commit run --all-files; fi
-
-[windows]
-pre-commit:
-  @where prek >nul 2>&1 && prek run --all-files || pre-commit run --all-files

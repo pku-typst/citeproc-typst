@@ -1,4 +1,4 @@
-// citeproc-typst - Core Utility Functions
+// citrus - Core Utility Functions
 //
 // Common utility functions used across the codebase.
 

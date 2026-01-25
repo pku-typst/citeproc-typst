@@ -1,4 +1,4 @@
-// citeproc-typst - Number and Label Handlers
+// citrus - Number and Label Handlers
 //
 // Handles <number> and <label> CSL elements.
 

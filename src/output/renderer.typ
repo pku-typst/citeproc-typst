@@ -1,4 +1,4 @@
-// citeproc-typst - Entry and Citation Renderer
+// citrus - Entry and Citation Renderer
 //
 // This file is kept for backward compatibility.
 // All functionality has been split into focused modules:
