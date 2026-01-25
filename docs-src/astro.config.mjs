@@ -8,7 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   integrations: [svelte()],
-  site: "https://lucifer1004.github.io",
+  site: "https://pku-typst.github.io",
   base: "/citeproc-typst",
   outDir: "../docs",
   build: {

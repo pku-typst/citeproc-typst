@@ -225,12 +225,15 @@ jobs:
           name: benchmark-results
           path: build/
 
-      - name: Fetch historical data from gh-pages
+      - name: Fetch historical data from deployed Pages
         run: |
-          git fetch origin gh-pages:gh-pages 2>/dev/null || true
-          if git show gh-pages:history.json > docs-src/public/history.json 2>/dev/null; then
-            echo "Found existing history"
+          # Try to fetch history from the deployed GitHub Pages
+          PAGES_URL="https://pku-typst.github.io/citeproc-typst/history.json"
+          if curl -sf "$PAGES_URL" -o docs-src/public/history.json; then
+            echo "Fetched existing history from $PAGES_URL"
+            cat docs-src/public/history.json | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'  Existing runs: {len(d.get(\"runs\", []))}')"
           else
+            echo "No existing history found, starting fresh"
             echo '{"runs":[],"styles":[]}' > docs-src/public/history.json
           fi
 
