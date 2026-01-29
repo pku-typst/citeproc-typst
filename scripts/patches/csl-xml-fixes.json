@@ -30,6 +30,12 @@
       "description": "Missing </style> at end",
       "find": "    </layout>\n  </bibliography>",
       "replace": "    </layout>\n  </bibliography>\n</style>"
+    },
+    {
+      "fixture": "condition_LocatorsCslM",
+      "description": "Missing </choose> before </group>",
+      "find": "          </else-if>\n      </group>",
+      "replace": "          </else-if>\n        </choose>\n      </group>"
     }
   ]
 }
