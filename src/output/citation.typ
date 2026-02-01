@@ -81,8 +81,10 @@
       parsed-value = str(supplement)
     }
 
-    if parsed-value != "" {
-      ctx.fields.insert("locator", parsed-value)
+    // Trim whitespace from locator value
+    let trimmed-value = parsed-value.trim()
+    if trimmed-value != "" {
+      ctx.fields.insert("locator", trimmed-value)
       ctx = (..ctx, locator-label: parsed-label)
     }
   }

@@ -26,43 +26,88 @@ from html.parser import HTMLParser
 # =============================================================================
 
 class CitationExtractor(HTMLParser):
-    """Extract citation text from HTML (content before bibliography refs)."""
+    """Extract citation text from HTML.
+
+    Handles two cases:
+    1. Inline citations - content in <p> tags (not bibliography refs)
+    2. Footnote citations - content in <section role="doc-endnotes">
+    """
 
     def __init__(self):
         super().__init__()
         self.in_body = False
         self.in_p = False
-        self.current_p_text = []
+        self.in_endnotes = False
+        self.in_endnote_li = False
+        self.in_footnote_link = False
+        self.current_text = []
         self.citation_texts = []
-        self.current_span_id = None
+        self.endnote_texts = []
         self.skip_current_p = False
+        self.skip_until_close = None  # Skip content until this tag closes
 
     def handle_starttag(self, tag, attrs):
         attrs_dict = dict(attrs)
         if tag == 'body':
             self.in_body = True
-        elif tag == 'p' and self.in_body:
+        elif tag == 'section' and attrs_dict.get('role') == 'doc-endnotes':
+            self.in_endnotes = True
+        elif tag == 'li' and self.in_endnotes:
+            self.in_endnote_li = True
+            self.current_text = []
+        elif tag == 'a' and self.in_endnote_li:
+            # Skip the backlink (role="doc-backlink") and get the citation link
+            if attrs_dict.get('role') == 'doc-backlink':
+                self.skip_until_close = 'a'
+            elif attrs_dict.get('href', '').startswith('#citeproc-ref-'):
+                self.in_footnote_link = True
+        elif tag == 'p' and self.in_body and not self.in_endnotes:
             self.in_p = True
-            self.current_p_text = []
+            self.current_text = []
             self.skip_current_p = False
         elif tag == 'span':
             span_id = attrs_dict.get('id', '')
             if span_id.startswith('citeproc-ref-'):
                 self.skip_current_p = True
+        elif tag == 'a' and self.in_p:
+            # Skip footnote reference links in main body
+            if attrs_dict.get('role') == 'doc-noteref':
+                self.skip_until_close = 'a'
 
     def handle_endtag(self, tag):
-        if tag == 'p' and self.in_p:
+        if self.skip_until_close == tag:
+            self.skip_until_close = None
+            return
+
+        if tag == 'section' and self.in_endnotes:
+            self.in_endnotes = False
+        elif tag == 'li' and self.in_endnote_li:
+            self.in_endnote_li = False
+            text = ''.join(self.current_text).strip()
+            if text:
+                self.endnote_texts.append(text)
+        elif tag == 'a' and self.in_footnote_link:
+            self.in_footnote_link = False
+        elif tag == 'p' and self.in_p:
             self.in_p = False
             if not self.skip_current_p:
-                text = ''.join(self.current_p_text).strip()
+                text = ''.join(self.current_text).strip()
                 if text:
                     self.citation_texts.append(text)
 
     def handle_data(self, data):
-        if self.in_p and not self.skip_current_p:
-            self.current_p_text.append(data)
+        if self.skip_until_close:
+            return
+
+        if self.in_footnote_link:
+            self.current_text.append(data)
+        elif self.in_p and not self.skip_current_p:
+            self.current_text.append(data)
 
     def get_citations(self) -> str:
+        # Prefer endnotes if present (footnote style), otherwise inline citations
+        if self.endnote_texts:
+            return '\n'.join(self.endnote_texts)
         return '\n'.join(self.citation_texts)
 
 
@@ -290,12 +335,19 @@ def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str,
                             cite_calls.append(f'#cite(<{key}>, form: "prose")')
                 elif len(cluster) > 1:
                     # Multiple citations - use #multicite
-                    keys = []
+                    items = []
                     for cite in cluster:
                         if isinstance(cite, dict) and 'id' in cite:
-                            keys.append(f'"{cite["id"]}"')
-                    if keys:
-                        cite_calls.append(f'#multicite({", ".join(keys)})')
+                            key = cite['id']
+                            locator_value = cite.get('locator', '')
+                            locator_label = cite.get('label', 'page')
+                            if locator_value:
+                                locator_escaped = locator_value.replace('"', '\\"')
+                                items.append(f'(key: "{key}", supplement: locator("{locator_label}", "{locator_escaped}"))')
+                            else:
+                                items.append(f'"{key}"')
+                    if items:
+                        cite_calls.append(f'#multicite({", ".join(items)})')
         else:
             # Fallback: each input item is a separate citation
             for item in fixture.input_data:

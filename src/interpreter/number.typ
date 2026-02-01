@@ -105,6 +105,48 @@
   } else { [] }
 }
 
+// Known locator term names for embedded label detection
+#let _locator-terms = (
+  "page",
+  "volume",
+  "chapter",
+  "section",
+  "paragraph",
+  "folio",
+  "opus",
+  "line",
+  "verse",
+  "figure",
+  "column",
+  "note",
+  "number",
+  "part",
+  "sub verbo",
+  "issue",
+)
+
+/// Check if locator value starts with an embedded label (from current locale)
+#let _has-embedded-label(val-str, ctx, form) = {
+  if val-str == "" { return false }
+  let lower-val = lower(val-str)
+
+  // Check each locator term in both singular and plural forms
+  for term-name in _locator-terms {
+    // Get term from locale
+    let term-long = lookup-term(ctx, term-name, form: "long", plural: false)
+    let term-long-pl = lookup-term(ctx, term-name, form: "long", plural: true)
+    let term-short = lookup-term(ctx, term-name, form: "short", plural: false)
+    let term-short-pl = lookup-term(ctx, term-name, form: "short", plural: true)
+
+    for term in (term-long, term-long-pl, term-short, term-short-pl) {
+      if term != "" and lower-val.starts-with(lower(term)) {
+        return true
+      }
+    }
+  }
+  false
+}
+
 /// Handle <label> element
 #let handle-label(node, ctx, interpret) = {
   let attrs = node.at("attrs", default: (:))
@@ -116,8 +158,15 @@
   if is-empty(val) {
     []
   } else {
-    // Determine plurality based on value content
     let val-str = if type(val) == str { val } else { "" }
+
+    // For locator: skip label if value already has embedded label
+    // e.g., locator="vol. 1, fol. 186" already contains "vol." label
+    if var-name == "locator" and _has-embedded-label(val-str, ctx, form) {
+      return []
+    }
+
+    // Determine plurality based on value content
     let plural = (
       val-str.contains("-")
         or val-str.contains(",")

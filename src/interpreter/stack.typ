@@ -31,7 +31,11 @@
       let var-name = attrs.variable
       let val = get-variable(ctx, var-name)
       if val != "" {
-        if var-name == "page" or var-name == "page-first" {
+        if (
+          var-name == "page"
+            or var-name == "page-first"
+            or var-name == "locator"
+        ) {
           let page-format = ctx.style.at("page-range-format", default: none)
           format-page-range(val, format: page-format, ctx: ctx)
         } else { val }

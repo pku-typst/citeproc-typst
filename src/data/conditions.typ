@@ -255,10 +255,15 @@
     conditions.push(matches)
   }
 
-  // Locator condition (check if locator/supplement is present)
+  // Locator condition: check if locator-label matches specified values
+  // CSL spec: <if locator="page chapter..."> checks the locator label type
   if "locator" in attrs {
-    let has-locator = ctx.at("locator", default: none) != none
-    conditions.push(has-locator)
+    let locator-types = attrs.locator.split(" ")
+    let current-label = ctx.at("locator-label", default: "page")
+    // Also check if locator actually exists
+    let has-locator = ctx.fields.at("locator", default: "") != ""
+    let matches = has-locator and locator-types.any(t => t == current-label)
+    conditions.push(matches)
   }
 
   // Disambiguate condition (CSL Method 3)

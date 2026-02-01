@@ -8,8 +8,8 @@
 // Module-level regex patterns (avoid recompilation)
 // =============================================================================
 
-// Pattern for splitting ranges on dash or en-dash
-#let _range-split-pattern = regex("[\\-–\\u2013]")
+// Pattern for splitting ranges on dash or en-dash (with optional surrounding spaces)
+#let _range-split-pattern = regex("\\s*[\\-–\\u2013]\\s*")
 
 // Pattern for detecting digits
 #let _digit-pattern = regex("[0-9]")
