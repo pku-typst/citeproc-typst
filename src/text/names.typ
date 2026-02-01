@@ -820,7 +820,7 @@
   // Resolve "and" with fallback to citation level, then style level
   let and-mode = attrs.at("and", default: none)
   if and-mode == none { and-mode = ctx.at("citation-and", default: none) }
-  if and-mode == none { and-mode = ctx.style.and-term }
+  if and-mode == none { and-mode = ctx.style.at("and", default: none) }
 
   // Resolve delimiter-precedes-last with fallback
   let delimiter-precedes-last = attrs.at(
@@ -830,6 +830,12 @@
   if delimiter-precedes-last == none {
     delimiter-precedes-last = ctx.at(
       "citation-delimiter-precedes-last",
+      default: none,
+    )
+  }
+  if delimiter-precedes-last == none {
+    delimiter-precedes-last = ctx.style.at(
+      "delimiter-precedes-last",
       default: none,
     )
   }

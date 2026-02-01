@@ -28,6 +28,59 @@
   ))
 }
 
+/// Extract inheritable name formatting attributes from an element's attrs
+/// These attributes can appear on style, citation, bibliography, or name elements
+/// and follow a cascade: name -> citation/bib -> style -> defaults
+///
+/// When is-style-level is true, applies CSL spec defaults for style-level fallbacks.
+/// Otherwise returns none for unset attributes (allowing inheritance).
+#let extract-name-attrs(attrs, is-style-level: false) = {
+  (
+    "and": attrs.at("and", default: none), // "text" or "symbol"
+    name-delimiter: if is-style-level {
+      attrs.at("name-delimiter", default: ", ")
+    } else {
+      attrs.at("name-delimiter", default: none)
+    },
+    name-as-sort-order: attrs.at("name-as-sort-order", default: none),
+    sort-separator: if is-style-level {
+      attrs.at("sort-separator", default: ", ")
+    } else {
+      attrs.at("sort-separator", default: none)
+    },
+    initialize-with: attrs.at("initialize-with", default: none),
+    initialize-with-hyphen: if attrs.at("initialize-with-hyphen", default: none)
+      != none {
+      attrs.at("initialize-with-hyphen") == "true"
+    } else if is-style-level {
+      true // CSL spec default is true
+    } else {
+      none
+    },
+    delimiter-precedes-et-al: attrs.at(
+      "delimiter-precedes-et-al",
+      default: none,
+    ),
+    delimiter-precedes-last: attrs.at("delimiter-precedes-last", default: none),
+    et-al-min: safe-int(attrs.at("et-al-min", default: none), default: none),
+    et-al-use-first: safe-int(
+      attrs.at("et-al-use-first", default: none),
+      default: none,
+    ),
+    et-al-use-last: if attrs.at("et-al-use-last", default: none) != none {
+      attrs.at("et-al-use-last").trim() == "true"
+    } else { none },
+    et-al-subsequent-min: safe-int(
+      attrs.at("et-al-subsequent-min", default: none),
+      default: none,
+    ),
+    et-al-subsequent-use-first: safe-int(
+      attrs.at("et-al-subsequent-use-first", default: none),
+      default: none,
+    ),
+  )
+}
+
 /// Get text content from a node (handles nested text)
 /// Trims only XML formatting whitespace (regular spaces, tabs, newlines) but preserves
 /// intentional Unicode whitespace (like punctuation space \u{2008}) that may be part of term values
@@ -228,8 +281,11 @@
   let layouts = find-children(citation-node, "layout")
   let sort = find-child(citation-node, "sort")
 
+  // Extract inheritable name attributes using the unified helper
+  let name-attrs = extract-name-attrs(citation-node.attrs)
+
   (
-    // Citation attributes
+    // Citation-specific attributes
     collapse: citation-node.attrs.at("collapse", default: none),
     cite-group-delimiter: citation-node.attrs.at(
       "cite-group-delimiter",
@@ -263,41 +319,9 @@
     )
       == "true",
     // CSL spec: check if year-suffix is explicitly rendered via <text variable="year-suffix"/>
-    // If true, year-suffix is NOT auto-appended to dates; if false, it IS auto-appended
     has-explicit-year-suffix: _has-explicit-year-suffix(citation-node),
-    // Et-al settings (inheritable name options)
-    et-al-min: if citation-node.attrs.at("et-al-min", default: none) != none {
-      int(citation-node.attrs.at("et-al-min"))
-    } else { none },
-    et-al-use-first: if citation-node.attrs.at("et-al-use-first", default: none)
-      != none {
-      int(citation-node.attrs.at("et-al-use-first"))
-    } else { none },
-    et-al-subsequent-min: if citation-node.attrs.at(
-      "et-al-subsequent-min",
-      default: none,
-    )
-      != none {
-      int(citation-node.attrs.at("et-al-subsequent-min"))
-    } else { none },
-    et-al-subsequent-use-first: if citation-node.attrs.at(
-      "et-al-subsequent-use-first",
-      default: none,
-    )
-      != none {
-      int(citation-node.attrs.at("et-al-subsequent-use-first"))
-    } else { none },
-    // Name formatting options (inheritable)
-    "and": citation-node.attrs.at("and", default: none),
-    name-delimiter: citation-node.attrs.at("name-delimiter", default: none),
-    delimiter-precedes-et-al: citation-node.attrs.at(
-      "delimiter-precedes-et-al",
-      default: none,
-    ),
-    delimiter-precedes-last: citation-node.attrs.at(
-      "delimiter-precedes-last",
-      default: none,
-    ),
+    // Inheritable name attributes (from unified helper)
+    ..name-attrs,
     // Layouts (CSL-M: may have locale-specific variants)
     layouts: layouts.map(l => (
       locale: l.attrs.at("locale", default: none),
@@ -341,8 +365,11 @@
   let layouts = find-children(bib-node, "layout")
   let sort = find-child(bib-node, "sort")
 
+  // Extract inheritable name attributes using the unified helper
+  let name-attrs = extract-name-attrs(bib-node.attrs)
+
   (
-    // Bibliography attributes
+    // Bibliography-specific attributes
     hanging-indent: bib-node.attrs.at("hanging-indent", default: "false")
       == "true",
     second-field-align: bib-node.attrs.at("second-field-align", default: none),
@@ -357,33 +384,9 @@
       default: "complete-all",
     ),
     // CSL spec: check if year-suffix is explicitly rendered via <text variable="year-suffix"/>
-    // If true, year-suffix is NOT auto-appended to dates; if false, it IS auto-appended
     has-explicit-year-suffix: _has-explicit-year-suffix(bib-node),
-    // Et-al settings (use safe-int to handle malformed CSL with trailing spaces)
-    // Keep none if not explicitly set - allows fallback to style-level settings
-    et-al-min: safe-int(
-      bib-node.attrs.at("et-al-min", default: none),
-      default: none,
-    ),
-    et-al-use-first: safe-int(
-      bib-node.attrs.at("et-al-use-first", default: none),
-      default: none,
-    ),
-    et-al-use-last: if bib-node.attrs.at("et-al-use-last", default: none)
-      != none {
-      bib-node.attrs.at("et-al-use-last").trim() == "true"
-    } else { none },
-    // Name formatting options (inheritable)
-    "and": bib-node.attrs.at("and", default: none),
-    "name-delimiter": bib-node.attrs.at("name-delimiter", default: none),
-    "delimiter-precedes-et-al": bib-node.attrs.at(
-      "delimiter-precedes-et-al",
-      default: none,
-    ),
-    "delimiter-precedes-last": bib-node.attrs.at(
-      "delimiter-precedes-last",
-      default: none,
-    ),
+    // Inheritable name attributes (from unified helper)
+    ..name-attrs,
     // Layouts (may have locale-specific variants)
     // Note: suffix defaults to empty - CSL puts suffix on child elements, not layout
     layouts: layouts.map(l => (
@@ -523,34 +526,22 @@
   let citation = parse-citation(find-child(root, "citation"))
   let bibliography = parse-bibliography(find-child(root, "bibliography"))
 
+  // Extract inheritable name attributes at style level (with defaults)
+  let name-attrs = extract-name-attrs(attrs, is-style-level: true)
+
   (
-    // Style attributes
+    // Style-specific attributes
     class: attrs.at("class", default: "in-text"),
     version: attrs.at("version", default: "1.0"),
     default-locale: default-locale,
-    name-as-sort-order: attrs.at("name-as-sort-order", default: none),
-    sort-separator: attrs.at("sort-separator", default: ", "),
     demote-non-dropping-particle: attrs.at(
       "demote-non-dropping-particle",
       default: "display-and-sort",
     ),
-    initialize-with: attrs.at("initialize-with", default: none),
-    initialize-with-hyphen: attrs.at("initialize-with-hyphen", default: "true")
-      == "true",
     page-range-format: attrs.at("page-range-format", default: none),
-    name-delimiter: attrs.at("name-delimiter", default: ", "),
     names-delimiter: attrs.at("names-delimiter", default: ", "),
-    and-term: attrs.at("and", default: none), // "text" or "symbol"
-    // Et-al settings (CSL spec: inheritable from style level)
-    et-al-min: safe-int(attrs.at("et-al-min", default: none), default: none),
-    et-al-use-first: safe-int(
-      attrs.at("et-al-use-first", default: none),
-      default: none,
-    ),
-    delimiter-precedes-et-al: attrs.at(
-      "delimiter-precedes-et-al",
-      default: none,
-    ),
+    // Inheritable name attributes (from unified helper)
+    ..name-attrs,
     // Parsed components
     title: title,
     locale: merged-locale,
