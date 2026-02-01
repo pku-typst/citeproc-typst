@@ -233,22 +233,25 @@
   // We use a simple approach: prefix with "~" and negate digits
   // Map: 0->9, 1->8, 2->7, 3->6, 4->5, 5->4, 6->3, 7->2, 8->1, 9->0
   // For letters: a->z, b->y, etc.
-  s.codepoints().map(c => {
-    let code = c.to-unicode()
-    if code >= 0x30 and code <= 0x39 {
-      // Digit: 0-9 -> 9-0
-      str.from-unicode(0x39 - (code - 0x30))
-    } else if code >= 0x61 and code <= 0x7a {
-      // Lowercase: a-z -> z-a
-      str.from-unicode(0x7a - (code - 0x61))
-    } else if code >= 0x41 and code <= 0x5a {
-      // Uppercase: A-Z -> Z-A
-      str.from-unicode(0x5a - (code - 0x41))
-    } else {
-      // Keep other characters (like -)
-      c
-    }
-  }).join()
+  s
+    .codepoints()
+    .map(c => {
+      let code = c.to-unicode()
+      if code >= 0x30 and code <= 0x39 {
+        // Digit: 0-9 -> 9-0
+        str.from-unicode(0x39 - (code - 0x30))
+      } else if code >= 0x61 and code <= 0x7a {
+        // Lowercase: a-z -> z-a
+        str.from-unicode(0x7a - (code - 0x61))
+      } else if code >= 0x41 and code <= 0x5a {
+        // Uppercase: A-Z -> Z-A
+        str.from-unicode(0x5a - (code - 0x41))
+      } else {
+        // Keep other characters (like -)
+        c
+      }
+    })
+    .join()
 }
 
 /// Sort entries by extracted sort keys

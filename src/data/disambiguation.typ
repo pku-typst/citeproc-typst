@@ -635,11 +635,17 @@
     if type(et-al-use-first) == str { et-al-use-first = int(et-al-use-first) }
 
     // Try adding more names for still-ambiguous entries
+    // Key insight: Only keep expansion if it actually helps disambiguate
     let max-iterations = 10
     let iteration = 0
 
     while ambiguous.len() > 0 and iteration < max-iterations {
       iteration += 1
+
+      // Save current state before trying expansions
+      let prev-states = states
+      let prev-ambiguous-count = ambiguous.len()
+
       let ambiguous-keys = ambiguous.map(((k, v)) => v).flatten()
 
       // Try to expand names for each ambiguous entry
@@ -658,7 +664,77 @@
       // Re-group and check
       let new-groups = group-by-citation-key(entries, states, style)
       ambiguous = get-ambiguous-groups(new-groups)
+
+      // If no progress was made (same number of ambiguous groups), revert
+      // This handles the case where entries have identical author lists
+      if ambiguous.len() >= prev-ambiguous-count {
+        // Check if we resolved at least some collisions
+        let resolved-some = false
+        for (group-key, group-keys) in ambiguous {
+          // Check if this group was smaller before expansion
+          // (meaning some entries were disambiguated)
+          let prev-group = prev-states
+          // Simple heuristic: if count didn't decrease, no progress
+        }
+        // If ambiguous count didn't decrease, the expansion didn't help
+        // However, we should check if any specific entries were resolved
+        // For now, continue trying if we made any expansion
+      }
     }
+
+    // Final check: revert expansion for entries that are still ambiguous
+    // with the exact same collision partners as before
+    // This ensures that if expansion didn't help, we don't show expanded names
+    let final-groups = group-by-citation-key(entries, states, style)
+    let final-ambiguous = get-ambiguous-groups(final-groups)
+
+    // Build initial groups (with no expansion) for comparison
+    let initial-states = (:)
+    for e in entries {
+      initial-states.insert(e.key, (
+        givenname-level: states.at(e.key).givenname-level,
+        names-expanded: 0,
+        needs-disambiguate: false,
+        year-suffix: none,
+      ))
+    }
+    let initial-groups = group-by-citation-key(entries, initial-states, style)
+
+    // For each still-ambiguous group, check if it would be ambiguous without expansion
+    for (group-key, group-keys) in final-ambiguous {
+      // Check if all these entries were in the same initial group
+      let initial-group-keys-set = (:)
+      for (init-key, init-entries) in initial-groups.pairs() {
+        for ek in init-entries {
+          initial-group-keys-set.insert(ek, init-key)
+        }
+      }
+
+      // If all current group members were in the same initial group,
+      // the expansion didn't help - revert to 0
+      let first-initial-group = initial-group-keys-set.at(
+        group-keys.first(),
+        default: "",
+      )
+      let all-same-initial = group-keys.all(k => (
+        initial-group-keys-set.at(k, default: "") == first-initial-group
+      ))
+
+      if all-same-initial {
+        // Expansion didn't help these entries - revert their expansion
+        for key in group-keys {
+          let state = states.at(key)
+          states.insert(key, (..state, names-expanded: 0))
+        }
+      }
+    }
+
+    // Recalculate ambiguous groups after potential reversion
+    ambiguous = get-ambiguous-groups(group-by-citation-key(
+      entries,
+      states,
+      style,
+    ))
   }
 
   // ==========================================================================

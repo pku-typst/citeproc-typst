@@ -601,10 +601,16 @@
     } else if is-note-style {
       // Note/footnote style without collapse: render each citation fully
       let is-multicite = normalized.len() > 1
+      let disambig-states = precomputed.at("disambig-states", default: (:))
 
       let cite-parts = normalized.map(item => {
         let entry = bib.at(item.key, default: none)
         if entry == none { return [] }
+        let disambig = disambig-states.at(item.key, default: (
+          names-expanded: 0,
+          givenname-level: 0,
+          year-suffix: none,
+        ))
         collapse-punctuation(render-citation(
           entry,
           style,
@@ -612,6 +618,9 @@
           form: if form != none { form } else { "full" },
           suppress-affixes: is-multicite,
           cite-number: citations.order.at(item.key, default: 0),
+          year-suffix: disambig.at("year-suffix", default: none),
+          names-expanded: disambig.at("names-expanded", default: 0),
+          givenname-level: disambig.at("givenname-level", default: 0),
         ))
       })
 
