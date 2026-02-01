@@ -47,6 +47,11 @@
     } else {
       attrs.at("name-delimiter", default: none)
     },
+    names-delimiter: if is-style-level {
+      attrs.at("names-delimiter", default: ", ")
+    } else {
+      attrs.at("names-delimiter", default: none)
+    },
     name-as-sort-order: attrs.at("name-as-sort-order", default: none),
     sort-separator: if is-style-level {
       attrs.at("sort-separator", default: ", ")

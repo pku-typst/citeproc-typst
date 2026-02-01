@@ -165,8 +165,16 @@
 
     // If multiple variables have names, render them separately with delimiter
     if vars-with-names.len() > 1 {
-      // Get the names element delimiter (not name list delimiter)
-      let names-delimiter = attrs.at("delimiter", default: ", ")
+      // Get the names element delimiter - check element first, then cascade
+      // CSL spec: cs:names delimiter attribute takes precedence over inherited names-delimiter
+      let names-delimiter = attrs.at("delimiter", default: none)
+      if names-delimiter == none {
+        // Import cascade helper
+        import "../text/names.typ": _resolve-name-attr
+        names-delimiter = _resolve-name-attr("names-delimiter", (:), ctx)
+      }
+      // CSL spec default
+      if names-delimiter == none { names-delimiter = ", " }
 
       // Render each variable's names separately
       let rendered-parts = ()
