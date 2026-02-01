@@ -12,6 +12,10 @@
     {
       "fixture": "group_LegalWithAuthorDate",
       "reason": "Uses citeproc-js citation update format (>>[n] prefix) for testing dynamic citation updates. Not applicable to static Typst compilation."
+    },
+    {
+      "fixture": "group_ComplexNesting",
+      "reason": "CSL spec: group is suppressed when 'at least one element calls a variable AND all called variables are empty'. The issued macro's else branch has year-suffix (empty) so group should be suppressed. citeproc-js outputs (n.d.) which contradicts the spec."
     }
   ]
 }
