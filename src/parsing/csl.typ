@@ -29,9 +29,17 @@
 }
 
 /// Get text content from a node (handles nested text)
-/// Trims whitespace to handle XML formatting (e.g., newlines between tags)
+/// Trims only XML formatting whitespace (regular spaces, tabs, newlines) but preserves
+/// intentional Unicode whitespace (like punctuation space \u{2008}) that may be part of term values
 #let get-text-content(node) = {
-  if type(node) == str { return node.trim() }
+  // Helper to trim only basic whitespace, preserving Unicode spaces
+  let trim-basic-ws = text => {
+    // Only trim regular space, tab, newline, carriage return
+    let ws-pattern = regex("^[ \t\n\r]+|[ \t\n\r]+$")
+    text.replace(ws-pattern, "")
+  }
+
+  if type(node) == str { return trim-basic-ws(node) }
   if type(node) != dictionary { return "" }
   let children = node.at("children", default: ())
   if children.len() == 0 { return "" }
@@ -41,7 +49,7 @@
     })
     .join("")
   if text == none { return "" }
-  text.trim()
+  trim-basic-ws(text)
 }
 
 /// Recursively check if a node tree contains <text variable="year-suffix"/>
@@ -281,6 +289,7 @@
     } else { none },
     // Name formatting options (inheritable)
     "and": citation-node.attrs.at("and", default: none),
+    name-delimiter: citation-node.attrs.at("name-delimiter", default: none),
     delimiter-precedes-et-al: citation-node.attrs.at(
       "delimiter-precedes-et-al",
       default: none,
@@ -366,6 +375,7 @@
     } else { none },
     // Name formatting options (inheritable)
     "and": bib-node.attrs.at("and", default: none),
+    "name-delimiter": bib-node.attrs.at("name-delimiter", default: none),
     "delimiter-precedes-et-al": bib-node.attrs.at(
       "delimiter-precedes-et-al",
       default: none,

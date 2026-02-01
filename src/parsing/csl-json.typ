@@ -487,14 +487,26 @@
         // - dropping-particle: can be placed before or after family depending on style (e.g., "de")
         let normalized = names.map(n => {
           if type(n) == dictionary {
+            // Handle isInstitution flag - treat as literal/institutional name
+            let is-institution = (
+              n.at("isInstitution", default: "false") == "true"
+            )
+            let family = n.at("family", default: "")
+            let given = n.at("given", default: "")
+            let literal = n.at("literal", default: "")
+            // If isInstitution is set, use family as literal
+            if is-institution and literal == "" {
+              literal = family
+            }
             (
-              family: n.at("family", default: ""),
-              given: n.at("given", default: ""),
+              family: family,
+              given: given,
               suffix: n.at("suffix", default: ""),
               prefix: n.at("non-dropping-particle", default: ""),
               dropping-prefix: n.at("dropping-particle", default: ""),
               comma-suffix: n.at("comma-suffix", default: false),
-              literal: n.at("literal", default: ""),
+              literal: literal,
+              is-institution: is-institution,
             )
           } else if type(n) == str {
             // Literal name string

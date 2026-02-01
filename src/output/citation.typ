@@ -136,6 +136,7 @@
     citation-et-al-use-first: citation.at("et-al-use-first", default: none),
     // Name formatting options (inheritable from citation level)
     citation-and: citation.at("and", default: none),
+    citation-name-delimiter: citation.at("name-delimiter", default: none),
     citation-delimiter-precedes-et-al: citation.at(
       "delimiter-precedes-et-al",
       default: none,

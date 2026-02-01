@@ -139,6 +139,8 @@
 
   // Get subsequent-author-substitute settings
   let bib-settings = style.at("bibliography", default: (:))
+  // Handle case where bibliography key exists but value is none
+  if type(bib-settings) != dictionary { bib-settings = (:) }
   let substitute = bib-settings.at(
     "subsequent-author-substitute",
     default: none,

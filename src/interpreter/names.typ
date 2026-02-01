@@ -69,12 +69,13 @@
   let sorted-vars = var-names.sorted()
   let common-term = sorted-vars.join("")
 
-  // Check if the locale has this term
-  let term-value = lookup-term(ctx, common-term, form: "short", plural: false)
-  if term-value == "" {
-    // Also try long form
-    term-value = lookup-term(ctx, common-term, form: "long", plural: false)
-  }
+  // Check if the locale has this term in long form (the default label form)
+  // CSL spec: if the combined term is empty or doesn't exist, render separately
+  // We only check long form because:
+  // 1. Labels default to long form
+  // 2. If a style defines <term name="editortranslator"></term> (empty), it means
+  //    "don't use combined rendering" even if short form exists from built-in
+  let term-value = lookup-term(ctx, common-term, form: "long", plural: false)
 
   if term-value == "" {
     return (common-term: none, names: none, used-var: none)
@@ -148,8 +149,53 @@
     // Fall through to substitute handling if no names found
   }
 
-  // If no common term match, try each variable in order (standard behavior)
-  if names == none {
+  // If no common term match, check if we need to render multiple variables
+  // CSL spec: when variable="editor translator" and names are different,
+  // render each variable separately with the element's delimiter
+  if names == none and var-names.len() > 1 {
+    // Collect all non-empty variables
+    let vars-with-names = ()
+    for var-name in var-names {
+      let candidate = ctx.parsed-names.at(var-name, default: ())
+      if candidate.len() > 0 {
+        vars-with-names.push((var: var-name, names: candidate))
+      }
+    }
+
+    // If multiple variables have names, render them separately with delimiter
+    if vars-with-names.len() > 1 {
+      // Get the names element delimiter (not name list delimiter)
+      let names-delimiter = attrs.at("delimiter", default: ", ")
+
+      // Render each variable's names separately
+      let rendered-parts = ()
+      for var-info in vars-with-names {
+        // Create a modified node with just this variable
+        let single-var-node = (
+          tag: "names",
+          attrs: (
+            ..attrs,
+            variable: var-info.var,
+          ),
+          children: children,
+        )
+        // Recursive call for single variable
+        let part = handle-names(single-var-node, ctx)
+        if not is-empty(part) {
+          rendered-parts.push(part)
+        }
+      }
+
+      if rendered-parts.len() > 0 {
+        return rendered-parts.join(names-delimiter)
+      }
+    } else if vars-with-names.len() == 1 {
+      // Only one variable has names, use it
+      names = vars-with-names.first().names
+      used-var = vars-with-names.first().var
+    }
+  } else if names == none {
+    // Single variable or all variables empty
     for var-name in var-names {
       let candidate = ctx.parsed-names.at(var-name, default: ())
       if candidate.len() > 0 {
@@ -384,12 +430,10 @@
 
       if label-position == "before" {
         [#label-content #names-content]
-      } else if label-has-prefix {
-        // Label has prefix - no extra delimiter needed
-        [#names-content#label-content]
       } else {
-        // No prefix on label - use names delimiter
-        [#names-content#attrs.at("delimiter", default: ", ")#label-content]
+        // CSL spec: label follows names directly without additional delimiter
+        // Label's own prefix/suffix controls spacing
+        [#names-content#label-content]
       }
     } else { names-content }
 

@@ -274,6 +274,8 @@
 
     // Get bibliography settings for csl-bibliography
     let bib-settings = style.at("bibliography", default: (:))
+    // Handle case where bibliography key exists but value is none
+    if type(bib-settings) != dictionary { bib-settings = (:) }
     let second-field-align = bib-settings.at(
       "second-field-align",
       default: none,

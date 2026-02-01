@@ -86,6 +86,8 @@
   // Also add author-substitute info for bibliography grouping
   // CSL spec: has-explicit-year-suffix determines if year-suffix is auto-appended to dates
   let bib-settings = style.at("bibliography", default: (:))
+  // Handle case where bibliography key exists but value is none
+  if bib-settings == none { bib-settings = (:) }
   let ctx = (
     ..ctx,
     year-suffix: year-suffix,
@@ -104,6 +106,7 @@
     // Name formatting options (inheritable from bibliography level)
     // Use same keys as citation for unified lookup in names.typ
     citation-and: bib-settings.at("and", default: none),
+    citation-name-delimiter: bib-settings.at("name-delimiter", default: none),
     citation-delimiter-precedes-et-al: bib-settings.at(
       "delimiter-precedes-et-al",
       default: none,

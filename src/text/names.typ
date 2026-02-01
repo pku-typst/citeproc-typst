@@ -18,6 +18,45 @@
 // Pattern to detect already-initialized names (single letter followed by period)
 #let _initialized-name-pattern = regex("^[A-Z]\\.[A-Z]")
 
+/// Extract the initial from a name part
+/// CSL spec: take all leading uppercase characters (for multi-char initials like Mongolian "Ts")
+/// - part: Name part string (e.g., "TSerendorjiin")
+/// Returns: Initial string (e.g., "Ts")
+#let _extract-initial(part) = {
+  if part.len() == 0 { return "" }
+  let clusters = part.clusters()
+
+  // Check if there are any lowercase letters in the string
+  let has-lowercase = clusters.any(c => c != upper(c) and c == lower(c))
+
+  if not has-lowercase {
+    // All uppercase (like "ME") - just take first letter
+    // These are already initials, not a name to abbreviate
+    return upper(clusters.first())
+  }
+
+  // Find all leading uppercase characters
+  let initial = ""
+  for c in clusters {
+    if c == upper(c) and c != lower(c) {
+      // Uppercase letter
+      initial = initial + c
+    } else {
+      break
+    }
+  }
+
+  // If we got multiple uppercase followed by lowercase, normalize to title case (e.g., "TS" -> "Ts")
+  if initial.len() > 1 {
+    upper(initial.clusters().first()) + lower(initial.slice(1))
+  } else if initial.len() == 1 {
+    initial
+  } else {
+    // No uppercase found, take first char uppercased
+    upper(clusters.first())
+  }
+}
+
 // =============================================================================
 // Et-al Setting Resolution
 // =============================================================================
@@ -154,6 +193,47 @@
 // Name Part Formatting
 // =============================================================================
 
+// Whitespace characters for term spacing detection
+#let _whitespace-chars = (" ", "\u{2009}", "\u{2008}", "\u{200A}", "\u{00A0}")
+
+/// Check if string starts with any whitespace character
+#let _has-leading-space(s) = {
+  s != "" and _whitespace-chars.any(c => s.starts-with(c))
+}
+
+/// Check if string ends with any whitespace character
+#let _has-trailing-space(s) = {
+  s != "" and _whitespace-chars.any(c => s.ends-with(c))
+}
+
+/// Join two items with an "and" term, respecting term's own whitespace
+/// Hebrew example: term="ו\u{2008}" → attaches directly to first, has trailing space
+#let _join-with-and(first, second, and-term, use-delimiter, delimiter) = {
+  let term-str = if type(and-term) == str { and-term } else { "" }
+  let leading = _has-leading-space(term-str)
+  let trailing = _has-trailing-space(term-str)
+
+  if use-delimiter {
+    // delimiter before and-term
+    if trailing {
+      [#first#delimiter#and-term#second]
+    } else {
+      [#first#delimiter#and-term #second]
+    }
+  } else {
+    // No delimiter - respect term's whitespace
+    if trailing and not leading {
+      [#first#and-term#second]
+    } else if leading and trailing {
+      [#first#and-term#second]
+    } else if leading {
+      [#first#and-term #second]
+    } else {
+      [#first #and-term #second]
+    }
+  }
+}
+
 /// Apply name-part formatting
 /// Handles CSL formatting attributes: font-style, font-weight, font-variant,
 /// text-decoration, text-case, and affixes (prefix/suffix)
@@ -232,9 +312,179 @@
   family != "" and given == ""
 }
 
+/// Initialize a given name according to CSL rules
+///
+/// - given: The given name string
+/// - initialize-with: String to place after each initial (e.g., ". ")
+/// - initialize: Whether to convert full names to initials (default true)
+/// - initialize-hyphen: Whether to preserve hyphens in initialized names
+/// Returns: Initialized given name string
+#let _initialize-given-name(
+  given,
+  initialize-with,
+  initialize,
+  initialize-hyphen,
+) = {
+  if given == "" or initialize-with == none { return given }
+
+  // When initialize="false", we reformat names that are "already initialized"
+  // "Already initialized" means: contains periods OR contains space-separated single letters
+  // Names like "ME" (adjacent uppercase) are NOT considered initialized
+  if not initialize {
+    // Split by space, hyphen, AND period to identify individual parts
+    let split-pattern = regex("[ .\\-]+")
+    let parts = given
+      .split(split-pattern)
+      .filter(p => p != "" and p.trim() != "")
+
+    // Check if this looks like an already-initialized name:
+    // - Has periods, OR
+    // - Has multiple parts where at least one is a single letter
+    let has-periods = given.contains(".")
+    let has-single-letter-parts = parts.any(p => p.len() == 1)
+    let is-already-initialized = (
+      has-periods or (parts.len() > 1 and has-single-letter-parts)
+    )
+
+    if not is-already-initialized {
+      return given
+    }
+
+    // Reformat: keep full names as-is, reformat initials using initialize-with
+    let result = ()
+    for p in parts {
+      // Check if this part looks like an initial (1-2 chars, starts with uppercase)
+      let is-initial = (
+        p.len() >= 1
+          and p.len() <= 2
+          and p.clusters().first() == upper(p.clusters().first())
+      )
+
+      if is-initial {
+        // Initial (1-2 chars) - reformat with initialize-with
+        result.push(p + initialize-with)
+      } else {
+        // Full name part - keep as-is with trailing space
+        result.push(p + " ")
+      }
+    }
+    return result.join("").trim(at: end)
+  }
+
+  // For hyphenated names, we need to preserve the structure:
+  // "H.-X. L. Y." should become "H.-X. L. Y." (hyphen only between H and X)
+  // Split by space first to get groups, then handle hyphens within groups
+  if initialize-hyphen and given.contains("-") {
+    // Split by space (but not hyphen) to preserve hyphenated groups
+    let space-parts = given.split(regex("[ ]+")).filter(p => p != "")
+    let result-parts = ()
+
+    for space-part in space-parts {
+      if space-part.contains("-") {
+        // This is a hyphenated group like "H.-X." or "Jean-Pierre" or "Guo-ping"
+        let hyphen-parts = space-part.split("-").filter(p => p != "")
+        let group-initials = ()
+        for hp in hyphen-parts {
+          // Remove trailing period if present
+          let clean = hp.trim(".", at: end).trim()
+          if clean.len() == 0 { continue }
+          let is-lowercase = clean == lower(clean)
+          if is-lowercase {
+            // Lowercase part (like "ping" in "Guo-ping")
+            // When initialize-with is empty, drop these parts
+            // When initialize-with is non-empty, keep them with hyphen
+            if initialize-with.trim() != "" {
+              group-initials.push(clean)
+            }
+            // else: drop the lowercase part
+          } else {
+            group-initials.push(
+              upper(clean.clusters().first()) + initialize-with.trim(at: end),
+            )
+          }
+        }
+        // Join hyphenated parts with hyphen
+        if group-initials.len() > 0 {
+          result-parts.push(group-initials.join("-"))
+        }
+      } else {
+        // Regular part (not hyphenated)
+        let clean = space-part.trim(".", at: end).trim()
+        if clean.len() == 0 { continue }
+        let is-particle = clean == lower(clean)
+        if is-particle {
+          result-parts.push(clean)
+        } else {
+          result-parts.push(
+            upper(clean.clusters().first()) + initialize-with.trim(at: end),
+          )
+        }
+      }
+    }
+
+    // Join groups with space + initialize-with spacing
+    let result = result-parts.join(" ")
+    return result
+  }
+
+  // For initialize=true path, check if name is already initialized
+  // (contains periods and mostly single-letter parts)
+  let is-already-initialized = (
+    given.contains(".")
+      and given
+        .split(".")
+        .filter(p => p.trim() != "")
+        .all(p => p.trim().len() <= 2)
+  )
+
+  // Normal initialization: convert all parts to initials
+  // First split by space/hyphen, then handle parts that contain periods
+  let raw-parts = if is-already-initialized {
+    given.split(".").map(p => p.trim()).filter(p => p != "")
+  } else {
+    given.split(_name-split-pattern).filter(p => p != "")
+  }
+
+  // Expand parts that contain periods (e.g., "M.E." → ["M", "E"])
+  let parts = ()
+  for raw-p in raw-parts {
+    if raw-p.contains(".") {
+      // Split by period and add each non-empty part
+      for sub in raw-p.split(".").map(p => p.trim()).filter(p => p != "") {
+        parts.push(sub)
+      }
+    } else {
+      parts.push(raw-p)
+    }
+  }
+
+  // Build initials - lowercase particles kept as-is
+  let initials = ()
+  for (i, p) in parts.enumerate() {
+    if p.len() == 0 { continue }
+
+    let is-particle = p == lower(p)
+    let next-is-particle = if i + 1 < parts.len() {
+      parts.at(i + 1) == lower(parts.at(i + 1))
+    } else { false }
+
+    if is-particle {
+      initials.push(p + " ")
+    } else {
+      let init = _extract-initial(p) + initialize-with
+      if next-is-particle and not initialize-with.ends-with(" ") {
+        init = init + " "
+      }
+      initials.push(init)
+    }
+  }
+
+  initials.join("").trim(at: end)
+}
+
 /// Format a single name
 ///
-/// - name: Parsed name dict (family, given, prefix, suffix)
+/// - name: Parsed name dict (family, given, prefix, suffix, literal)
 /// - attrs: Name formatting attributes from CSL
 /// - ctx: Context
 /// - position: Position in name list (1-indexed)
@@ -246,8 +496,25 @@
   position: 1,
   name-parts: (:),
 ) = {
+  // Handle literal names (institutional names)
+  // CSL-JSON can have names with only "literal" field
+  let literal = name.at("literal", default: "")
+  if literal != "" {
+    // Apply family name-part formatting to literal if specified
+    let family-part-attrs = name-parts.at("family", default: (:))
+    return format-name-part(literal, family-part-attrs)
+  }
+
   let family = name.at("family", default: "")
   let given = name.at("given", default: "")
+
+  // Handle given-only names (e.g., "Banksy") - just return the given name as-is
+  // Single-name authors should not be initialized
+  if family == "" and given != "" {
+    let given-part-attrs = name-parts.at("given", default: (:))
+    return format-name-part(given, given-part-attrs)
+  }
+
   // CSL has two types of particles:
   // - prefix (non-dropping-particle): always attached to family name (e.g., "la" in "la Martinière")
   // - dropping-prefix (dropping-particle): placed between given and family in display order (e.g., "de")
@@ -278,6 +545,10 @@
   let given-part-attrs = name-parts.at("given", default: (:))
 
   let formatted-family = format-name-part(family, family-part-attrs)
+  // CSL spec: non-dropping-particle is part of family name and should follow its formatting
+  let formatted-prefix = if prefix != "" {
+    format-name-part(prefix, family-part-attrs)
+  } else { "" }
   let formatted-given = given
 
   // Get disambiguation givenname-level from context (CSL Method 1)
@@ -287,11 +558,12 @@
   // Short form: only family name with non-dropping-particle (unless disambiguation requires more)
   // CSL spec: non-dropping-particle is always attached to family name, even in short form
   if name-form == "short" and givenname-level == 0 {
-    if prefix != "" {
+    if formatted-prefix != "" {
+      // Use original prefix for character checks (formatting may wrap in content)
       if prefix.ends-with("'") or prefix.ends-with("-") {
-        return prefix + formatted-family
+        return formatted-prefix + formatted-family
       } else {
-        return prefix + " " + formatted-family
+        return formatted-prefix + " " + formatted-family
       }
     }
     return formatted-family
@@ -300,34 +572,22 @@
   // If disambiguation requires showing given name but form is "short",
   // show the given name with family name in standard order (Given Family)
   if name-form == "short" and givenname-level > 0 {
-    // Show initials (level 1) or full name (level 2)
     if givenname-level == 2 {
-      // Full given name - don't initialize
+      // Level 2: full given name
       formatted-given = format-name-part(given, given-part-attrs)
-    } else {
-      // Level 1: show initials
-      if given != "" and not is-chinese {
-        let parts = given.split(_name-split-pattern).filter(p => p != "")
-        // Use initialize-with from style, default to ". "
-        let init-sep = if initialize-with != none { initialize-with } else {
-          ". "
-        }
-        let initials = parts.map(p => {
-          let clusters = p.clusters()
-          if clusters.len() > 0 { upper(clusters.first()) + init-sep } else {
-            ""
-          }
-        })
-        formatted-given = initials.join("").trim(at: end)
+    } else if given != "" and not is-chinese {
+      // Level 1: initials
+      let init-sep = if initialize-with != none { initialize-with } else {
+        ". "
       }
+      formatted-given = _initialize-given-name(given, init-sep, true, false)
       formatted-given = format-name-part(formatted-given, given-part-attrs)
     }
     // CSL spec: disambiguated short names show as "G. Family" not "Family, G."
     if formatted-given != "" {
       return [#formatted-given #formatted-family]
-    } else {
-      return formatted-family
     }
+    return formatted-family
   }
 
   // Initialize given name if required (and not overridden by disambiguation)
@@ -337,74 +597,17 @@
       and not is-chinese
       and givenname-level != 2
   ) {
-    let initialize-hyphen = ctx.style.initialize-with-hyphen
-
-    // Check if given name is already initialized (e.g., "K.S." or "J. P.")
-    // Pattern: contains periods and mostly single-letter parts
-    let is-already-initialized = (
-      given.contains(".")
-        and (
-          given.matches(_initialized-name-pattern).len() > 0
-            or given
-              .split(".")
-              .filter(p => p.trim() != "")
-              .all(p => p.trim().len() <= 2)
-        )
+    let initialize = attrs.at("initialize", default: ctx.style.at(
+      "initialize",
+      default: true,
+    ))
+    if type(initialize) == str { initialize = initialize == "true" }
+    formatted-given = _initialize-given-name(
+      given,
+      initialize-with,
+      initialize,
+      ctx.style.initialize-with-hyphen,
     )
-
-    let parts = if is-already-initialized {
-      // Split by period for already-initialized names
-      given.split(".").map(p => p.trim()).filter(p => p != "")
-    } else {
-      // Split by space/hyphen for full names
-      given.split(_name-split-pattern).filter(p => p != "")
-    }
-
-    // Build initials with initialize-with after each
-    // CSL spec: lowercase particles (de, von, van, etc.) in given names are kept as-is
-    // We need to track if next part is a particle to add space before it
-    let initials = ()
-    for (i, p) in parts.enumerate() {
-      if p.len() == 0 { continue }
-
-      let is-particle = p == lower(p)
-      let next-is-particle = if i + 1 < parts.len() {
-        let next = parts.at(i + 1)
-        next == lower(next)
-      } else { false }
-
-      if is-particle {
-        // Particle: keep as-is with space after
-        initials.push(p + " ")
-      } else {
-        // Initial: use first character uppercased
-        let clusters = p.clusters()
-        if clusters.len() > 0 {
-          let init = upper(clusters.first()) + initialize-with
-          // Add space before particle if initialize-with doesn't end with space
-          if next-is-particle and not initialize-with.ends-with(" ") {
-            init = init + " "
-          }
-          initials.push(init)
-        }
-      }
-    }
-
-    // Join with hyphen if needed
-    if initialize-hyphen and given.contains("-") {
-      // For hyphenated names, trim trailing space from each initial before joining
-      // So "J. " + "-" + "P. " becomes "J.-P." not "J. -P."
-      formatted-given = initials.map(i => i.trim(at: end)).join("-")
-      // Add back trailing space if initialize-with ends with space
-      if initialize-with.ends-with(" ") {
-        formatted-given = formatted-given + " "
-      }
-    } else {
-      formatted-given = initials.join("")
-    }
-
-    // Trim trailing space from initialize-with
-    formatted-given = formatted-given.trim(at: end)
   }
 
   // Apply given name part formatting
@@ -427,13 +630,13 @@
     // - "display-and-sort" or "sort-only": prefix moves after given name
 
     let demote = ctx.style.demote-non-dropping-particle
-    if prefix != "" and demote == "never" {
+    if formatted-prefix != "" and demote == "never" {
       // Prefix stays with family name
       // No space if prefix ends with connecting character (apostrophe or hyphen)
       if prefix.ends-with("'") or prefix.ends-with("-") {
-        formatted-family = prefix + formatted-family
+        formatted-family = formatted-prefix + formatted-family
       } else {
-        formatted-family = prefix + " " + formatted-family
+        formatted-family = formatted-prefix + " " + formatted-family
       }
     }
 
@@ -445,7 +648,9 @@
     // Add particles after given name if demoted or if dropping-prefix exists
     let particles = ()
     if dropping-prefix != "" { particles.push(dropping-prefix) }
-    if prefix != "" and demote != "never" { particles.push(prefix) }
+    if formatted-prefix != "" and demote != "never" {
+      particles.push(formatted-prefix)
+    }
     if particles.len() > 0 {
       result = [#result #particles.join(" ")]
     }
@@ -463,13 +668,14 @@
     // Add dropping-prefix if present
     if dropping-prefix != "" { result.push(dropping-prefix) }
     // Handle non-dropping-particle + family
-    if prefix != "" {
+    if formatted-prefix != "" {
       // Check if prefix ends with a connecting character (apostrophe or hyphen)
+      // Use original prefix for character check, formatted-prefix for output
       if prefix.ends-with("'") or prefix.ends-with("-") {
         // No space between prefix and family
-        result.push(prefix + formatted-family)
+        result.push(formatted-prefix + formatted-family)
       } else {
-        result.push(prefix)
+        result.push(formatted-prefix)
         result.push(formatted-family)
       }
     } else {
@@ -555,10 +761,20 @@
   let et-al-use-first = et-al.et-al-use-first
   let et-al-use-last = et-al.et-al-use-last
 
+  // CSL-M: names explicitly marked with isInstitution don't count toward et-al thresholds
+  // Only skip names that have the explicit is-institution flag from CSL-JSON
+  let explicit-institutions = names
+    .filter(n => n.at("is-institution", default: false) == true)
+    .len()
+  let personal-count = names.len() - explicit-institutions
+
   // Determine how many names to show
   // CSL spec: et-al is only used when the name list is TRUNCATED
   // If et-al-use-first >= names.len(), we show all names and don't use et-al
-  let use-et-al = names.len() >= et-al-min and et-al-use-first < names.len()
+  // Use personal-count for et-al threshold, but show-count from total names
+  let use-et-al = (
+    personal-count >= et-al-min and et-al-use-first < personal-count
+  )
   let show-count = if use-et-al { et-al-use-first } else { names.len() }
 
   // CSL spec: when et-al-use-first="0", no names are shown at all
@@ -595,7 +811,11 @@
   }
 
   // Get delimiters with inheritance: name attrs -> citation/bib level -> style level
-  let delimiter = attrs.at("delimiter", default: ctx.style.name-delimiter)
+  let delimiter = attrs.at("delimiter", default: none)
+  if delimiter == none {
+    delimiter = ctx.at("citation-name-delimiter", default: none)
+  }
+  if delimiter == none { delimiter = ctx.style.name-delimiter }
 
   // Resolve "and" with fallback to citation level, then style level
   let and-mode = attrs.at("and", default: none)
@@ -647,32 +867,34 @@
     none
   }
 
-  // Join names
+  // Join names with appropriate delimiters and "and" term
   let result = if formatted.len() == 1 {
     formatted.first()
   } else if formatted.len() == 2 and not use-et-al and and-term != none {
     // Two names with "and"
-    // CSL spec: delimiter-precedes-last="always" means delimiter before "and" even for 2 names
-    if delimiter-precedes-last == "always" {
-      [#formatted.first()#delimiter#and-term #formatted.last()]
-    } else {
-      [#formatted.first() #and-term #formatted.last()]
-    }
+    let use-delim = delimiter-precedes-last == "always"
+    _join-with-and(
+      formatted.first(),
+      formatted.last(),
+      and-term,
+      use-delim,
+      delimiter,
+    )
   } else if and-term != none and not use-et-al {
     // Multiple names with "and" before last
     let all-but-last = formatted.slice(0, -1)
     let last = formatted.last()
-
-    let use-delimiter-before-last = (
-      (delimiter-precedes-last == "always")
+    let use-delim = (
+      delimiter-precedes-last == "always"
         or (delimiter-precedes-last == "contextual" and formatted.len() > 2)
     )
-
-    if use-delimiter-before-last {
-      [#all-but-last.join(delimiter)#delimiter#and-term #last]
-    } else {
-      [#all-but-last.join(delimiter) #and-term #last]
-    }
+    _join-with-and(
+      all-but-last.join(delimiter),
+      last,
+      and-term,
+      use-delim,
+      delimiter,
+    )
   } else {
     formatted.join(delimiter)
   }
