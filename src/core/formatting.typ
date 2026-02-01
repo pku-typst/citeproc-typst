@@ -112,6 +112,7 @@
 }
 
 /// Wrap content with prefix/suffix and apply formatting
+/// CSL spec: Affixes are OUTSIDE formatting (e.g., prefix+<i>content</i>+suffix)
 #let finalize(content, attrs) = {
   if is-empty(content) { return [] }
 
@@ -125,12 +126,32 @@
   let prefix = attrs.at("prefix", default: "")
   let suffix = attrs.at("suffix", default: "")
 
-  // Combine prefix + content + suffix without extra spacing
-  // If content is a string, concatenate directly to avoid Typst inserting spaces
-  let result = if type(processed) == str {
-    prefix + processed + suffix
+  // CSL spec: collapse double punctuation at content/suffix boundary
+  // If content ends with a period and suffix starts with a period, remove one
+  // Check BEFORE formatting is applied (while content might still be a string)
+  let content-ends-with-period = if type(processed) == str and processed.len() > 0 {
+    processed.last() == "."
+  } else { false }
+
+  let adjusted-suffix = if (
+    suffix.len() > 0
+      and suffix.first() == "."
+      and content-ends-with-period
+  ) {
+    suffix.slice(1) // Remove leading period from suffix
   } else {
-    [#prefix#processed#suffix]
+    suffix
   }
-  apply-formatting(result, attrs)
+
+  // Apply formatting to content FIRST (CSL spec: affixes are outside formatting)
+  let formatted = apply-formatting(processed, attrs)
+
+  // Combine prefix + formatted content + suffix
+  if prefix == "" and adjusted-suffix == "" {
+    formatted
+  } else if type(formatted) == str {
+    prefix + formatted + adjusted-suffix
+  } else {
+    [#prefix#formatted#adjusted-suffix]
+  }
 }

@@ -301,7 +301,9 @@
           break // Use first non-empty result only
         }
       }
-      (sub-result, sub-done-vars)
+      // CSL spec: substitute output should still have parent <names> element's
+      // prefix/suffix applied (not formatting - that's on the substitute child)
+      (finalize(sub-result, attrs), sub-done-vars)
     } else { ([], ()) }
   } else {
     // Check for subsequent-author-substitute (bibliography grouping)
