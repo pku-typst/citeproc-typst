@@ -17,6 +17,50 @@
   if m != none { int(m.text) } else { none }
 }
 
+// Pattern to find all numbers in a string
+#let _number-pattern = regex("\\d+")
+
+/// Check if a value string represents plural content (multiple numbers)
+///
+/// CSL spec: Content is considered plural when it contains multiple numbers
+/// (e.g. "pages 1-3", "volumes 2 & 4"), or for number-of-* variables when > 1.
+/// Non-numeric content like "Michaelson-Morely" is NOT plural.
+#let _is-plural-value(val-str) = {
+  if val-str == "" { return false }
+
+  // Find all numbers in the string
+  let matches = val-str.matches(_number-pattern)
+
+  // Plural if there are 2+ distinct number occurrences
+  // OR if there's a range separator between numbers
+  if matches.len() >= 2 {
+    true
+  } else if matches.len() == 1 {
+    // Single number - check if there's a range indicator after it
+    // that would imply a range (like roman numerals: "i-ix")
+    let has-range-sep = (
+      val-str.contains("–")
+        or val-str.contains("—")
+        or (
+          val-str.contains("-")
+            and val-str.match(regex("\\d.*-.*[ivxlcdmIVXLCDM]")) != none
+        )
+        or (
+          val-str.contains("-")
+            and val-str.match(regex("[ivxlcdmIVXLCDM].*-")) != none
+        )
+    )
+    has-range-sep
+  } else {
+    // No Arabic numbers - check for Roman numeral ranges
+    let lower = val-str.replace(" ", "")
+    let has-roman-range = lower.match(regex(
+      "[ivxlcdm]+[\\-–—][ivxlcdm]+",
+    )) != none
+    has-roman-range
+  }
+}
+
 /// Get ordinal suffix for a number according to CSL spec
 ///
 /// CSL ordinal priority:
@@ -167,12 +211,10 @@
     }
 
     // Determine plurality based on value content
-    let plural = (
-      val-str.contains("-")
-        or val-str.contains(",")
-        or val-str.contains("–")
-        or val-str.contains(" ")
-    )
+    // CSL spec: Content is plural when it contains multiple numbers
+    // (e.g. "pages 1-3", "volumes 2 & 4")
+    // Non-numeric content like "Michaelson-Morely" is NOT plural
+    let plural = _is-plural-value(val-str)
 
     // CSL spec: for locator variable, use locator-label to determine the term
     // e.g., locator-label="page" → lookup term "page" → "p." or "pp."

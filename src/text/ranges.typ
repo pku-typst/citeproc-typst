@@ -57,6 +57,24 @@
   none
 }
 
+// Pattern for detecting Roman numerals
+#let _roman-pattern = regex("^[ivxlcdmIVXLCDM]+$")
+
+/// Check if a string is numeric according to CSL rules
+///
+/// Content is considered numeric if it contains at least one digit
+/// OR is a valid Roman numeral.
+/// Numbers may have prefixes and suffixes ("D2", "2b", "L2d").
+///
+/// - s: String to check
+/// Returns: true if numeric
+#let is-numeric-string(s) = {
+  if s == none or s == "" { return false }
+  let str = str(s).trim()
+  // Contains Arabic digit OR is pure Roman numeral
+  str.match(_digit-pattern) != none or str.match(_roman-pattern) != none
+}
+
 /// Extract numeric part and prefix/suffix from a page number
 ///
 /// - page-str: String like "123", "A123", "123a"
@@ -259,12 +277,19 @@
   let range = parse-range(page-str)
 
   if range == none {
-    // Not a range, return as-is (but replace hyphens with proper delimiter)
-    return str(page-str).replace("-", delimiter)
+    // Not a range, return as-is
+    return str(page-str)
   }
 
   let start = range.start
   let end = range.end
+
+  // Only process as numeric range if both parts contain digits
+  // Non-numeric content like "Michaelson-Morely" should be returned as-is
+  if not is-numeric-string(start) or not is-numeric-string(end) {
+    // Not a numeric range, return original string unchanged
+    return str(page-str)
+  }
 
   if format == "expanded" or format == none {
     format-range-expanded(start, end, delimiter)

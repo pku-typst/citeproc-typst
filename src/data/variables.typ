@@ -104,6 +104,21 @@
     return fields.at("eventtitle", default: fields.at("booktitle", default: ""))
   }
 
+  // page-first: derived from page, returns first page of range
+  if name == "page-first" {
+    let pages = fields.at("pages", default: fields.at("page", default: ""))
+    if pages == "" { return "" }
+    // Extract first page from range (handles "42-45", "42–45", "42")
+    let pages-str = str(pages)
+    // Try various delimiters: en-dash, em-dash, hyphen, comma
+    for delim in ("–", "—", "-", ",") {
+      if pages-str.contains(delim) {
+        return pages-str.split(delim).first().trim()
+      }
+    }
+    return pages-str
+  }
+
   // Date variables - check if date exists
   if name == "issued" {
     // Return year as a proxy for "issued has value"
