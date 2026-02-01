@@ -106,11 +106,25 @@
       if var-name == "issued" {
         let year-str = fields.at("year", default: "")
         if year-str != "" {
-          build-sortable-date(
+          // Build start date
+          let start-date = build-sortable-date(
             year-str,
             fields.at("month", default: ""),
             fields.at("day", default: ""),
           )
+          // Check for date range (end-year)
+          let end-year-str = fields.at("end-year", default: "")
+          if end-year-str != "" {
+            // Combine start and end dates for range sorting
+            let end-date = build-sortable-date(
+              end-year-str,
+              fields.at("end-month", default: ""),
+              fields.at("end-day", default: ""),
+            )
+            start-date + "|" + end-date
+          } else {
+            start-date
+          }
         } else {
           // Try 'date' field as fallback
           let date-str = fields.at("date", default: "")

@@ -322,6 +322,18 @@
           result.insert("end-year", end-year-val)
         }
       }
+      if end.len() >= 2 {
+        let end-month-val = str(end.at(1))
+        if end-month-val != "" {
+          result.insert("end-month", end-month-val)
+        }
+      }
+      if end.len() >= 3 {
+        let end-day-val = str(end.at(2))
+        if end-day-val != "" {
+          result.insert("end-day", end-day-val)
+        }
+      }
     }
   }
 
