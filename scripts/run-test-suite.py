@@ -166,9 +166,11 @@ class BibliographyExtractor(HTMLParser, ContentCollectorMixin):
             self.has_bib_ref = False
             return
         if self.in_bib_p:
+            # Check for citeproc-ref- id on any tag (span, em, strong, etc.)
+            if attrs_dict.get('id', '').startswith('citeproc-ref-'):
+                self.has_bib_ref = True
             if tag == 'span':
-                if attrs_dict.get('id', '').startswith('citeproc-ref-'):
-                    self.has_bib_ref = True
+                pass  # Skip span tags in output
             elif tag == 'p':
                 self.p_depth += 1
             elif tag not in self.SKIP_TAGS:
