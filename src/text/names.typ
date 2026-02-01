@@ -4,9 +4,41 @@
 // Includes CSL-M extension: cs:institution for institutional authors
 
 #import "../parsing/mod.typ": is-cjk-name, lookup-term
-#import "../core/constants.typ": POSITION
+#import "../core/constants.typ": POSITION, RENDER-CONTEXT
 #import "../core/utils.typ": capitalize-first-char
 #import "../core/formatting.typ": finalize
+
+// =============================================================================
+// Inheritable Name Attribute Resolution
+// =============================================================================
+// CSL spec: Name attributes cascade: names element -> citation/bibliography -> style
+// This helper resolves an attribute through this cascade.
+
+/// Resolve an inheritable name attribute through the CSL cascade
+/// - attr-name: Attribute name (e.g., "initialize-with")
+/// - attrs: Attributes from the current names/name element
+/// - ctx: Interpretation context with style and render-context
+/// Returns: The resolved value (or none if not set at any level)
+#let _resolve-name-attr(attr-name, attrs, ctx) = {
+  // 1. Check element-level (names/name attrs)
+  let value = attrs.at(attr-name, default: none)
+  if value != none { return value }
+
+  // 2. Check render-context level (citation or bibliography)
+  let render-context = ctx.at("render-context", default: none)
+  if render-context == RENDER-CONTEXT.citation {
+    let citation = ctx.style.at("citation", default: (:))
+    value = citation.at(attr-name, default: none)
+    if value != none { return value }
+  } else if render-context == RENDER-CONTEXT.bibliography {
+    let bibliography = ctx.style.at("bibliography", default: (:))
+    value = bibliography.at(attr-name, default: none)
+    if value != none { return value }
+  }
+
+  // 3. Check style level
+  ctx.style.at(attr-name, default: none)
+}
 
 // =============================================================================
 // Module-level regex patterns (avoid recompilation)
@@ -531,19 +563,12 @@
 
   let is-chinese = is-cjk-name(name)
 
-  // Get formatting options from attrs (or style defaults)
-  let name-as-sort-order = attrs.at(
-    "name-as-sort-order",
-    default: ctx.style.name-as-sort-order,
-  )
-  let initialize-with = attrs.at(
-    "initialize-with",
-    default: ctx.style.initialize-with,
-  )
-  let sort-separator = attrs.at(
-    "sort-separator",
-    default: ctx.style.sort-separator,
-  )
+  // Get formatting options from attrs with proper cascade (names -> citation/bib -> style)
+  let name-as-sort-order = _resolve-name-attr("name-as-sort-order", attrs, ctx)
+  let initialize-with = _resolve-name-attr("initialize-with", attrs, ctx)
+  let sort-separator = _resolve-name-attr("sort-separator", attrs, ctx)
+  // CSL spec default for sort-separator is ", " - apply if still none
+  if sort-separator == none { sort-separator = ", " }
   let name-form = attrs.at("form", default: "long")
 
   // Apply name-part formatting
