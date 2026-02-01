@@ -109,17 +109,28 @@
         // CSL spec: title case only applies to English content
         let cased = apply-text-case(result, attrs, ctx: ctx)
 
-        // Apply quotes if requested (after text-case)
-        // Track quote nesting level in context for proper flip-flopping
+        // Normalize embedded quotes in content
+        // CSL spec: quotes in field content should be normalized to proper level
+        // - At level 0 (not inside quotes): single quotes -> double quotes
+        // - At level 1 (inside outer quotes): double quotes -> single quotes
         let quote-level = ctx.at("quote-level", default: 0)
-        let quoted = if attrs.at("quotes", default: "false") == "true" {
-          // Transform embedded quotes in content based on current level + 1
-          // (since we're about to add outer quotes at current level)
-          let flipped = if type(cased) == str {
+        let normalized = if type(cased) == str {
+          // Always normalize quotes, even without quotes="true"
+          // The target level depends on whether we're adding outer quotes
+          let has-quotes = attrs.at("quotes", default: "false") == "true"
+          if has-quotes {
+            // Will add outer quotes, so embedded quotes go to level+1
             transform-quotes-at-level(cased, ctx, quote-level + 1)
-          } else { cased }
-          apply-quotes(flipped, ctx, level: quote-level)
+          } else {
+            // No outer quotes, normalize to current level
+            transform-quotes-at-level(cased, ctx, quote-level)
+          }
         } else { cased }
+
+        // Apply quotes if requested (after normalization)
+        let quoted = if attrs.at("quotes", default: "false") == "true" {
+          apply-quotes(normalized, ctx, level: quote-level)
+        } else { normalized }
 
         (finalize(quoted, attrs), "var", ()) // Variable has output
       } else {
@@ -128,14 +139,20 @@
     } else if "value" in attrs {
       let result = attrs.value
       let quote-level = ctx.at("quote-level", default: 0)
-      let quoted = if (
-        attrs.at("quotes", default: "false") == "true" and not is-empty(result)
-      ) {
-        let flipped = if type(result) == str {
+
+      // Normalize embedded quotes in value (same as variables)
+      let has-quotes = attrs.at("quotes", default: "false") == "true"
+      let normalized = if type(result) == str and not is-empty(result) {
+        if has-quotes {
           transform-quotes-at-level(result, ctx, quote-level + 1)
-        } else { result }
-        apply-quotes(flipped, ctx, level: quote-level)
+        } else {
+          transform-quotes-at-level(result, ctx, quote-level)
+        }
       } else { result }
+
+      let quoted = if has-quotes and not is-empty(normalized) {
+        apply-quotes(normalized, ctx, level: quote-level)
+      } else { normalized }
       (finalize(quoted, attrs), "none", ()) // Literal value, no variable reference
     } else if "term" in attrs {
       let form = attrs.at("form", default: "long")

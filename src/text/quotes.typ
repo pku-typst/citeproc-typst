@@ -66,16 +66,21 @@
 
 /// Transform quotes in text to use proper marks for the given nesting level
 ///
-/// When we're inside outer quotes (level 1), embedded double quotes should become single.
-/// When we're inside inner quotes (level 2), embedded quotes become double again, etc.
+/// CSL spec: quotes in field content are normalized to the appropriate level:
+/// - Level 0 (outermost): single quotes in content become double quotes
+/// - Level 1 (inside outer quotes): double quotes in content become single quotes
+/// - Level 2 (inside inner quotes): single quotes become double again, etc.
+///
+/// IMPORTANT: Apostrophes (right single quote ' in contractions like "don't")
+/// should NOT be transformed. We detect apostrophes by checking if they're
+/// between letters (not at word boundaries).
 ///
 /// - text: Text with quotes
 /// - ctx: Context with locale info
-/// - level: Current quote nesting level (0 = not inside quotes, 1 = inside outer quotes, etc.)
+/// - level: Current quote nesting level (0 = outermost, 1 = inside outer quotes, etc.)
 /// Returns: Text with quotes transformed for the given level
 #let transform-quotes-at-level(text, ctx, level) = {
   if text == none or type(text) != str { return text }
-  if level == 0 { return text } // No transformation needed at level 0
 
   let lang = ctx.style.at("default-locale", default: "en")
   let chars = get-quote-chars(lang)
@@ -85,43 +90,68 @@
   let right-double = "\u{201D}" // "
   let straight-double = "\""
   let left-single = "\u{2018}" // '
-  let right-single = "\u{2019}" // '
+  let right-single = "\u{2019}" // ' (also apostrophe!)
+  let straight-single = "'"
 
   // Determine target quotes based on level mod 2
-  // At level 1 (inside outer quotes): double -> single
-  // At level 2 (inside inner quotes): use double again
+  // Level 0: outer quotes (double), Level 1: inner quotes (single), etc.
   let use-inner = calc.rem(level, 2) == 1
-  let target-open = if use-inner { chars.open-inner-quote } else {
-    chars.open-quote
-  }
-  let target-close = if use-inner { chars.close-inner-quote } else {
-    chars.close-quote
-  }
+  let target-open = if use-inner { chars.open-inner-quote } else { chars.open-quote }
+  let target-close = if use-inner { chars.close-inner-quote } else { chars.close-quote }
 
+  let clusters = text.clusters()
   let result = ""
+  let letter-pattern = regex("[a-zA-Z\u{00C0}-\u{024F}]")
 
-  // Transform double quotes to appropriate level
-  for char in text.clusters() {
+  for (i, char) in clusters.enumerate() {
+    // Check previous and next characters for apostrophe detection
+    let prev = if i > 0 { clusters.at(i - 1) } else { "" }
+    let next = if i < clusters.len() - 1 { clusters.at(i + 1) } else { "" }
+    let prev-is-letter = prev.match(letter-pattern) != none
+    let next-is-letter = next.match(letter-pattern) != none
+
     if char == left-double or char == straight-double {
-      // Opening double quote -> transform to current level
+      // Double quote -> transform to target level
       result += target-open
     } else if char == right-double {
-      // Closing double quote -> transform to current level
+      // Closing double quote -> transform to target level
       result += target-close
-    } else if char == left-single {
-      // Single quotes: if we're at level 1, these should become double (opposite)
-      if use-inner {
-        result += chars.open-quote
+    } else if char == left-single or (char == straight-single and not prev-is-letter) {
+      // Opening single quote or straight apostrophe at start of word
+      // Check if this looks like a leading apostrophe (e.g., '09, 'twas)
+      // Leading apostrophe: followed by digit or lowercase letter, not preceded by letter
+      let next-is-digit = next.match(regex("[0-9]")) != none
+      let next-is-lower = next.match(regex("[a-z\u{00E0}-\u{00FF}]")) != none
+      if not prev-is-letter and (next-is-digit or next-is-lower) {
+        // This is a leading apostrophe (contraction like '09, 'twas), keep as-is
+        result += right-single // Use typographic apostrophe
       } else {
-        result += chars.open-inner-quote
+        // This is an opening quote
+        if use-inner {
+          result += chars.open-inner-quote
+        } else {
+          result += chars.open-quote
+        }
       }
-    } else if char == right-single {
-      // Could be apostrophe - only transform if it's a closing quote
-      // For now, treat as closing quote
-      if use-inner {
-        result += chars.close-quote
+    } else if char == right-single or char == straight-single {
+      // Right single quote or straight apostrophe
+      // Need to distinguish between closing quote and apostrophe
+      // Apostrophe: between letters (e.g., "don't", "it's", "l'Égypte")
+      if prev-is-letter and next-is-letter {
+        // This is an apostrophe, keep as-is
+        result += right-single // Use typographic apostrophe
+      } else if prev-is-letter and not next-is-letter {
+        // End of word with apostrophe - could be closing quote or trailing apostrophe
+        // Check if previous char sequence looks like a quoted word
+        // For now, treat as closing quote
+        if use-inner {
+          result += chars.close-inner-quote
+        } else {
+          result += chars.close-quote
+        }
       } else {
-        result += chars.close-inner-quote
+        // Other cases - keep as apostrophe
+        result += right-single
       }
     } else {
       result += char
