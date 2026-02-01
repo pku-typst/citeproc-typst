@@ -69,6 +69,7 @@
 /// - If word is all uppercase (acronym), preserve it
 /// - If word starts with lowercase intentionally (iPad), preserve it
 /// - Otherwise, capitalize first letter, preserve rest
+/// - Skip leading non-letter characters (quotes, punctuation)
 #let _capitalize-word(word) = {
   if word == "" { return "" }
   
@@ -88,12 +89,25 @@
   }
   
   let clusters = word.clusters()
-  if clusters.len() > 0 {
-    // Only capitalize first letter, preserve rest (don't lowercase)
-    upper(clusters.first()) + clusters.slice(1).join()
-  } else {
-    word
+  if clusters.len() == 0 { return word }
+  
+  // Find the first letter to capitalize (skip leading non-letters like quotes)
+  let letter-pattern = regex("[a-zA-Z\u{00C0}-\u{024F}]")
+  let prefix = ""
+  let rest = clusters
+  
+  for (i, c) in clusters.enumerate() {
+    if c.match(letter-pattern) != none {
+      // Found first letter - capitalize it and return
+      prefix = clusters.slice(0, i).join()
+      let letter = clusters.at(i)
+      let suffix = clusters.slice(i + 1).join()
+      return prefix + upper(letter) + suffix
+    }
   }
+  
+  // No letters found, return as-is
+  word
 }
 
 /// Process a hyphenated compound word for title case
@@ -178,7 +192,10 @@
     }
     
     // This is a text segment - apply title case
-    let words = seg-content.split(" ")
+    // Split by regular space and non-breaking space (U+00A0)
+    // First replace non-breaking spaces with regular spaces for splitting
+    let normalized = seg-content.replace("\u{00A0}", " ")
+    let words = normalized.split(" ")
     let processed-words = ()
     // capitalize-next is true only for the very first word of the entire string
     let capitalize-next = is-first-word-of-string
@@ -189,10 +206,29 @@
         continue
       }
       
-      // Check if this word contains hyphens (compound word)
+      // Check if this word contains hyphens or slashes (compound word)
       if "-" in word {
         let parts = word.split("-")
         processed-words.push(_process-hyphenated(parts, capitalize-next or lower(parts.first()) not in _minor-words))
+      } else if "/" in word {
+        // Slash-separated words: capitalize each part
+        let parts = word.split("/")
+        let processed-parts = parts.enumerate().map(((i, part)) => {
+          if part == "" { return "" }
+          let lower-part = lower(part)
+          // First part follows normal rules, others always capitalize (slash acts as separator)
+          if i == 0 {
+            if capitalize-next or lower-part not in _minor-words {
+              _capitalize-word(part)
+            } else {
+              part
+            }
+          } else {
+            // After slash: always capitalize (like after colon)
+            _capitalize-word(part)
+          }
+        })
+        processed-words.push(processed-parts.join("/"))
       } else {
         // Regular word
         let lower-word = lower(word)
