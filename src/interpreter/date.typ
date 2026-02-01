@@ -5,7 +5,8 @@
 #import "../core/mod.typ": finalize
 #import "../data/collapsing.typ": num-to-suffix
 #import "../text/dates.typ": (
-  date-has-component, format-date-part, format-date-with-form, parse-bibtex-date,
+  date-has-component, format-date-part, format-date-with-form,
+  parse-bibtex-date,
 )
 
 /// Convert year-suffix to letter string
@@ -118,7 +119,9 @@
       for dp in date-part-nodes {
         let dp-attrs = dp.at("attrs", default: (:))
         let dp-name = dp-attrs.at("name", default: "")
-        let dp-form = dp-attrs.at("form", default: "numeric")
+        // CSL spec: month defaults to "long", day/year default to "numeric"
+        let default-form = if dp-name == "month" { "long" } else { "numeric" }
+        let dp-form = dp-attrs.at("form", default: default-form)
         let dp-prefix = dp-attrs.at("prefix", default: "")
         let dp-suffix = dp-attrs.at("suffix", default: "")
 

@@ -21,6 +21,7 @@ This document tracks known issues, limitations, and differences from citeproc-js
 **Tests:** `number_NewOrdinalsEdition`, `number_NewOrdinalsWithGenderChange`, `number_SeparateOrdinalNamespaces`
 
 **Issue:** French/Spanish ordinals need to match the gender of the noun they modify:
+
 - `edition` (feminine) → `1ʳᵉ` (première)
 - `issue` (masculine) → `1ᵉʳ` (premier)
 
@@ -38,6 +39,7 @@ This document tracks known issues, limitations, and differences from citeproc-js
 **Test:** `number_OrdinalSpacing`
 
 **Issue:** Edition value `"7, p. 3-8"` contains multiple parts. CSL requires:
+
 1. Parse `7` as ordinal → `7th`
 2. Preserve `, ` delimiter
 3. Parse `p. 3-8` → `pp. 3–8` (plural label, en-dash)
@@ -84,10 +86,12 @@ This document tracks known issues, limitations, and differences from citeproc-js
 **Actual:** `(Smith 0325, 2000, )`
 
 **Issues:**
+
 1. Years before 1000 AD are not formatted with "AD" suffix
 2. Trailing delimiter appears when it shouldn't
 
 **CSL Spec Reference:** Section "AD and BC"
+
 > The "ad" term (Anno Domini) is automatically appended to positive years of less than four digits (e.g. "79" becomes "79AD"). The "bc" term (Before Christ) is automatically appended to negative years (e.g. "-2500" becomes "2500BC").
 
 **Status:** Not implemented
@@ -105,7 +109,8 @@ This document tracks known issues, limitations, and differences from citeproc-js
 **Difference:** citeproc-js applies `after-collapse-delimiter` to all author groups when collapse is enabled. Our implementation only uses it after groups that actually collapsed (multiple items for same author).
 
 **CSL Spec Quote:**
-> after-collapse-delimiter: Specifies the cite delimiter to be used *after* a collapsed cite group.
+
+> after-collapse-delimiter: Specifies the cite delimiter to be used _after_ a collapsed cite group.
 
 **Our Interpretation:** Literal - only use after a group that actually collapsed.
 
@@ -155,23 +160,28 @@ citeproc-js supports dynamic citation update formats with `..[n]` and `>>[n]` pr
 
 **Tests:** `group_ComplexNesting`, `group_SuppressWithEmptyNestedDateNode`
 
-**Issues in `group_ComplexNesting`:**
-- Missing `(n.d.)` for entries without publication date (no-date term)
-- Month shows as `6` instead of `June` (date-part form="long" not applied)
-- Missing URL output from `accessed` variable
-- Group suppress not working for nested empty date nodes
+**Fixed issues:**
 
-**Issues in `group_SuppressWithEmptyNestedDateNode`:**
-- Name delimiter shows `and` instead of `&` (`&#38;`)
-- Missing italic formatting on journal title
+- Month format now defaults to "long" (June instead of 6)
+- URL/DOI/ISBN/ISSN field mapping fixed for CSL-JSON
 
-**Status:** CSL processing gaps (not test infrastructure)
+**Remaining issues in `group_ComplexNesting`:**
+
+- Missing `(n.d.)` - the issued macro's else branch group is suppressed because year-suffix is empty
+
+**Remaining issues in `group_SuppressWithEmptyNestedDateNode`:**
+
+- Name delimiter shows `and` instead of `&` (`&#38;`) - locale term issue
+- Missing italic formatting on journal title - HTML extraction issue
+
+**Status:** CSL processing gaps (group suppress edge cases)
 
 ---
 
 ## Label Category (8 remaining issues)
 
 Issues include:
+
 - Page number plural detection with collapsed ranges
 - Missing name labels after names
 - `&` symbol not using localized term (`and` form="symbol")

@@ -17,6 +17,133 @@
 #let _csl-json-mode = state("citeproc-csl-json-mode", false)
 
 // =============================================================================
+// CSL-JSON Variable Mappings
+// =============================================================================
+
+/// Direct text variables from CSL-JSON
+#let TEXT-VARS = (
+  "title",
+  "container-title",
+  "collection-title",
+  "publisher",
+  "publisher-place",
+  "volume",
+  "issue",
+  "page",
+  "edition",
+  "abstract",
+  "note",
+  "DOI",
+  "URL",
+  "ISBN",
+  "ISSN",
+  "language",
+  "archive",
+  "archive_location",
+  "call-number",
+  "event-title",
+  "event-place",
+  "genre",
+  "medium",
+  "original-title",
+  "original-publisher",
+  "original-publisher-place",
+  "references",
+  "reviewed-title",
+  "scale",
+  "section",
+  "source",
+  "status",
+  "title-short",
+  "version",
+  // CSL-M variables
+  "authority",
+  "jurisdiction",
+  "committee",
+  "document-name",
+  "hereinafter",
+  "supplement",
+  "division",
+  "volume-title",
+  "publication-number",
+)
+
+/// Map CSL-JSON variable names to internal field names
+/// (matches _field-map in variables.typ for consistency with BibTeX)
+#let VAR-TO-FIELD = (
+  "URL": "url",
+  "DOI": "doi",
+  "ISBN": "isbn",
+  "ISSN": "issn",
+)
+
+/// CSL type to BibTeX entry_type mapping
+#let CSL-TYPE-MAP = (
+  "article": "article",
+  "article-journal": "article",
+  "article-magazine": "article",
+  "article-newspaper": "article",
+  "bill": "misc",
+  "book": "book",
+  "broadcast": "misc",
+  "chapter": "incollection",
+  "classic": "book",
+  "collection": "book",
+  "dataset": "misc",
+  "document": "misc",
+  "entry": "misc",
+  "entry-dictionary": "misc",
+  "entry-encyclopedia": "misc",
+  "event": "misc",
+  "figure": "misc",
+  "graphic": "misc",
+  "hearing": "misc",
+  "interview": "misc",
+  "legal_case": "misc",
+  "legislation": "misc",
+  "manuscript": "unpublished",
+  "map": "misc",
+  "motion_picture": "misc",
+  "musical_score": "misc",
+  "pamphlet": "booklet",
+  "paper-conference": "inproceedings",
+  "patent": "patent",
+  "performance": "misc",
+  "periodical": "misc",
+  "personal_communication": "misc",
+  "post": "misc",
+  "post-weblog": "misc",
+  "regulation": "misc",
+  "report": "techreport",
+  "review": "article",
+  "review-book": "article",
+  "software": "misc",
+  "song": "misc",
+  "speech": "misc",
+  "standard": "misc",
+  "thesis": "phdthesis",
+  "treaty": "misc",
+  "webpage": "misc",
+)
+
+/// Number variables (stored as strings for consistency)
+#let NUMBER-VARS = (
+  "chapter-number",
+  "citation-number",
+  "collection-number",
+  "first-reference-note-number",
+  "number",
+  "number-of-pages",
+  "number-of-volumes",
+  "part-number",
+  "printing-number",
+  "supplement-number",
+  "version",
+  "volume",
+  "issue",
+)
+
+// =============================================================================
 // CSL-JSON Conversion
 // =============================================================================
 
@@ -71,54 +198,7 @@
 /// This maps CSL types to approximate BibTeX equivalents for
 /// entry_type checks in conditions.typ
 #let convert-csl-type(csl-type) = {
-  let type-map = (
-    "article": "article",
-    "article-journal": "article",
-    "article-magazine": "article",
-    "article-newspaper": "article",
-    "bill": "misc",
-    "book": "book",
-    "broadcast": "misc",
-    "chapter": "incollection",
-    "classic": "book",
-    "collection": "book",
-    "dataset": "misc",
-    "document": "misc",
-    "entry": "misc",
-    "entry-dictionary": "misc",
-    "entry-encyclopedia": "misc",
-    "event": "misc",
-    "figure": "misc",
-    "graphic": "misc",
-    "hearing": "misc",
-    "interview": "misc",
-    "legal_case": "misc",
-    "legislation": "misc",
-    "manuscript": "unpublished",
-    "map": "misc",
-    "motion_picture": "misc",
-    "musical_score": "misc",
-    "pamphlet": "booklet",
-    "paper-conference": "inproceedings",
-    "patent": "patent",
-    "performance": "misc",
-    "periodical": "misc",
-    "personal_communication": "misc",
-    "post": "misc",
-    "post-weblog": "misc",
-    "regulation": "misc",
-    "report": "techreport",
-    "review": "article",
-    "review-book": "article",
-    "software": "misc",
-    "song": "misc",
-    "speech": "misc",
-    "standard": "misc",
-    "thesis": "phdthesis",
-    "treaty": "misc",
-    "webpage": "misc",
-  )
-  type-map.at(csl-type, default: "misc")
+  CSL-TYPE-MAP.at(csl-type, default: "misc")
 }
 
 /// Convert CSL-JSON entry to internal format
@@ -135,55 +215,7 @@
   // Build fields dictionary from CSL-JSON properties
   let fields = (:)
 
-  // Direct text variables
-  let text-vars = (
-    "title",
-    "container-title",
-    "collection-title",
-    "publisher",
-    "publisher-place",
-    "volume",
-    "issue",
-    "page",
-    "edition",
-    "abstract",
-    "note",
-    "DOI",
-    "URL",
-    "ISBN",
-    "ISSN",
-    "language",
-    "archive",
-    "archive_location",
-    "call-number",
-    "event-title",
-    "event-place",
-    "genre",
-    "medium",
-    "original-title",
-    "original-publisher",
-    "original-publisher-place",
-    "references",
-    "reviewed-title",
-    "scale",
-    "section",
-    "source",
-    "status",
-    "title-short",
-    "version",
-    // CSL-M variables
-    "authority",
-    "jurisdiction",
-    "committee",
-    "document-name",
-    "hereinafter",
-    "supplement",
-    "division",
-    "volume-title",
-    "publication-number",
-  )
-
-  for var in text-vars {
+  for var in TEXT-VARS {
     if var in csl-entry {
       let val = csl-entry.at(var)
       if val != none {
@@ -198,29 +230,15 @@
         } else {
           repr(val)
         }
-        fields.insert(var, str-val)
+        // Use mapped field name for consistency with BibTeX processing
+        let field-name = VAR-TO-FIELD.at(var, default: var)
+        fields.insert(field-name, str-val)
       }
     }
   }
 
   // Number variables (also store as strings for consistency)
-  let number-vars = (
-    "chapter-number",
-    "citation-number",
-    "collection-number",
-    "first-reference-note-number",
-    "number",
-    "number-of-pages",
-    "number-of-volumes",
-    "part-number",
-    "printing-number",
-    "supplement-number",
-    "version",
-    "volume",
-    "issue",
-  )
-
-  for var in number-vars {
+  for var in NUMBER-VARS {
     if var in csl-entry and var not in fields {
       let val = csl-entry.at(var)
       if val != none {

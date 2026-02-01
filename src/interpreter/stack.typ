@@ -28,20 +28,35 @@
 /// Merge var-states from multiple children
 /// Priority: "var" > "no-var" > "none"
 #let merge-var-state(states) = {
-  if states.any(s => s == "var") { "var" }
-  else if states.any(s => s == "no-var") { "no-var" }
-  else { "none" }
+  if states.any(s => s == "var") { "var" } else if states.any(s => (
+    s == "no-var"
+  )) { "no-var" } else { "none" }
 }
 
 /// Check if group should be suppressed based on var-states
-/// Suppress only when: all children reference variables but none produced output
+///
+/// CSL spec: "cs:group and its child elements are suppressed if
+/// a) at least one rendering element in cs:group calls a variable, and
+/// b) all variables that are called are empty."
+///
+/// This means: if group contains any variable call AND all variables are empty,
+/// suppress the entire group INCLUDING terms/values.
 #let should-suppress-group(states) = {
   let has-any-var = states.any(s => s == "var")
   let has-any-no-var = states.any(s => s == "no-var")
-  let all-none = states.all(s => s == "none")
 
-  // Suppress if: referenced variables exist but none produced output
-  not has-any-var and has-any-no-var
+  // Condition a): at least one element calls a variable (either "var" or "no-var")
+  let has-variable-call = has-any-var or has-any-no-var
+
+  // If no variable calls at all, don't suppress (pure term/value group)
+  if not has-variable-call { return false }
+
+  // Condition b): all called variables are empty (no "var" state)
+  // If any variable produced output, don't suppress
+  if has-any-var { return false }
+
+  // Both conditions met: has variable calls, but all are empty -> suppress
+  true
 }
 
 /// Process a leaf node (text variable/value/term, number, label)
@@ -275,12 +290,15 @@
       }
     } else if state == "macro-pending" {
       // Macro children completed - collect last N results
-      // Macros act as implicit groups for suppression purposes
+      // Macros act as implicit groups for suppression purposes.
+      // This is not explicitly in CSL spec, but citeproc-js behavior and
+      // test "group_SuppressTermInMacro" confirms macros should suppress
+      // terms when all variable calls are empty.
       let child-count = meta.child-count
       let ordered = results.slice(-child-count)
       results = results.slice(0, results.len() - child-count)
 
-      // Check var-states - apply group suppression to macros too
+      // Check var-states - apply group suppression to macros
       let states = ordered.map(r => r.at(1, default: "none"))
 
       if should-suppress-group(states) {
