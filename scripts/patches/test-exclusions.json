@@ -139,27 +139,31 @@
     },
     {
       "fixture": "textcase_ImplicitNocase",
-      "reason": "Expects HTML span tags to prevent text-case transformation. We output Typst formatting (smallcaps, super, sub) not HTML. The nocase span feature requires HTML parsing."
+      "reason": "Requires parsing HTML formatting tags (<sc>, <sup>, <sub>) from input data. This inline HTML markup parsing is not supported."
     },
     {
       "fixture": "textcase_Lowercase",
-      "reason": "Expects <span class='nocase'> to be stripped while preserving original case. This requires HTML parsing which is not supported."
+      "reason": "Requires parsing <span class='nocase'> from input data to preserve case. This HTML parsing is not supported."
     },
     {
       "fixture": "textcase_SentenceCapitalization",
-      "reason": "Expects <span class='nocase'> to be stripped while preserving original case. This requires HTML parsing which is not supported."
+      "reason": "Requires parsing <span class='nocase'> from input data to preserve case. This HTML parsing is not supported."
     },
     {
       "fixture": "textcase_Uppercase",
-      "reason": "Expects <span class='nocase'> to be stripped while preserving original case. This requires HTML parsing which is not supported."
+      "reason": "Requires parsing <span class='nocase'> from input data to preserve case. This HTML parsing is not supported."
     },
     {
-      "fixture": "textcase_TitleCaseWithVolumeTitle",
-      "reason": "Expects HTML div wrappers (csl-bib-body, csl-entry). We output plain text without HTML structure."
+      "fixture": "flipflop_ApostropheInsideTag",
+      "reason": "Requires parsing <span class='nocase'> from input data. This HTML parsing is not supported."
     },
     {
-      "fixture": "textcase_LocaleUnicode",
-      "reason": "Requires locale-specific Unicode case mapping (Turkish dotted I: i->İ). Typst uses standard Unicode case mapping."
+      "fixture": "flipflop_ItalicsFlipped",
+      "reason": "Requires parsing <i> tags from input data to detect embedded italics. This HTML parsing is not supported."
+    },
+    {
+      "fixture": "flipflop_ItalicsSimple",
+      "reason": "Requires parsing <i> tags from input data to detect embedded italics. This HTML parsing is not supported."
     }
   ]
 }
