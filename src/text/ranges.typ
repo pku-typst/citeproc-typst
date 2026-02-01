@@ -18,14 +18,36 @@
 // Range Delimiter
 // =============================================================================
 
-/// Get the range delimiter from locale or default to en-dash
+/// Get the range delimiter from locale or use default
 ///
 /// - ctx: Context with locale
 /// - range-type: "page" or "year"
 /// Returns: Delimiter string
 #let get-range-delimiter(ctx, range-type: "page") = {
-  // Try to get from locale terms
+  if ctx == none { return "–" }
+
+  let locale = ctx.at("locale", default: none)
+  if locale == none { return "–" }
+
+  let terms = locale.at("terms", default: (:))
+
+  // Try specific range-delimiter term (e.g., "page-range-delimiter")
   let term-name = range-type + "-range-delimiter"
+  let delimiter = terms.at(term-name, default: none)
+  if delimiter != none and delimiter != "" {
+    return delimiter
+  }
+
+  // CSL 1.0.1: For French and Portuguese, default to hyphen (not en-dash)
+  // citeproc-js uses non-breaking hyphen U+2011 for fr locales
+  let lang = locale.at("lang", default: "")
+  if type(lang) == str and lang.len() >= 2 {
+    let lang-prefix = lower(lang.slice(0, 2))
+    if lang-prefix in ("fr", "pt") {
+      return "-"
+    }
+  }
+
   // Default to en-dash
   "–"
 }
