@@ -20,7 +20,8 @@
   "nor",
   "yet",
   "so",
-  // Short prepositions (typically 4 letters or fewer)
+  // Short prepositions (typically 4-5 letters or fewer in title case rules)
+  "about",
   "as",
   "at",
   "by",
@@ -166,11 +167,12 @@
 /// Apply title case to a string
 /// Rules:
 /// 1. First word is always capitalized
-/// 2. Words after major punctuation (: ; — – ? ! .) are capitalized
-/// 3. Minor words (a, an, the, and, etc.) are lowercased unless rule 1 or 2 applies
-/// 4. Hyphenated compounds: capitalize each part unless it's a minor word
+/// 2. Last word is always capitalized (even if minor word)
+/// 3. Words after major punctuation (: ; — – ? ! .) are capitalized
+/// 4. Minor words (a, an, the, and, etc.) are lowercased unless rule 1, 2, or 3 applies
+/// 5. Hyphenated compounds: capitalize each part unless it's a minor word
 ///    (e.g., "Self-Esteem" but "Out-of-Fashion")
-/// 5. Em-dash and en-dash act as word separators - word after them is capitalized
+/// 6. Em-dash and en-dash act as word separators - word after them is capitalized
 #let _apply-title-case(s) = {
   if s == "" { return s }
   
@@ -195,9 +197,22 @@
     segments.push(("text", current))
   }
   
+  // First pass: collect all words to identify the last word
+  let all-words = ()
+  for (seg-type, seg-content) in segments {
+    if seg-type == "text" {
+      let normalized = seg-content.replace("\u{00A0}", " ")
+      let words = normalized.split(" ").filter(w => w != "")
+      all-words += words
+    }
+  }
+  let last-word-lower = if all-words.len() > 0 { lower(all-words.last()) } else { "" }
+  
   // Process each text segment
   let result = ()
   let is-first-word-of-string = true  // Only true for the very first word
+  let words-processed = 0
+  let total-words = all-words.len()
   
   for (seg-type, seg-content) in segments {
     if seg-type == "dash" {
@@ -220,10 +235,16 @@
         continue
       }
       
+      // Track word position
+      words-processed += 1
+      let is-last-word = words-processed == total-words
+      
       // Check if this word contains hyphens or slashes (compound word)
       if "-" in word {
         let parts = word.split("-")
-        processed-words.push(_process-hyphenated(parts, capitalize-next or lower(parts.first()) not in _minor-words))
+        // Last word of title should be capitalized even if minor
+        let should-cap = capitalize-next or is-last-word or lower(parts.first()) not in _minor-words
+        processed-words.push(_process-hyphenated(parts, should-cap))
       } else if "/" in word {
         // Slash-separated words: capitalize each part
         let parts = word.split("/")
@@ -232,7 +253,7 @@
           let lower-part = lower(part)
           // First part follows normal rules, others always capitalize (slash acts as separator)
           if i == 0 {
-            if capitalize-next or lower-part not in _minor-words {
+            if capitalize-next or is-last-word or lower-part not in _minor-words {
               _capitalize-word(part)
             } else {
               part
@@ -247,7 +268,8 @@
         // Regular word
         let lower-word = lower(word)
         
-        if capitalize-next or lower-word not in _minor-words {
+        // Capitalize if: first word, last word, after punctuation, or not a minor word
+        if capitalize-next or is-last-word or lower-word not in _minor-words {
           processed-words.push(_capitalize-word(word))
         } else {
           // Minor word: preserve original (don't force lowercase)
@@ -275,12 +297,32 @@
 /// Apply text-case transformation only (for use before quotes are added)
 /// This is separate from apply-formatting because text-case only works on strings,
 /// and quotes convert strings to content.
-#let apply-text-case(content, attrs) = {
+///
+/// CSL spec: text-case="title" only applies to English content.
+/// For non-English entries, title case should preserve original casing.
+///
+/// - content: String content to transform
+/// - attrs: CSL attributes including text-case
+/// - ctx: Context (optional) - used to check entry language for title case
+#let apply-text-case(content, attrs, ctx: none) = {
   if content == [] or content == "" { return content }
   if type(content) != str { return content }
   
   let text-case = attrs.at("text-case", default: none)
   if text-case == none { return content }
+  
+  // CSL spec: title case only applies to English
+  // Check entry language if ctx is provided
+  if text-case == "title" and ctx != none {
+    let fields = ctx.at("fields", default: (:))
+    let entry-lang = fields.at("language", default: "")
+    // Title case only for English or when no language specified
+    // CSL spec: if language starts with "en" it's English
+    if entry-lang != "" and not entry-lang.starts-with("en") {
+      // Non-English: don't apply title case
+      return content
+    }
+  }
   
   let result = content
   if text-case == "lowercase" {
@@ -315,12 +357,13 @@
   let result = content
 
   // Extract all formatting attrs at once (single dict traversal)
+  // NOTE: text-case is handled separately by apply-text-case() which has
+  // access to ctx for language-specific behavior. Do NOT apply it here.
   let font-style = attrs.at("font-style", default: none)
   let font-weight = attrs.at("font-weight", default: none)
   let text-decoration = attrs.at("text-decoration", default: none)
   let font-variant = attrs.at("font-variant", default: none)
   let vertical-align = attrs.at("vertical-align", default: none)
-  let text-case = attrs.at("text-case", default: none)
 
   // Note: strip-periods is handled in finalize() BEFORE adding prefix/suffix
   // Do NOT strip periods here as it would remove periods from suffix like ". "
@@ -350,8 +393,11 @@
     result = sub(result)
   }
 
-  // text-case only works on strings
-  if text-case != none and type(result) == str {
+  // text-case: handle simple transformations here, but NOT title case
+  // Title case requires ctx for language-aware behavior and is handled
+  // separately by apply-text-case() where ctx is available.
+  let text-case = attrs.at("text-case", default: none)
+  if text-case != none and text-case != "title" and type(result) == str {
     if text-case == "lowercase" {
       result = lower(result)
     } else if text-case == "uppercase" {
@@ -363,8 +409,6 @@
         .split(" ")
         .map(w => if w.len() > 0 { capitalize-first-char(w) } else { w })
         .join(" ")
-    } else if text-case == "title" {
-      result = _apply-title-case(result)
     } else if text-case == "sentence" {
       // Sentence case: lowercase everything, then capitalize first letter
       let lowered = lower(result)

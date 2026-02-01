@@ -106,7 +106,8 @@
 
         // Apply text-case FIRST while content is still a string
         // CSL spec: text-case transformation happens before quotes are added
-        let cased = apply-text-case(result, attrs)
+        // CSL spec: title case only applies to English content
+        let cased = apply-text-case(result, attrs, ctx: ctx)
 
         // Apply quotes if requested (after text-case)
         // Track quote nesting level in context for proper flip-flopping
