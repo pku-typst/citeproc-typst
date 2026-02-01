@@ -278,7 +278,16 @@ def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str,
                     cite = cluster[0]
                     if isinstance(cite, dict) and 'id' in cite:
                         key = cite['id']
-                        cite_calls.append(f'#cite(<{key}>, form: "prose")')
+                        # Handle locator (supplement in Typst)
+                        locator_value = cite.get('locator', '')
+                        locator_label = cite.get('label', 'page')
+                        if locator_value:
+                            # Escape quotes in locator value
+                            locator_escaped = locator_value.replace('"', '\\"')
+                            # Use locator() function for structured locator
+                            cite_calls.append(f'#cite(<{key}>, form: "prose", supplement: locator("{locator_label}", "{locator_escaped}"))')
+                        else:
+                            cite_calls.append(f'#cite(<{key}>, form: "prose")')
                 elif len(cluster) > 1:
                     # Multiple citations - use #multicite
                     keys = []
@@ -302,7 +311,7 @@ def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str,
 
     return f'''// Test: {fixture.name}
 // Simplified test for HTML export
-#import "/lib.typ": csl-bibliography, init-csl-json, multicite
+#import "/lib.typ": csl-bibliography, init-csl-json, multicite, locator
 
 #show: init-csl-json.with(
   read("/{json_path}"),

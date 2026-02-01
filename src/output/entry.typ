@@ -5,7 +5,7 @@
 #import "../core/constants.typ": RENDER-CONTEXT
 #import "../interpreter/mod.typ": create-context
 #import "../interpreter/stack.typ": interpret-children-stack
-#import "../parsing/locales.typ": detect-language
+#import "../parsing/mod.typ": detect-language
 #import "layout.typ": select-layout
 #import "punctuation.typ": collapse-punctuation
 #import "helpers.typ": node-uses-citation-number

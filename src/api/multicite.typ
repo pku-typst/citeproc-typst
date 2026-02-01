@@ -10,7 +10,7 @@
   collapse-punctuation, render-citation, render-names-for-citation-display,
   render-names-for-grouping, select-layout,
 )
-#import "../parsing/locales.typ": detect-language
+#import "../parsing/mod.typ": detect-language
 #import "../data/mod.typ": apply-collapse
 #import "../init/core.typ": _get-precomputed
 

@@ -3,7 +3,7 @@
 // Formats author/editor names according to CSL rules
 // Includes CSL-M extension: cs:institution for institutional authors
 
-#import "../parsing/locales.typ": is-cjk-name, lookup-term
+#import "../parsing/mod.typ": is-cjk-name, lookup-term
 #import "../core/constants.typ": POSITION
 #import "../core/utils.typ": capitalize-first-char
 

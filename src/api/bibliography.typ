@@ -4,7 +4,7 @@
 
 #import "../core/mod.typ": _abbreviations, _bib-data, _csl-style
 #import "../output/mod.typ": get-rendered-entries
-#import "../parsing/locales.typ": detect-language
+#import "../parsing/mod.typ": detect-language
 #import "../init/core.typ": _get-precomputed
 
 /// Get cited entries with rich metadata (low-level API)

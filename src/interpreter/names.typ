@@ -4,7 +4,7 @@
 
 #import "../core/mod.typ": finalize, is-empty
 #import "../text/names.typ": format-names, format-names-with-institutions
-#import "../parsing/locales.typ": lookup-term
+#import "../parsing/mod.typ": lookup-term
 
 /// Handle <names> element
 /// Uses stack-based interpreter internally for substitute processing

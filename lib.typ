@@ -29,4 +29,6 @@
 #import "src/init/mod.typ": init-csl, init-csl-json, load-csl, load-locale
 
 // Bibliography and citation API
-#import "src/api/mod.typ": csl-bibliography, get-cited-entries, multicite
+#import "src/api/mod.typ": (
+  csl-bibliography, get-cited-entries, locator, multicite,
+)

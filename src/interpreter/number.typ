@@ -4,7 +4,7 @@
 
 #import "../core/mod.typ": finalize, is-empty, zero-pad
 #import "../data/variables.typ": get-variable
-#import "../parsing/locales.typ": lookup-term
+#import "../parsing/mod.typ": lookup-term
 
 // Module-level regex pattern
 #let _leading-int-pattern = regex("^-?\\d+")
@@ -125,7 +125,15 @@
         or val-str.contains(" ")
     )
 
-    let result = lookup-term(ctx, var-name, form: form, plural: plural)
+    // CSL spec: for locator variable, use locator-label to determine the term
+    // e.g., locator-label="page" → lookup term "page" → "p." or "pp."
+    let term-name = if var-name == "locator" {
+      ctx.at("locator-label", default: "page")
+    } else {
+      var-name
+    }
+
+    let result = lookup-term(ctx, term-name, form: form, plural: plural)
     finalize(result, attrs)
   }
 }

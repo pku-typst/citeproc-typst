@@ -2,7 +2,7 @@
 //
 // Provides layout selection logic for CSL-M multilingual support.
 
-#import "../parsing/locales.typ": locale-matches
+#import "../parsing/mod.typ": locale-matches
 
 // =============================================================================
 // Layout Selection (CSL-M enhanced)

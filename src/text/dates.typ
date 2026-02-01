@@ -3,7 +3,7 @@
 // Uses Typst's native datetime for formatting
 
 #import "../core/mod.typ": zero-pad
-#import "../parsing/locales.typ": lookup-term
+#import "../parsing/mod.typ": lookup-term
 
 // =============================================================================
 // Module-level constants (avoid recreating on each call)

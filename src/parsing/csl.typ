@@ -2,7 +2,7 @@
 //
 // Parses CSL XML into a structured Typst object
 
-#import "locales.typ": create-fallback-locale
+#import "locales/mod.typ": create-fallback-locale
 
 /// Find a child element by tag name
 #let find-child(node, tag) = {

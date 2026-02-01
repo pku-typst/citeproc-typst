@@ -8,7 +8,7 @@
   _csl-json-data, _csl-json-mode, generate-stub-bib, parse-csl-json,
 )
 
-#import "locales.typ": (
+#import "locales/mod.typ": (
   create-fallback-locale, detect-language, get-quote-chars, is-chinese-entry,
-  is-cjk-text, is-english-entry, lookup-term,
+  is-cjk-name, is-cjk-text, is-english-entry, locale-matches, lookup-term,
 )

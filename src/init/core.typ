@@ -16,7 +16,7 @@
 #import "../output/mod.typ": (
   collapse-punctuation, get-rendered-entries, process-entries, render-citation,
 )
-#import "../parsing/locales.typ": detect-language
+#import "../parsing/mod.typ": detect-language
 #import "../core/mod.typ": (
   _abbreviations, _bib-data, _cite-global-idx, _config, _csl-style, cite-marker,
   collect-citations,

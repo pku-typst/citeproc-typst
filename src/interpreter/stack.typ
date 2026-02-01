@@ -9,7 +9,7 @@
 #import "../core/mod.typ": finalize, is-empty
 #import "../data/conditions.typ": eval-condition
 #import "../data/variables.typ": get-variable
-#import "../parsing/locales.typ": lookup-term
+#import "../parsing/mod.typ": lookup-term
 #import "../text/ranges.typ": format-page-range
 #import "../text/quotes.typ": apply-quotes
 #import "names.typ": handle-names

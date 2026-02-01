@@ -5,7 +5,7 @@
 #import "../core/constants.typ": POSITION, RENDER-CONTEXT
 #import "../interpreter/mod.typ": create-context
 #import "../interpreter/stack.typ": interpret-children-stack
-#import "../parsing/locales.typ": detect-language
+#import "../parsing/mod.typ": detect-language
 #import "../text/names.typ": format-names
 #import "layout.typ": select-layout
 
@@ -30,6 +30,7 @@
   style,
   form: none,
   supplement: none,
+  locator-label: "page",
   cite-number: none,
   year-suffix: "",
   position: POSITION.first,
@@ -45,6 +46,46 @@
     cite-number: cite-number,
     abbreviations: abbreviations,
   )
+
+  // Inject locator into fields if provided
+  // CSL spec: locator is rendered via <text variable="locator"/>
+  // Supports both structured locator (via metadata) and plain content
+  if supplement != none {
+    let parsed-label = locator-label
+    let parsed-value = ""
+
+    if type(supplement) == content {
+      // Check if it's a structured locator (metadata wrapper)
+      let sup-repr = repr(supplement)
+      if (
+        sup-repr.starts-with("metadata(")
+          and sup-repr.contains("_citrus-locator")
+      ) {
+        // Extract dictionary from metadata content
+        let fields = supplement.fields()
+        if "value" in fields {
+          let dict = fields.value
+          if type(dict) == dictionary {
+            parsed-label = dict.at("label", default: "page")
+            parsed-value = str(dict.at("value", default: ""))
+          }
+        }
+      } else {
+        // Plain content - convert to string, use default label
+        parsed-value = sup-repr
+          .replace("\"", "")
+          .replace("[", "")
+          .replace("]", "")
+      }
+    } else {
+      parsed-value = str(supplement)
+    }
+
+    if parsed-value != "" {
+      ctx.fields.insert("locator", parsed-value)
+      ctx = (..ctx, locator-label: parsed-label)
+    }
+  }
 
   let citation = style.citation
   if citation == none or citation.at("layouts", default: ()).len() == 0 {
@@ -131,32 +172,25 @@
     str(year) + year-suffix
   } else if form == "prose" {
     // Prose form: inline text without superscript/subscript
-    let full-result = if supplement != none {
-      [#result, #supplement]
-    } else {
-      result
-    }
+    // Note: locator is now rendered via CSL's <text variable="locator"/>,
+    // so we don't manually append supplement here anymore
 
     // Apply prefix/suffix but NOT vertical-align (unless suppressed for multi-cite)
     if suppress-affixes {
-      full-result
+      result
     } else {
       let prefix = layout.prefix
       let suffix = layout.suffix
-      [#prefix#full-result#suffix]
+      [#prefix#result#suffix]
     }
   } else {
     // Default form: apply all formatting
-    let full-result = if supplement != none {
-      [#result, #supplement]
-    } else {
-      result
-    }
+    // Note: locator is now rendered via CSL's <text variable="locator"/>
 
     // Apply prefix/suffix (unless suppressed for multi-cite)
     let prefix = if suppress-affixes { "" } else { layout.prefix }
     let suffix = if suppress-affixes { "" } else { layout.suffix }
-    let formatted = [#prefix#full-result#suffix]
+    let formatted = [#prefix#result#suffix]
 
     // Apply vertical-align (superscript/subscript)
     let valign = layout.at("vertical-align", default: none)
