@@ -58,6 +58,13 @@
   let children = node.at("children", default: ())
   let variable = attrs.at("variable", default: "issued")
 
+  // Check for literal date first (e.g., "in press", "forthcoming")
+  // CSL-JSON: { "issued": { "literal": "(in press)" } }
+  let literal-date = ctx.fields.at("literal", default: "")
+  if literal-date != "" {
+    return finalize(literal-date, attrs)
+  }
+
   // Parse date based on variable attribute
   let dt = if variable == "issued" {
     parse-bibtex-date(ctx.fields)
@@ -100,8 +107,19 @@
     let date-fields = if variable == "issued" {
       ctx.fields
     } else if variable == "accessed" {
-      let urldate = ctx.fields.at("urldate", default: "")
-      if urldate != "" { (year: urldate, date: urldate) } else { (:) }
+      // Use accessed-* fields if available, otherwise fall back to urldate
+      let accessed-year = ctx.fields.at("accessed-year", default: "")
+      if accessed-year != "" {
+        (
+          year: accessed-year,
+          month: ctx.fields.at("accessed-month", default: ""),
+          day: ctx.fields.at("accessed-day", default: ""),
+          date: ctx.fields.at("urldate", default: ""),
+        )
+      } else {
+        let urldate = ctx.fields.at("urldate", default: "")
+        if urldate != "" { (year: urldate, date: urldate) } else { (:) }
+      }
     } else if variable == "original-date" {
       let origdate = ctx.fields.at("origdate", default: "")
       if origdate != "" { (year: origdate, date: origdate) } else { (:) }
@@ -146,7 +164,13 @@
       // Use form attribute or default
       let form = attrs.at("form", default: "numeric")
       let date-parts = attrs.at("date-parts", default: "year-month-day")
-      let date-result = format-date-with-form(dt, form, date-parts, ctx)
+      let date-result = format-date-with-form(
+        dt,
+        form,
+        date-parts,
+        ctx,
+        fields: date-fields,
+      )
       // For localized dates, append year-suffix at the end (year is typically last)
       if year-suffix != "" {
         [#date-result#year-suffix]

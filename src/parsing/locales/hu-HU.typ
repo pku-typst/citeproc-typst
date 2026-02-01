@@ -379,6 +379,61 @@
   ),
   term-genders: (:),
   ordinal-gender-forms: (:),
-  dates: (:),
-  options: (:),
+  // Date formats
+  dates: (
+    "numeric": (
+      parts: (
+        (
+          name: "year",
+          form: "",
+          prefix: "",
+          suffix: "",
+          range-delimiter: "–",
+        ),
+        (
+          name: "month",
+          form: "numeric-leading-zeros",
+          prefix: ".",
+          suffix: "",
+          range-delimiter: "–",
+        ),
+        (
+          name: "day",
+          form: "numeric-leading-zeros",
+          prefix: ".",
+          suffix: "",
+          range-delimiter: "–",
+        ),
+      ),
+    ),
+    "text": (
+      parts: (
+        (
+          name: "year",
+          form: "",
+          prefix: "",
+          suffix: "",
+          range-delimiter: "–",
+        ),
+        (
+          name: "month",
+          form: "",
+          prefix: ". ",
+          suffix: "",
+          range-delimiter: "–",
+        ),
+        (
+          name: "day",
+          form: "",
+          prefix: " ",
+          suffix: ".",
+          range-delimiter: "–",
+        ),
+      ),
+    ),
+  ),
+  // Locale options
+  options: (
+    "punctuation-in-quote": false,
+  ),
 )

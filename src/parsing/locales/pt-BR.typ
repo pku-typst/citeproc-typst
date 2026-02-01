@@ -396,6 +396,62 @@
     "ordinal-01:feminine": "\u{00AA}",
     "ordinal-01:masculine": "\u{00BA}",
   ),
-  dates: (:),
-  options: (:),
+  // Date formats
+  dates: (
+    "numeric": (
+      parts: (
+        (
+          name: "day",
+          form: "numeric-leading-zeros",
+          prefix: "",
+          suffix: "/",
+          range-delimiter: "–",
+        ),
+        (
+          name: "month",
+          form: "numeric-leading-zeros",
+          prefix: "",
+          suffix: "/",
+          range-delimiter: "–",
+        ),
+        (
+          name: "year",
+          form: "",
+          prefix: "",
+          suffix: "",
+          range-delimiter: "–",
+        ),
+      ),
+    ),
+    "text": (
+      parts: (
+        (
+          name: "day",
+          form: "ordinal",
+          prefix: "",
+          suffix: " de ",
+          range-delimiter: "–",
+        ),
+        (
+          name: "month",
+          form: "",
+          prefix: "",
+          suffix: " de ",
+          range-delimiter: "–",
+        ),
+        (
+          name: "year",
+          form: "",
+          prefix: "",
+          suffix: "",
+          range-delimiter: "–",
+        ),
+      ),
+    ),
+  ),
+  // Locale options
+  options: (
+    "limit-day-ordinals-to-day-1": true,
+    "punctuation-in-quote": false,
+  ),
 )

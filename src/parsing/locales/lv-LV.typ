@@ -443,6 +443,61 @@
     "long-ordinal-10:feminine": "desmit\u{0101}",
     "ordinal:feminine": "-\u{0101}",
   ),
-  dates: (:),
-  options: (:),
+  // Date formats
+  dates: (
+    "numeric": (
+      parts: (
+        (
+          name: "day",
+          form: "numeric",
+          prefix: "",
+          suffix: "",
+          range-delimiter: "–",
+        ),
+        (
+          name: "month",
+          form: "numeric",
+          prefix: "",
+          suffix: "",
+          range-delimiter: "–",
+        ),
+        (
+          name: "year",
+          form: "",
+          prefix: "",
+          suffix: "",
+          range-delimiter: "–",
+        ),
+      ),
+    ),
+    "text": (
+      parts: (
+        (
+          name: "year",
+          form: "",
+          prefix: "",
+          suffix: ". gada",
+          range-delimiter: "–",
+        ),
+        (
+          name: "day",
+          form: "numeric",
+          prefix: "",
+          suffix: ".",
+          range-delimiter: "–",
+        ),
+        (
+          name: "month",
+          form: "",
+          prefix: "",
+          suffix: "",
+          range-delimiter: "–",
+        ),
+      ),
+    ),
+  ),
+  // Locale options
+  options: (
+    "punctuation-in-quote": false,
+  ),
 )

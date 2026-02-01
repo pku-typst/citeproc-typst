@@ -285,7 +285,13 @@
       let day = dt.day()
       // CSL locale option: limit-day-ordinals-to-day-1
       // If true, only day 1 uses ordinal form, others use numeric
-      let limit-ordinals = ctx.at("limit-day-ordinals-to-day-1", default: false)
+      let locale-options = ctx
+        .at("locale", default: (:))
+        .at("options", default: (:))
+      let limit-ordinals = locale-options.at(
+        "limit-day-ordinals-to-day-1",
+        default: false,
+      )
       if limit-ordinals and day != 1 {
         str(day)
       } else {
@@ -307,33 +313,93 @@
 /// - form: "numeric" or "text"
 /// - date-parts: "year", "year-month", or "year-month-day"
 /// - ctx: Context for locale
-#let format-date-with-form(dt, form, date-parts, ctx) = {
+/// - fields: Optional date source fields for checking which components actually exist
+#let format-date-with-form(dt, form, date-parts, ctx, fields: none) = {
   if dt == none { return [] }
 
-  // Determine which parts to show
-  let show-year = true
-  let show-month = date-parts == "year-month" or date-parts == "year-month-day"
-  let show-day = date-parts == "year-month-day"
-
-  // Note: year-suffix is NOT added here - it's handled by CSL's <text variable="year-suffix"/>
-
-  if form == "text" {
-    // Text format: "January 15, 2024" or "January 2024" or "2024"
-    if show-day and show-month {
-      dt.display("[month repr:long] [day padding:none], [year]")
-    } else if show-month {
-      dt.display("[month repr:long] [year]")
-    } else {
-      dt.display("[year]")
-    }
+  // Determine which parts to show based on date-parts attribute
+  let parts-to-show = if date-parts == "year" {
+    ("year",)
+  } else if date-parts == "year-month" {
+    ("year", "month")
   } else {
-    // Numeric format: "2024-01-15" or "2024-01" or "2024"
-    if show-day and show-month {
-      dt.display("[year]-[month]-[day]")
-    } else if show-month {
-      dt.display("[year]-[month]")
+    ("year", "month", "day")
+  }
+
+  // Check if locale has a date format definition for this form
+  let locale-dates = ctx.at("locale", default: (:)).at("dates", default: (:))
+  let date-format = locale-dates.at(form, default: none)
+
+  if date-format != none {
+    // Use locale-defined date format
+    let format-parts = date-format.at("parts", default: ())
+    let result-parts = ()
+
+    for part in format-parts {
+      let part-name = part.at("name", default: "")
+
+      // Skip parts not in date-parts selection
+      if part-name not in parts-to-show {
+        continue
+      }
+
+      // Skip parts that don't exist in the actual date data
+      if fields != none and not date-has-component(fields, part-name) {
+        continue
+      }
+
+      // CSL spec: month defaults to "long" for text form, day/year default to "numeric"
+      let default-form = if part-name == "month" {
+        if form == "text" { "long" } else { "numeric" }
+      } else {
+        "numeric"
+      }
+      let part-form = part.at("form", default: "")
+      if part-form == "" { part-form = default-form }
+
+      let part-prefix = part.at("prefix", default: "")
+      let part-suffix = part.at("suffix", default: "")
+
+      let formatted = format-date-part(dt, part-name, part-form, ctx)
+      if formatted != "" {
+        result-parts.push([#part-prefix#formatted#part-suffix])
+      }
+    }
+
+    result-parts.join()
+  } else {
+    // Fallback to hardcoded default format
+    // First, check which parts actually exist in the date data
+    let has-year = fields == none or date-has-component(fields, "year")
+    let has-month = fields == none or date-has-component(fields, "month")
+    let has-day = fields == none or date-has-component(fields, "day")
+
+    // Combine with date-parts attribute restrictions
+    let show-year = has-year
+    let show-month = (
+      (date-parts == "year-month" or date-parts == "year-month-day")
+        and has-month
+    )
+    let show-day = date-parts == "year-month-day" and has-day
+
+    if form == "text" {
+      // Text format: "January 15, 2024" or "January 2024" or "2024"
+      if show-day and show-month {
+        dt.display("[month repr:long] [day padding:none], [year]")
+      } else if show-month {
+        dt.display("[month repr:long] [year]")
+      } else {
+        dt.display("[year]")
+      }
     } else {
-      dt.display("[year]")
+      // Numeric format: "2024-01-15" or "2024-01" or "2024"
+      if show-day and show-month {
+        dt.display("[year]-[month]-[day]")
+      } else if show-month {
+        dt.display("[year]-[month]")
+      } else {
+        dt.display("[year]")
+      }
     }
   }
 }

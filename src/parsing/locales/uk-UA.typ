@@ -434,6 +434,61 @@
     "ordinal:feminine": "\u{0430}",
     "ordinal:masculine": "\u{0438}\u{0439}",
   ),
-  dates: (:),
-  options: (:),
+  // Date formats
+  dates: (
+    "numeric": (
+      parts: (
+        (
+          name: "day",
+          form: "numeric-leading-zeros",
+          prefix: "",
+          suffix: ".",
+          range-delimiter: "–",
+        ),
+        (
+          name: "month",
+          form: "numeric-leading-zeros",
+          prefix: "",
+          suffix: ".",
+          range-delimiter: "–",
+        ),
+        (
+          name: "year",
+          form: "",
+          prefix: "",
+          suffix: "",
+          range-delimiter: "–",
+        ),
+      ),
+    ),
+    "text": (
+      parts: (
+        (
+          name: "year",
+          form: "",
+          prefix: "",
+          suffix: ". ",
+          range-delimiter: "–",
+        ),
+        (
+          name: "day",
+          form: "numeric-leading-zeros",
+          prefix: "",
+          suffix: " ",
+          range-delimiter: "–",
+        ),
+        (
+          name: "month",
+          form: "short",
+          prefix: "",
+          suffix: "",
+          range-delimiter: "–",
+        ),
+      ),
+    ),
+  ),
+  // Locale options
+  options: (
+    "punctuation-in-quote": false,
+  ),
 )

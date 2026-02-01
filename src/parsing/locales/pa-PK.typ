@@ -491,6 +491,61 @@
     "ordinal:feminine": "\u{0648}\u{06CC}\u{06BA}",
     "ordinal:masculine": "\u{0648}\u{0627}\u{06BA}",
   ),
-  dates: (:),
-  options: (:),
+  // Date formats
+  dates: (
+    "numeric": (
+      parts: (
+        (
+          name: "day",
+          form: "numeric-leading-zeros",
+          prefix: "",
+          suffix: "-",
+          range-delimiter: "–",
+        ),
+        (
+          name: "month",
+          form: "numeric-leading-zeros",
+          prefix: "",
+          suffix: "-",
+          range-delimiter: "–",
+        ),
+        (
+          name: "year",
+          form: "",
+          prefix: "",
+          suffix: "",
+          range-delimiter: "–",
+        ),
+      ),
+    ),
+    "text": (
+      parts: (
+        (
+          name: "day",
+          form: "",
+          prefix: "",
+          suffix: "؍ ",
+          range-delimiter: "–",
+        ),
+        (
+          name: "month",
+          form: "",
+          prefix: "",
+          suffix: " ",
+          range-delimiter: "–",
+        ),
+        (
+          name: "year",
+          form: "",
+          prefix: "",
+          suffix: "ء",
+          range-delimiter: "–",
+        ),
+      ),
+    ),
+  ),
+  // Locale options
+  options: (
+    "punctuation-in-quote": true,
+  ),
 )

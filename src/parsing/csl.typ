@@ -219,6 +219,11 @@
   (
     punctuation-in-quote: attrs.at("punctuation-in-quote", default: "false")
       == "true",
+    limit-day-ordinals-to-day-1: attrs.at(
+      "limit-day-ordinals-to-day-1",
+      default: "false",
+    )
+      == "true",
     leading-noise-words: attrs
       .at("leading-noise-words", default: "")
       .split(",")

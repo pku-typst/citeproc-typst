@@ -441,6 +441,61 @@
     "long-ordinal-09:feminine": "\u{0928}\u{094C}\u{0935}\u{0940}\u{0902}",
     "long-ordinal-10:feminine": "\u{0926}\u{0938}\u{0935}\u{0940}\u{0902}",
   ),
-  dates: (:),
-  options: (:),
+  // Date formats
+  dates: (
+    "numeric": (
+      parts: (
+        (
+          name: "day",
+          form: "numeric-leading-zeros",
+          prefix: "",
+          suffix: "/",
+          range-delimiter: "–",
+        ),
+        (
+          name: "month",
+          form: "numeric-leading-zeros",
+          prefix: "",
+          suffix: "/",
+          range-delimiter: "–",
+        ),
+        (
+          name: "year",
+          form: "",
+          prefix: "",
+          suffix: "",
+          range-delimiter: "–",
+        ),
+      ),
+    ),
+    "text": (
+      parts: (
+        (
+          name: "day",
+          form: "",
+          prefix: "",
+          suffix: " ",
+          range-delimiter: "–",
+        ),
+        (
+          name: "month",
+          form: "",
+          prefix: "",
+          suffix: ", ",
+          range-delimiter: "–",
+        ),
+        (
+          name: "year",
+          form: "",
+          prefix: "",
+          suffix: "",
+          range-delimiter: "–",
+        ),
+      ),
+    ),
+  ),
+  // Locale options
+  options: (
+    "punctuation-in-quote": true,
+  ),
 )

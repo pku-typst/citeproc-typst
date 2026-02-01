@@ -227,6 +227,29 @@ def parse_locale_xml(xml_path: str) -> dict:
     if 'and' in terms and 'and-symbol' not in terms:
         terms['and-symbol'] = '&'  # Universal ampersand symbol
 
+    # Parse date formats
+    for date_node in root.findall('csl:date', ns) or root.findall('date'):
+        form = date_node.get('form', 'numeric')
+        parts = []
+        for part_node in date_node.findall('csl:date-part', ns) or date_node.findall('date-part'):
+            part = {
+                'name': part_node.get('name', ''),
+                'form': part_node.get('form', ''),
+                'prefix': part_node.get('prefix', ''),
+                'suffix': part_node.get('suffix', ''),
+                'range-delimiter': part_node.get('range-delimiter', '–'),
+            }
+            parts.append(part)
+        if parts:
+            dates[form] = {'parts': parts}
+
+    # Parse style-options
+    for options_node in root.findall('csl:style-options', ns) or root.findall('style-options'):
+        if options_node.get('punctuation-in-quote'):
+            options['punctuation-in-quote'] = options_node.get('punctuation-in-quote') == 'true'
+        if options_node.get('limit-day-ordinals-to-day-1'):
+            options['limit-day-ordinals-to-day-1'] = options_node.get('limit-day-ordinals-to-day-1') == 'true'
+
     return {
         'terms': terms,
         'term_genders': term_genders,
@@ -330,9 +353,45 @@ def generate_typst_locale(locale_name: str, data: dict, lang_name: str) -> str:
     else:
         lines.append("  ordinal-gender-forms: (:),")
 
+    # Add date formats
+    if data.get('dates'):
+        lines.append("  // Date formats")
+        lines.append("  dates: (")
+        for form, date_data in sorted(data['dates'].items()):
+            lines.append(f'    "{form}": (')
+            lines.append("      parts: (")
+            for part in date_data.get('parts', []):
+                lines.append("        (")
+                lines.append(f'          name: "{part["name"]}",')
+                lines.append(f'          form: "{part["form"]}",')
+                # Escape prefix/suffix for Typst strings
+                prefix = part["prefix"].replace("\\", "\\\\").replace('"', '\\"')
+                suffix = part["suffix"].replace("\\", "\\\\").replace('"', '\\"')
+                range_delim = part["range-delimiter"].replace("\\", "\\\\").replace('"', '\\"')
+                lines.append(f'          prefix: "{prefix}",')
+                lines.append(f'          suffix: "{suffix}",')
+                lines.append(f'          range-delimiter: "{range_delim}",')
+                lines.append("        ),")
+            lines.append("      ),")
+            lines.append("    ),")
+        lines.append("  ),")
+    else:
+        lines.append("  dates: (:),")
+
+    # Add options
+    if data.get('options'):
+        lines.append("  // Locale options")
+        lines.append("  options: (")
+        for key, value in sorted(data['options'].items()):
+            if isinstance(value, bool):
+                lines.append(f'    "{key}": {str(value).lower()},')
+            else:
+                lines.append(f'    "{key}": "{value}",')
+        lines.append("  ),")
+    else:
+        lines.append("  options: (:),")
+
     lines.extend([
-        "  dates: (:),",
-        "  options: (:),",
         ")",
         "",
     ])

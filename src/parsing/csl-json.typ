@@ -280,34 +280,49 @@
   if csl-date == none { return (:) }
   if type(csl-date) != dictionary { return (:) }
 
-  let parts = csl-date.at("date-parts", default: ())
-  if parts.len() == 0 { return (:) }
-
-  // First date-parts array is the start date
-  let start = parts.first()
   let result = (:)
 
-  if start.len() >= 1 {
-    result.insert("year", str(start.at(0)))
-  }
-  if start.len() >= 2 {
-    result.insert("month", str(start.at(1)))
-  }
-  if start.len() >= 3 {
-    result.insert("day", str(start.at(2)))
-  }
-
-  // Handle date ranges (second element)
-  if parts.len() >= 2 {
-    let end = parts.at(1)
-    if end.len() >= 1 {
-      result.insert("end-year", str(end.at(0)))
-    }
-  }
-
-  // Handle literal dates
+  // Handle literal dates first (e.g., "in press", "forthcoming")
+  // These take precedence when date-parts is empty
   if "literal" in csl-date {
     result.insert("literal", csl-date.literal)
+  }
+
+  let parts = csl-date.at("date-parts", default: ())
+  if parts.len() > 0 {
+    // First date-parts array is the start date
+    let start = parts.first()
+
+    // Only insert non-empty values (empty strings mean "missing component")
+    if start.len() >= 1 {
+      let year-val = str(start.at(0))
+      if year-val != "" {
+        result.insert("year", year-val)
+      }
+    }
+    if start.len() >= 2 {
+      let month-val = str(start.at(1))
+      if month-val != "" {
+        result.insert("month", month-val)
+      }
+    }
+    if start.len() >= 3 {
+      let day-val = str(start.at(2))
+      if day-val != "" {
+        result.insert("day", day-val)
+      }
+    }
+
+    // Handle date ranges (second element)
+    if parts.len() >= 2 {
+      let end = parts.at(1)
+      if end.len() >= 1 {
+        let end-year-val = str(end.at(0))
+        if end-year-val != "" {
+          result.insert("end-year", end-year-val)
+        }
+      }
+    }
   }
 
   // Handle season
@@ -443,7 +458,7 @@
           fields.insert("date", date-str)
         }
       } else if var == "accessed" {
-        // accessed -> urldate
+        // accessed -> urldate and accessed-* fields
         if "year" in date-fields {
           let date-str = date-fields.year
           if "month" in date-fields {
@@ -453,6 +468,14 @@
             }
           }
           fields.insert("urldate", date-str)
+          // Also store individual components for accessed date
+          fields.insert("accessed-year", date-fields.year)
+          if "month" in date-fields {
+            fields.insert("accessed-month", date-fields.month)
+          }
+          if "day" in date-fields {
+            fields.insert("accessed-day", date-fields.day)
+          }
         }
       } else if var == "original-date" {
         // original-date -> origdate
@@ -460,6 +483,9 @@
           let date-str = date-fields.year
           if "month" in date-fields {
             date-str += "-" + date-fields.month
+            if "day" in date-fields {
+              date-str += "-" + date-fields.day
+            }
           }
           fields.insert("origdate", date-str)
         }

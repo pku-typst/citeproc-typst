@@ -358,6 +358,61 @@
   ),
   term-genders: (:),
   ordinal-gender-forms: (:),
-  dates: (:),
-  options: (:),
+  // Date formats
+  dates: (
+    "numeric": (
+      parts: (
+        (
+          name: "year",
+          form: "",
+          prefix: "",
+          suffix: "",
+          range-delimiter: "–",
+        ),
+        (
+          name: "month",
+          form: "numeric-leading-zeros",
+          prefix: "/",
+          suffix: "",
+          range-delimiter: "–",
+        ),
+        (
+          name: "day",
+          form: "numeric-leading-zeros",
+          prefix: "/",
+          suffix: "",
+          range-delimiter: "–",
+        ),
+      ),
+    ),
+    "text": (
+      parts: (
+        (
+          name: "year",
+          form: "",
+          prefix: "",
+          suffix: "年",
+          range-delimiter: "–",
+        ),
+        (
+          name: "month",
+          form: "numeric",
+          prefix: "",
+          suffix: "月",
+          range-delimiter: "–",
+        ),
+        (
+          name: "day",
+          form: "",
+          prefix: "",
+          suffix: "日",
+          range-delimiter: "–",
+        ),
+      ),
+    ),
+  ),
+  // Locale options
+  options: (
+    "punctuation-in-quote": false,
+  ),
 )
