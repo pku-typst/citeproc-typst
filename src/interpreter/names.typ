@@ -223,11 +223,22 @@
         "author-substitute-rule",
         default: "complete-all",
       )
+      let substitute-count = ctx.at("author-substitute-count", default: 0)
       if substitute-rule == "complete-all" {
         // Replace entire output with substitute string
         return (finalize(author-substitute, attrs), ())
+      } else if substitute-rule == "partial-each" and substitute-count > 0 {
+        // For partial-each with substitute fallback (no actual names),
+        // if matching-count > 0, it means the substitute output matched
+        // Replace entire output with substitute string
+        return (finalize(author-substitute, attrs), ())
+      } else if substitute-rule == "complete-each" {
+        // complete-each also substitutes if match was found
+        if substitute-count > 0 {
+          return (finalize(author-substitute, attrs), ())
+        }
       }
-      // For other rules (partial-each, etc.) we still need to render the substitute
+      // For other rules (partial-first, etc.) we still need to render the substitute
       // to get the actual content to compare - but this is rare for substitute cases
     }
 

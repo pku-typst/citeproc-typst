@@ -201,11 +201,21 @@
       } else if substitute-rule == "partial-each" {
         // Substitute matching names from start until first mismatch
         if prev-names-list != none {
-          matching-count = _count-matching-names(
-            current-names-list,
-            prev-names-list,
-          )
-          should-substitute = matching-count > 0
+          // Special case: when both entries have empty names lists (using substitute),
+          // compare the rendered output strings instead
+          if current-names-list.len() == 0 and prev-names-list.len() == 0 {
+            // Both used substitute - compare rendered strings
+            if current-names == prev-names {
+              should-substitute = true
+              matching-count = 1 // Treat substitute as single unit
+            }
+          } else {
+            matching-count = _count-matching-names(
+              current-names-list,
+              prev-names-list,
+            )
+            should-substitute = matching-count > 0
+          }
         }
       } else if substitute-rule == "partial-first" {
         // Substitute only first name if it matches
