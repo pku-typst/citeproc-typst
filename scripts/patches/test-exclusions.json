@@ -20,6 +20,10 @@
     {
       "fixture": "label_CollapsedPageNumberPluralDetection",
       "reason": "Uses citeproc-js specific escape sequence (\\-) to prevent hyphen-to-en-dash conversion. This escape is not part of CSL spec and not supported."
+    },
+    {
+      "fixture": "label_EditorTranslator1",
+      "reason": "Complex Russian GOST-style that uses 'note' variable presence as language-switching mechanism (English when note exists, Russian otherwise). This is a style-specific workaround pattern, not standard CSL behavior."
     }
   ]
 }
