@@ -27,11 +27,13 @@ import html
 # =============================================================================
 
 class CitationExtractor(HTMLParser):
-    """Extract citation text from HTML.
+    """Extract citation HTML from document, preserving formatting tags.
 
     Handles two cases:
     1. Inline citations - content in <a href="#citeproc-ref-..."> links
     2. Footnote citations - content in <section role="doc-endnotes">
+
+    Collects content (text + inner tags) within citation links.
     """
 
     def __init__(self):
@@ -40,11 +42,12 @@ class CitationExtractor(HTMLParser):
         self.in_endnotes = False
         self.in_endnote_li = False
         self.in_footnote_link = False
-        self.in_citation_link = False  # For inline citations with <a href="#citeproc-ref-...">
-        self.current_text = []
+        self.in_citation_link = False
+        self.current_content = []
         self.citation_texts = []
         self.endnote_texts = []
         self.skip_until_close = None
+        self.tag_stack = []  # Track nested tags for reconstruction
 
     def handle_starttag(self, tag, attrs):
         attrs_dict = dict(attrs)
@@ -54,7 +57,6 @@ class CitationExtractor(HTMLParser):
             self.in_endnotes = True
         elif tag == 'li' and self.in_endnotes:
             self.in_endnote_li = True
-            self.current_text = []
         elif tag == 'a':
             href = attrs_dict.get('href', '')
             role = attrs_dict.get('role', '')
@@ -63,11 +65,17 @@ class CitationExtractor(HTMLParser):
                     self.skip_until_close = 'a'
                 elif href.startswith('#citeproc-ref-'):
                     self.in_footnote_link = True
+                    self.current_content = []
+                    self.tag_stack = []
             elif self.in_body and not self.in_endnotes:
-                # Inline citation links
                 if href.startswith('#citeproc-ref-'):
                     self.in_citation_link = True
-                    self.current_text = []
+                    self.current_content = []
+                    self.tag_stack = []
+        elif self.in_footnote_link or self.in_citation_link:
+            # Inside citation - record inner tags
+            self.tag_stack.append(tag)
+            self.current_content.append('<' + tag + '>')
 
     def handle_endtag(self, tag):
         if self.skip_until_close == tag:
@@ -78,27 +86,30 @@ class CitationExtractor(HTMLParser):
             self.in_endnotes = False
         elif tag == 'li' and self.in_endnote_li:
             self.in_endnote_li = False
-            text = ''.join(self.current_text).strip()
-            if text:
-                self.endnote_texts.append(text)
         elif tag == 'a':
             if self.in_footnote_link:
                 self.in_footnote_link = False
+                content = ''.join(self.current_content).strip()
+                if content:
+                    self.endnote_texts.append(content)
             elif self.in_citation_link:
                 self.in_citation_link = False
-                text = ''.join(self.current_text).strip()
-                if text:
-                    self.citation_texts.append(text)
+                content = ''.join(self.current_content).strip()
+                if content:
+                    self.citation_texts.append(content)
+        elif (self.in_footnote_link or self.in_citation_link) and self.tag_stack:
+            # Inside citation - close inner tag
+            if self.tag_stack and self.tag_stack[-1] == tag:
+                self.tag_stack.pop()
+            self.current_content.append('</' + tag + '>')
 
     def handle_data(self, data):
         if self.skip_until_close:
             return
-
         if self.in_footnote_link or self.in_citation_link:
-            self.current_text.append(data)
+            self.current_content.append(data)
 
     def get_citations(self) -> str:
-        # Prefer endnotes if present (footnote style), otherwise inline citations
         if self.endnote_texts:
             return '\n'.join(self.endnote_texts)
         return '\n'.join(self.citation_texts)
@@ -154,10 +165,10 @@ class BibliographyExtractor(HTMLParser):
         return '\n'.join(self.entries)
 
 
-def extract_citation_from_html(html: str) -> str:
-    """Extract citation text from HTML."""
+def extract_citation_from_html(html_content: str) -> str:
+    """Extract citation HTML from document, preserving formatting tags."""
     parser = CitationExtractor()
-    parser.feed(html)
+    parser.feed(html_content)
     return parser.get_citations()
 
 
@@ -273,6 +284,73 @@ def parse_fixture(filepath: Path) -> Optional[TestFixture]:
         citations=citations,
         abbreviations=abbreviations,
     )
+
+
+# =============================================================================
+# HTML Normalization for Comparison
+# =============================================================================
+
+class HTMLNormalizer(HTMLParser):
+    """Normalize HTML for comparison.
+
+    Standardizes tags:
+    - <em> → <i> (italic)
+    - <strong> → <b> (bold)
+    - Removes attributes from formatting tags
+    - Removes span tags (keeps content)
+    - Preserves <sup>, <sub>, <i>, <b>
+    """
+
+    TAG_MAP = {
+        'em': 'i',
+        'strong': 'b',
+    }
+
+    PRESERVE_TAGS = {'i', 'b', 'sup', 'sub'}
+    SKIP_TAGS = {'span', 'div', 'p', 'a'}
+
+    def __init__(self):
+        super().__init__()
+        self.result = []
+
+    def handle_starttag(self, tag, attrs):
+        normalized_tag = self.TAG_MAP.get(tag, tag)
+        if normalized_tag in self.PRESERVE_TAGS:
+            self.result.append(f'<{normalized_tag}>')
+
+    def handle_endtag(self, tag):
+        normalized_tag = self.TAG_MAP.get(tag, tag)
+        if normalized_tag in self.PRESERVE_TAGS:
+            self.result.append(f'</{normalized_tag}>')
+
+    def handle_data(self, data):
+        self.result.append(data)
+
+    def handle_entityref(self, name):
+        self.result.append(html.unescape(f'&{name};'))
+
+    def handle_charref(self, name):
+        self.result.append(html.unescape(f'&#{name};'))
+
+    def get_result(self) -> str:
+        text = ''.join(self.result)
+        # Normalize whitespace
+        return ' '.join(text.split())
+
+
+def normalize_html_for_comparison(text: str) -> str:
+    """Normalize HTML for comparison between expected and actual output."""
+    if not text:
+        return ''
+
+    parser = HTMLNormalizer()
+    try:
+        parser.feed(text.strip())
+        return parser.get_result()
+    except Exception:
+        # Fallback: just strip tags and normalize whitespace
+        stripped = re.sub(r'<[^>]+>', '', text)
+        return ' '.join(html.unescape(stripped).split())
 
 
 # =============================================================================
@@ -521,18 +599,9 @@ def run_test(fixture: TestFixture, project_dir: Path, temp_dir: Path,
             actual = extract_output_from_html(html_content, fixture.mode)
             result['actual'] = actual
 
-            # Normalize for comparison - strip HTML tags from both
-            # Expected may contain HTML tags like <i>, <b>, <span> etc.
-            expected_normalized = re.sub(r'<[^>]+>', '', fixture.result).strip()
-            actual_normalized = actual.strip()
-
-            # Normalize HTML entities (&#38; -> &, &amp; -> &, etc.)
-            expected_normalized = html.unescape(expected_normalized)
-            actual_normalized = html.unescape(actual_normalized)
-
-            # Normalize whitespace
-            expected_normalized = ' '.join(expected_normalized.split())
-            actual_normalized = ' '.join(actual_normalized.split())
+            # Normalize HTML for comparison
+            expected_normalized = normalize_html_for_comparison(fixture.result)
+            actual_normalized = normalize_html_for_comparison(actual)
 
             # Simple comparison (can be made more sophisticated)
             result['match'] = expected_normalized == actual_normalized

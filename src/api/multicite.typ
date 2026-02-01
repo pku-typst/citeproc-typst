@@ -6,6 +6,7 @@
 #import "../core/constants.typ": (
   CITE-FORM, COLLAPSE, STYLE-CLASS, VERTICAL-ALIGN,
 )
+#import "../core/formatting.typ": apply-formatting
 #import "../output/mod.typ": (
   collapse-punctuation, render-citation, render-names-for-citation-display,
   render-names-for-grouping, select-layout,
@@ -36,16 +37,22 @@
   }
 }
 
-/// Apply prefix, suffix, and optionally vertical alignment
+/// Apply prefix, suffix, vertical alignment, and font formatting from layout
 ///
 /// - content: The content to wrap
 /// - prefix: Prefix string
 /// - suffix: Suffix string
-/// - valign: Optional vertical alignment ("sup" or "sub")
+/// - layout: Layout dictionary with formatting attributes
 /// Returns: Formatted content
-#let _apply-affixes(content, prefix, suffix, valign: none) = {
+#let _apply-affixes(content, prefix, suffix, layout: (:)) = {
   let formatted = [#prefix#content#suffix]
-  _apply-vertical-align(formatted, valign)
+
+  // Apply vertical alignment
+  let valign = layout.at("vertical-align", default: none)
+  let with-valign = _apply-vertical-align(formatted, valign)
+
+  // Apply font formatting (font-weight, font-style, etc.)
+  apply-formatting(with-valign, layout)
 }
 
 /// Create a reference link to the first cited key
@@ -290,7 +297,10 @@
             for (year-idx, y) in year-order.enumerate() {
               let year-items = by-year.at(y)
               // Get suffixes for this year group (as numeric indices)
-              let year-suffixes = year-items.map(it => suffixes.at(it.key, default: none))
+              let year-suffixes = year-items.map(it => suffixes.at(
+                it.key,
+                default: none,
+              ))
               let suffix-ranges = collapse-suffix-ranges(year-suffixes)
 
               // Parts within this year group (joined with year-suffix-delimiter)
@@ -310,8 +320,14 @@
                     suppress-author: not is-first-in-author,
                     suppress-year: not is-first-in-year,
                     cite-number: citations.order.at(item.key, default: 0),
-                    names-expanded: item.disambig.at("names-expanded", default: 0),
-                    givenname-level: item.disambig.at("givenname-level", default: 0),
+                    names-expanded: item.disambig.at(
+                      "names-expanded",
+                      default: 0,
+                    ),
+                    givenname-level: item.disambig.at(
+                      "givenname-level",
+                      default: 0,
+                    ),
                   ))
                   suffix-parts.push(rendered)
                   is-first-in-author = false
@@ -337,8 +353,14 @@
                         suppress-author: not is-first-in-author,
                         suppress-year: do-suppress-year,
                         cite-number: citations.order.at(item.key, default: 0),
-                        names-expanded: item.disambig.at("names-expanded", default: 0),
-                        givenname-level: item.disambig.at("givenname-level", default: 0),
+                        names-expanded: item.disambig.at(
+                          "names-expanded",
+                          default: 0,
+                        ),
+                        givenname-level: item.disambig.at(
+                          "givenname-level",
+                          default: 0,
+                        ),
                       ))
                       suffix-parts.push(rendered)
                       is-first-in-author = false
@@ -361,9 +383,18 @@
                         suppress-affixes: true,
                         suppress-author: not is-first-in-author,
                         suppress-year: do-suppress-year,
-                        cite-number: citations.order.at(start-item.key, default: 0),
-                        names-expanded: start-item.disambig.at("names-expanded", default: 0),
-                        givenname-level: start-item.disambig.at("givenname-level", default: 0),
+                        cite-number: citations.order.at(
+                          start-item.key,
+                          default: 0,
+                        ),
+                        names-expanded: start-item.disambig.at(
+                          "names-expanded",
+                          default: 0,
+                        ),
+                        givenname-level: start-item.disambig.at(
+                          "givenname-level",
+                          default: 0,
+                        ),
                       ))
                       // For end, just use the suffix letter
                       let end-suffix = num-to-suffix(r.end)
@@ -380,7 +411,10 @@
               }
             }
             // Join different years with layout delimiter
-            author-groups.push((content: year-group-parts.join(cite-group-delim), collapsed: collapsed))
+            author-groups.push((
+              content: year-group-parts.join(cite-group-delim),
+              collapsed: collapsed,
+            ))
           } else if effective-collapse-mode == COLLAPSE.year-suffix {
             // year-suffix mode: group by year, use year-suffix-delimiter within year
             let by-year = (:)
@@ -412,8 +446,14 @@
                   suppress-author: not is-first-in-author,
                   suppress-year: not is-first-in-year,
                   cite-number: citations.order.at(item.key, default: 0),
-                  names-expanded: item.disambig.at("names-expanded", default: 0),
-                  givenname-level: item.disambig.at("givenname-level", default: 0),
+                  names-expanded: item.disambig.at(
+                    "names-expanded",
+                    default: 0,
+                  ),
+                  givenname-level: item.disambig.at(
+                    "givenname-level",
+                    default: 0,
+                  ),
                 ))
                 suffix-parts.push(rendered)
                 is-first-in-author = false
@@ -424,7 +464,10 @@
               }
             }
             // Join different years with layout delimiter
-            author-groups.push((content: year-group-parts.join(cite-group-delim), collapsed: collapsed))
+            author-groups.push((
+              content: year-group-parts.join(cite-group-delim),
+              collapsed: collapsed,
+            ))
           } else {
             // year mode: no suffix grouping
             // Use after-collapse-delimiter after items with locators
@@ -444,7 +487,10 @@
                 suppress-year: false,
                 cite-number: citations.order.at(item.key, default: 0),
                 names-expanded: item.disambig.at("names-expanded", default: 0),
-                givenname-level: item.disambig.at("givenname-level", default: 0),
+                givenname-level: item.disambig.at(
+                  "givenname-level",
+                  default: 0,
+                ),
               ))
 
               // Use after-collapse-delimiter after items with locators
@@ -460,7 +506,10 @@
 
               prev-had-locator = item.supplement != none
             }
-            author-groups.push((content: group-parts.join(), collapsed: collapsed))
+            author-groups.push((
+              content: group-parts.join(),
+              collapsed: collapsed,
+            ))
           }
         }
 
@@ -507,8 +556,8 @@
         // Prose: no outer parentheses, no vertical-align
         _make-ref-link(result, first-key)
       } else {
-        // Normal: with affixes and vertical-align
-        let formatted = _apply-affixes(result, prefix, suffix, valign: valign)
+        // Normal: with affixes and formatting
+        let formatted = _apply-affixes(result, prefix, suffix, layout: layout)
         _make-ref-link(formatted, first-key)
       }
     } else if is-note-style {
@@ -530,9 +579,12 @@
 
       let joined = cite-parts.filter(p => p != []).join(delimiter)
 
+      // Apply affixes and layout formatting
       let result = if is-multicite {
-        [#prefix#joined#suffix]
+        let with-affixes = [#prefix#joined#suffix]
+        apply-formatting(with-affixes, layout)
       } else {
+        // Single citation - render-citation already applied formatting
         joined
       }
 
@@ -646,8 +698,7 @@
       }
 
       // Apply formatting and link
-      let valign = layout.at("vertical-align", default: none)
-      let formatted = _apply-affixes(result, prefix, suffix, valign: valign)
+      let formatted = _apply-affixes(result, prefix, suffix, layout: layout)
       _make-ref-link(formatted, first-key)
     }
   }

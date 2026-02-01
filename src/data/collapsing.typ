@@ -101,7 +101,10 @@
     str.from-unicode(97 + n)
   } else {
     let n2 = n - 26
-    str.from-unicode(97 + calc.quo(n2, 26)) + str.from-unicode(97 + calc.rem(n2, 26))
+    (
+      str.from-unicode(97 + calc.quo(n2, 26))
+        + str.from-unicode(97 + calc.rem(n2, 26))
+    )
   }
 }
 

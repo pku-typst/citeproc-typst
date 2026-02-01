@@ -3,6 +3,7 @@
 // Functions for rendering in-text citations.
 
 #import "../core/constants.typ": POSITION, RENDER-CONTEXT
+#import "../core/formatting.typ": apply-formatting
 #import "../interpreter/mod.typ": create-context
 #import "../interpreter/stack.typ": interpret-children-stack
 #import "../parsing/mod.typ": detect-language
@@ -188,30 +189,46 @@
     // so we don't manually append supplement here anymore
 
     // Apply prefix/suffix but NOT vertical-align (unless suppressed for multi-cite)
-    if suppress-affixes {
+    let formatted = if suppress-affixes {
       result
     } else {
       let prefix = layout.prefix
       let suffix = layout.suffix
       [#prefix#result#suffix]
     }
+
+    // Apply font formatting only when not suppressed
+    // (multicite applies layout formatting at the outer level)
+    if suppress-affixes {
+      formatted
+    } else {
+      apply-formatting(formatted, layout)
+    }
   } else {
     // Default form: apply all formatting
     // Note: locator is now rendered via CSL's <text variable="locator"/>
 
-    // Apply prefix/suffix (unless suppressed for multi-cite)
-    let prefix = if suppress-affixes { "" } else { layout.prefix }
-    let suffix = if suppress-affixes { "" } else { layout.suffix }
-    let formatted = [#prefix#result#suffix]
-
-    // Apply vertical-align (superscript/subscript)
-    let valign = layout.at("vertical-align", default: none)
-    if valign == "sup" {
-      super(formatted)
-    } else if valign == "sub" {
-      sub(formatted)
+    // When suppress-affixes is true, return raw result for multicite to wrap
+    if suppress-affixes {
+      result
     } else {
-      formatted
+      // Apply prefix/suffix
+      let prefix = layout.prefix
+      let suffix = layout.suffix
+      let formatted = [#prefix#result#suffix]
+
+      // Apply vertical-align (superscript/subscript)
+      let valign = layout.at("vertical-align", default: none)
+      let with-valign = if valign == "sup" {
+        super(formatted)
+      } else if valign == "sub" {
+        sub(formatted)
+      } else {
+        formatted
+      }
+
+      // Apply font formatting (font-weight, font-style)
+      apply-formatting(with-valign, layout)
     }
   }
 }

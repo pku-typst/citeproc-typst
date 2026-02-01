@@ -281,6 +281,11 @@
       prefix: l.attrs.at("prefix", default: ""),
       suffix: l.attrs.at("suffix", default: ""),
       vertical-align: l.attrs.at("vertical-align", default: none),
+      // Font formatting
+      font-weight: l.attrs.at("font-weight", default: none),
+      font-style: l.attrs.at("font-style", default: none),
+      font-variant: l.attrs.at("font-variant", default: none),
+      text-decoration: l.attrs.at("text-decoration", default: none),
       children: filter-element-children(l.at("children", default: ())),
     )),
     // Sort
@@ -342,6 +347,11 @@
       prefix: l.attrs.at("prefix", default: ""),
       suffix: l.attrs.at("suffix", default: ""),
       delimiter: l.attrs.at("delimiter", default: ""),
+      // Font formatting
+      font-weight: l.attrs.at("font-weight", default: none),
+      font-style: l.attrs.at("font-style", default: none),
+      font-variant: l.attrs.at("font-variant", default: none),
+      text-decoration: l.attrs.at("text-decoration", default: none),
       children: l.at("children", default: ()),
     )),
     // Sort

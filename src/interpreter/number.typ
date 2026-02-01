@@ -54,9 +54,14 @@
   } else {
     // No Arabic numbers - check for Roman numeral ranges
     let lower = val-str.replace(" ", "")
-    let has-roman-range = lower.match(regex(
-      "[ivxlcdm]+[\\-–—][ivxlcdm]+",
-    )) != none
+    let has-roman-range = (
+      lower.match(
+        regex(
+          "[ivxlcdm]+[\\-–—][ivxlcdm]+",
+        ),
+      )
+        != none
+    )
     has-roman-range
   }
 }
