@@ -482,23 +482,38 @@
       let names = csl-entry.at(var)
       if type(names) == array and names.len() > 0 {
         // Normalize name structure
+        // CSL has two types of particles:
+        // - non-dropping-particle: always attached to family name (e.g., "la" in "la Martinière")
+        // - dropping-particle: can be placed before or after family depending on style (e.g., "de")
         let normalized = names.map(n => {
           if type(n) == dictionary {
             (
               family: n.at("family", default: ""),
               given: n.at("given", default: ""),
               suffix: n.at("suffix", default: ""),
-              prefix: n.at("non-dropping-particle", default: n.at(
-                "dropping-particle",
-                default: "",
-              )),
+              prefix: n.at("non-dropping-particle", default: ""),
+              dropping-prefix: n.at("dropping-particle", default: ""),
               literal: n.at("literal", default: ""),
             )
           } else if type(n) == str {
             // Literal name string
-            (family: n, given: "", suffix: "", prefix: "", literal: n)
+            (
+              family: n,
+              given: "",
+              suffix: "",
+              prefix: "",
+              dropping-prefix: "",
+              literal: n,
+            )
           } else {
-            (family: "", given: "", suffix: "", prefix: "", literal: "")
+            (
+              family: "",
+              given: "",
+              suffix: "",
+              prefix: "",
+              dropping-prefix: "",
+              literal: "",
+            )
           }
         })
         parsed-names.insert(var, normalized)

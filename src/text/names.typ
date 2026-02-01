@@ -243,7 +243,11 @@
 ) = {
   let family = name.at("family", default: "")
   let given = name.at("given", default: "")
-  let prefix = name.at("prefix", default: "") // "von", "de", etc.
+  // CSL has two types of particles:
+  // - prefix (non-dropping-particle): always attached to family name (e.g., "la" in "la Martinière")
+  // - dropping-prefix (dropping-particle): placed between given and family in display order (e.g., "de")
+  let prefix = name.at("prefix", default: "") // non-dropping-particle
+  let dropping-prefix = name.at("dropping-prefix", default: "") // dropping-particle
   let suffix = name.at("suffix", default: "") // "Jr.", "III", etc.
 
   let is-chinese = is-cjk-name(name)
@@ -274,8 +278,16 @@
   // Level 0 = default, 1 = initials, 2 = full given name
   let givenname-level = ctx.at("givenname-level", default: 0)
 
-  // Short form: only family name (unless disambiguation requires more)
+  // Short form: only family name with non-dropping-particle (unless disambiguation requires more)
+  // CSL spec: non-dropping-particle is always attached to family name, even in short form
   if name-form == "short" and givenname-level == 0 {
+    if prefix != "" {
+      if prefix.ends-with("'") or prefix.ends-with("-") {
+        return prefix + formatted-family
+      } else {
+        return prefix + " " + formatted-family
+      }
+    }
     return formatted-family
   }
 
@@ -375,10 +387,11 @@
     // Chinese: 姓名 (no separator)
     formatted-family + formatted-given
   } else if use-sort-order {
-    // Sort order: Family Given Suffix (with sort-separator, no comma before suffix)
-    // Per GB/T 7714-2025: "Sodeman W A Jr" not "Sodeman W A, Jr"
+    // Sort order: Family, Given [particles], Suffix
+    // demote-non-dropping-particle controls where non-dropping-particle goes:
+    // - "never": prefix stays with family name (la Martinière)
+    // - "display-and-sort" or "sort-only": prefix moves after given name
 
-    // Handle prefix (demote-non-dropping-particle setting)
     let demote = ctx.style.demote-non-dropping-particle
     if prefix != "" and demote == "never" {
       // Prefix stays with family name
@@ -390,21 +403,32 @@
       }
     }
 
-    // Build name parts
+    // Build name parts: Family, Given [dropping-prefix] [demoted-prefix], Suffix
     let result = formatted-family
     if formatted-given != "" {
       result = [#result#sort-separator#formatted-given]
     }
-    // Add suffix without comma (per GB/T 7714)
+    // Add particles after given name if demoted or if dropping-prefix exists
+    let particles = ()
+    if dropping-prefix != "" { particles.push(dropping-prefix) }
+    if prefix != "" and demote != "never" { particles.push(prefix) }
+    if particles.len() > 0 {
+      result = [#result #particles.join(" ")]
+    }
+    // CSL spec: suffix is preceded by sort-separator in sort order
     if suffix != "" {
-      result = [#result #suffix]
+      result = [#result#sort-separator#suffix]
     }
     result
   } else {
-    // Display order: Given Family
-    // Handle particle-family spacing: particles ending with ' or - don't add space
+    // Display order: Given [dropping-prefix] [non-dropping-prefix] Family Suffix
+    // dropping-prefix (e.g., "de") goes between given and family
+    // non-dropping-prefix (e.g., "la") stays attached to family
     let result = ()
     if formatted-given != "" { result.push(formatted-given) }
+    // Add dropping-prefix if present
+    if dropping-prefix != "" { result.push(dropping-prefix) }
+    // Handle non-dropping-particle + family
     if prefix != "" {
       // Check if prefix ends with a connecting character (apostrophe or hyphen)
       if prefix.ends-with("'") or prefix.ends-with("-") {
@@ -501,6 +525,13 @@
   // "et al." alone doesn't count as output from a variable
   if show-count == 0 and use-et-al {
     return []
+  }
+
+  // CSL spec: form="count" returns the count of names that would be rendered
+  // This is calculated AFTER et-al truncation
+  let name-form = attrs.at("form", default: "long")
+  if name-form == "count" {
+    return str(show-count)
   }
 
   // Format individual names
