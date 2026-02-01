@@ -120,22 +120,41 @@
 /// CSL spec: "By default, the year-suffix is appended the first year rendered through
 /// cs:date... but its location can be controlled by explicitly rendering the
 /// 'year-suffix' variable using cs:text"
-#let _has-explicit-year-suffix(node) = {
+///
+/// - node: XML node to check
+/// - macros: Dictionary of macro name -> macro node (for following macro references)
+/// - visited: Set of already-visited macro names (to prevent infinite loops)
+#let _has-explicit-year-suffix(node, macros: (:), visited: ()) = {
   if type(node) != dictionary { return false }
 
-  // Check if this node is <text variable="year-suffix"/>
   let tag = node.at("tag", default: "")
+
+  // Check if this node is <text variable="year-suffix"/>
   if tag == "text" {
     let attrs = node.at("attrs", default: (:))
     if attrs.at("variable", default: "") == "year-suffix" {
       return true
+    }
+    // Check if this is a macro call and follow it
+    let macro-name = attrs.at("macro", default: "")
+    if macro-name != "" and macro-name not in visited {
+      let macro-node = macros.at(macro-name, default: none)
+      if macro-node != none {
+        if _has-explicit-year-suffix(
+          macro-node,
+          macros: macros,
+          visited: visited + (macro-name,),
+        ) {
+          return true
+        }
+      }
     }
   }
 
   // Recursively check children
   let children = node.at("children", default: ())
   for child in children {
-    if _has-explicit-year-suffix(child) {
+    if _has-explicit-year-suffix(child, macros: macros, visited: visited) {
       return true
     }
   }
@@ -290,7 +309,7 @@
 }
 
 /// Parse citation element
-#let parse-citation(citation-node) = {
+#let parse-citation(citation-node, macros: (:)) = {
   if citation-node == none { return none }
 
   let layouts = find-children(citation-node, "layout")
@@ -334,7 +353,8 @@
     )
       == "true",
     // CSL spec: check if year-suffix is explicitly rendered via <text variable="year-suffix"/>
-    has-explicit-year-suffix: _has-explicit-year-suffix(citation-node),
+    // Also check in referenced macros
+    has-explicit-year-suffix: _has-explicit-year-suffix(citation-node, macros: macros),
     // Inheritable name attributes (from unified helper)
     ..name-attrs,
     // Layouts (CSL-M: may have locale-specific variants)
@@ -374,7 +394,7 @@
 }
 
 /// Parse bibliography element
-#let parse-bibliography(bib-node) = {
+#let parse-bibliography(bib-node, macros: (:)) = {
   if bib-node == none { return none }
 
   let layouts = find-children(bib-node, "layout")
@@ -399,7 +419,8 @@
       default: "complete-all",
     ),
     // CSL spec: check if year-suffix is explicitly rendered via <text variable="year-suffix"/>
-    has-explicit-year-suffix: _has-explicit-year-suffix(bib-node),
+    // Also check in referenced macros
+    has-explicit-year-suffix: _has-explicit-year-suffix(bib-node, macros: macros),
     // Inheritable name attributes (from unified helper)
     ..name-attrs,
     // Layouts (may have locale-specific variants)
@@ -537,9 +558,9 @@
     macros.insert(parsed.name, parsed)
   }
 
-  // Parse citation and bibliography
-  let citation = parse-citation(find-child(root, "citation"))
-  let bibliography = parse-bibliography(find-child(root, "bibliography"))
+  // Parse citation and bibliography (pass macros for has-explicit-year-suffix check)
+  let citation = parse-citation(find-child(root, "citation"), macros: macros)
+  let bibliography = parse-bibliography(find-child(root, "bibliography"), macros: macros)
 
   // Extract inheritable name attributes at style level (with defaults)
   let name-attrs = extract-name-attrs(attrs, is-style-level: true)
