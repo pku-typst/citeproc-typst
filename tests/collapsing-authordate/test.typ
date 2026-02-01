@@ -93,13 +93,13 @@ Multiple by Smith different years (should be "Smith, 2020a, 2021"): #multicite("
 
 Mixed authors (should be "Smith, 2020a; Jones, 2020"): #multicite("smith2020a", "jones2020")
 
-== Cite Grouping Reordering
+== Different Years Without cite-group-delimiter
 
-CSL spec: "Grouped cites maintain their relative order, and are moved to the original location of the first cite of the group."
+Without `cite-group-delimiter`, cites are not grouped by author. Each cite remains separate.
 
 Cite order: Smith 2020a, Jones 2020, Smith 2021
 
-Expected: "(Smith, 2020a, 2021; Jones, 2020)" - Smith's cites grouped at first Smith position
+Expected: "(Smith, 2020a; Jones, 2020; Smith, 2021)" - No grouping, original order preserved
 
 Actual: #multicite("smith2020a", "jones2020", "smith2021")
 

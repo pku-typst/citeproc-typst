@@ -212,8 +212,8 @@ English with 3 authors: @johnson2021
 
 === Chinese Entries (use Chinese layout with zh locale)
 - [x] zhang2023: "张三 和 李四" - Chinese "和" term
-- [x] wang2024: "赵六, 编" - Uses "编" (Chinese editor term)
-- [x] chen2022: "周八 和 吴九, 编" - Multiple editors with Chinese term
+- [x] wang2024: "赵六 编" - Uses "编" (Chinese editor term, space prefix)
+- [x] chen2022: "周八 和 吴九 编" - Multiple editors with Chinese term (space prefix)
 
 === English Entries (use English layout with en locale)
 - [x] smith2024: "John Smith and Jane Doe." - English "and" term
