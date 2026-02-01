@@ -27,8 +27,14 @@
     "editorial-director-short": (single: "ed.", multiple: "eds."),
     "editorial-director-verb": "editado por",
     "editorial-director-verb-short": "ed.",
-    "editortranslator": (single: "editor y traductor", multiple: "editores y traductores"),
-    "editortranslator-short": (single: "ed. y trad.", multiple: "eds. y trads."),
+    "editortranslator": (
+      single: "editor y traductor",
+      multiple: "editores y traductores",
+    ),
+    "editortranslator-short": (
+      single: "ed. y trad.",
+      multiple: "eds. y trads.",
+    ),
     "editortranslator-verb": "editado y traducido por",
     "editortranslator-verb-short": "ed. y trad.",
     "interviewer-verb": "entrevistado por",

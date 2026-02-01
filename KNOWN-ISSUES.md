@@ -173,11 +173,11 @@ citeproc-js **explicitly wraps macro calls in group nodes**:
 
 ```javascript
 if (this.postponed_macro) {
-    var group_start = CSL.Util.cloneToken(this);
-    group_start.name = "group";
-    // ... build group START
-    CSL.expandMacro.call(state, this, target);
-    // ... build group END
+  var group_start = CSL.Util.cloneToken(this);
+  group_start.name = "group";
+  // ... build group START
+  CSL.expandMacro.call(state, this, target);
+  // ... build group END
 }
 ```
 

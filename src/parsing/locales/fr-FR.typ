@@ -27,8 +27,14 @@
     "editorial-director-short": (single: "dir.", multiple: "dir."),
     "editorial-director-verb": "sous la direction de",
     "editorial-director-verb-short": "ss la dir. de",
-    "editortranslator": (single: "\u{00E9}diteur et traducteur", multiple: "\u{00E9}diteurs et traducteurs"),
-    "editortranslator-short": (single: "\u{00E9}d. et trad.", multiple: "\u{00E9}d. et trad."),
+    "editortranslator": (
+      single: "\u{00E9}diteur et traducteur",
+      multiple: "\u{00E9}diteurs et traducteurs",
+    ),
+    "editortranslator-short": (
+      single: "\u{00E9}d. et trad.",
+      multiple: "\u{00E9}d. et trad.",
+    ),
     "editortranslator-verb": "\u{00E9}dit\u{00E9} et traduit par",
     "editortranslator-verb-short": "\u{00E9}d. et trad. par",
     "interviewer-verb": "entretien r\u{00E9}alis\u{00E9} par",
@@ -101,7 +107,10 @@
     "no date-short": "s.\u{00A0}d.",
     "online": "en ligne",
     "presented at": "pr\u{00E9}sent\u{00E9} \u{00E0}",
-    "reference": (single: "r\u{00E9}f\u{00E9}rence", multiple: "r\u{00E9}f\u{00E9}rences"),
+    "reference": (
+      single: "r\u{00E9}f\u{00E9}rence",
+      multiple: "r\u{00E9}f\u{00E9}rences",
+    ),
     "reference-short": (single: "r\u{00E9}f.", multiple: "r\u{00E9}f."),
     "reviewed-author-verb": "par",
     "scale": "\u{00E9}chelle",

@@ -27,8 +27,14 @@
     "editorial-director-short": (single: "ed.", multiple: "eds."),
     "editorial-director-verb": "edited by",
     "editorial-director-verb-short": "ed.",
-    "editortranslator": (single: "curatore e traduttore", multiple: "curatori e tradutori"),
-    "editortranslator-short": (single: "a c. di e trad. da", multiple: "a c. di e trad. da"),
+    "editortranslator": (
+      single: "curatore e traduttore",
+      multiple: "curatori e tradutori",
+    ),
+    "editortranslator-short": (
+      single: "a c. di e trad. da",
+      multiple: "a c. di e trad. da",
+    ),
     "editortranslator-verb": "a cura di e tradotto da",
     "editortranslator-verb-short": "a c. di e trad. da",
     "interviewer-verb": "intervista di",

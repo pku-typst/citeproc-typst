@@ -23,31 +23,63 @@ from html.parser import HTMLParser
 import html
 
 # =============================================================================
-# HTML Text Extractor
+# HTML Content Extractors
 # =============================================================================
 
-class CitationExtractor(HTMLParser):
+class ContentCollectorMixin:
+    """Mixin for collecting content with preserved inner tags."""
+
+    def init_collector(self):
+        self.current_content = []
+        self.tag_stack = []
+
+    def reset_collector(self):
+        self.current_content = []
+        self.tag_stack = []
+
+    def collect_start_tag(self, tag):
+        """Record an inner tag opening."""
+        self.tag_stack.append(tag)
+        self.current_content.append(f'<{tag}>')
+
+    def collect_end_tag(self, tag):
+        """Record an inner tag closing."""
+        if self.tag_stack and self.tag_stack[-1] == tag:
+            self.tag_stack.pop()
+            self.current_content.append(f'</{tag}>')
+
+    def collect_data(self, data):
+        """Record text content."""
+        self.current_content.append(data)
+
+    def get_collected(self) -> str:
+        """Get collected content as string."""
+        return ''.join(self.current_content).strip()
+
+
+class CitationExtractor(HTMLParser, ContentCollectorMixin):
     """Extract citation HTML from document, preserving formatting tags.
 
-    Handles two cases:
+    Handles:
     1. Inline citations - content in <a href="#citeproc-ref-..."> links
     2. Footnote citations - content in <section role="doc-endnotes">
-
-    Collects content (text + inner tags) within citation links.
     """
 
     def __init__(self):
         super().__init__()
+        self.init_collector()
         self.in_body = False
         self.in_endnotes = False
         self.in_endnote_li = False
         self.in_footnote_link = False
         self.in_citation_link = False
-        self.current_content = []
         self.citation_texts = []
         self.endnote_texts = []
         self.skip_until_close = None
-        self.tag_stack = []  # Track nested tags for reconstruction
+
+    @property
+    def is_collecting(self):
+        return self.in_footnote_link or self.in_citation_link
 
     def handle_starttag(self, tag, attrs):
         attrs_dict = dict(attrs)
@@ -65,17 +97,13 @@ class CitationExtractor(HTMLParser):
                     self.skip_until_close = 'a'
                 elif href.startswith('#citeproc-ref-'):
                     self.in_footnote_link = True
-                    self.current_content = []
-                    self.tag_stack = []
+                    self.reset_collector()
             elif self.in_body and not self.in_endnotes:
                 if href.startswith('#citeproc-ref-'):
                     self.in_citation_link = True
-                    self.current_content = []
-                    self.tag_stack = []
-        elif self.in_footnote_link or self.in_citation_link:
-            # Inside citation - record inner tags
-            self.tag_stack.append(tag)
-            self.current_content.append('<' + tag + '>')
+                    self.reset_collector()
+        elif self.is_collecting:
+            self.collect_start_tag(tag)
 
     def handle_endtag(self, tag):
         if self.skip_until_close == tag:
@@ -89,25 +117,22 @@ class CitationExtractor(HTMLParser):
         elif tag == 'a':
             if self.in_footnote_link:
                 self.in_footnote_link = False
-                content = ''.join(self.current_content).strip()
+                content = self.get_collected()
                 if content:
                     self.endnote_texts.append(content)
             elif self.in_citation_link:
                 self.in_citation_link = False
-                content = ''.join(self.current_content).strip()
+                content = self.get_collected()
                 if content:
                     self.citation_texts.append(content)
-        elif (self.in_footnote_link or self.in_citation_link) and self.tag_stack:
-            # Inside citation - close inner tag
-            if self.tag_stack and self.tag_stack[-1] == tag:
-                self.tag_stack.pop()
-            self.current_content.append('</' + tag + '>')
+        elif self.is_collecting:
+            self.collect_end_tag(tag)
 
     def handle_data(self, data):
         if self.skip_until_close:
             return
-        if self.in_footnote_link or self.in_citation_link:
-            self.current_content.append(data)
+        if self.is_collecting:
+            self.collect_data(data)
 
     def get_citations(self) -> str:
         if self.endnote_texts:
@@ -115,64 +140,56 @@ class CitationExtractor(HTMLParser):
         return '\n'.join(self.citation_texts)
 
 
-class BibliographyExtractor(HTMLParser):
+class BibliographyExtractor(HTMLParser, ContentCollectorMixin):
     """Extract bibliography entries from HTML.
 
-    Extracts entire <p> elements that contain citeproc-ref spans,
-    preserving inner tags (similar to CitationExtractor).
+    Extracts <p> elements containing citeproc-ref spans, preserving inner tags.
     """
+
+    # Tags to skip (don't preserve in output)
+    SKIP_TAGS = {'span'}
 
     def __init__(self):
         super().__init__()
+        self.init_collector()
         self.entries = []
         self.in_bib_p = False
-        self.current_content = []
-        self.tag_stack = []  # Track nested tags for reconstruction
         self.p_depth = 0
         self.has_bib_ref = False
 
     def handle_starttag(self, tag, attrs):
         attrs_dict = dict(attrs)
         if tag == 'p' and not self.in_bib_p:
-            # Start tracking a potential bibliography paragraph
-            self.current_content = []
-            self.tag_stack = []
+            self.reset_collector()
             self.p_depth = 1
             self.in_bib_p = True
             self.has_bib_ref = False
             return
         if self.in_bib_p:
             if tag == 'span':
-                span_id = attrs_dict.get('id', '')
-                if span_id.startswith('citeproc-ref-'):
+                if attrs_dict.get('id', '').startswith('citeproc-ref-'):
                     self.has_bib_ref = True
-                # Skip span tags (don't add to output)
             elif tag == 'p':
                 self.p_depth += 1
-            else:
-                # Preserve other inner tags (em, i, b, strong, sup, sub, etc.)
-                self.tag_stack.append(tag)
-                self.current_content.append(f'<{tag}>')
+            elif tag not in self.SKIP_TAGS:
+                self.collect_start_tag(tag)
 
     def handle_endtag(self, tag):
         if self.in_bib_p:
             if tag == 'p':
                 self.p_depth -= 1
                 if self.p_depth == 0:
-                    # End of paragraph
                     self.in_bib_p = False
                     if self.has_bib_ref:
-                        text = ''.join(self.current_content).strip()
-                        if text:
-                            self.entries.append(text)
-            elif tag != 'span' and self.tag_stack and self.tag_stack[-1] == tag:
-                # Close inner tag
-                self.tag_stack.pop()
-                self.current_content.append(f'</{tag}>')
+                        content = self.get_collected()
+                        if content:
+                            self.entries.append(content)
+            elif tag not in self.SKIP_TAGS:
+                self.collect_end_tag(tag)
 
     def handle_data(self, data):
         if self.in_bib_p:
-            self.current_content.append(data)
+            self.collect_data(data)
 
     def get_entries(self) -> str:
         return '\n'.join(self.entries)

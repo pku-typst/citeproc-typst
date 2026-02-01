@@ -27,8 +27,14 @@
     "editorial-director-short": (single: "red.", multiple: "red."),
     "editorial-director-verb": "bewerkt door",
     "editorial-director-verb-short": "bewerkt door",
-    "editortranslator": (single: "redacteur & vertaler", multiple: "redacteuren & vertalers"),
-    "editortranslator-short": (single: "red. & vert.", multiple: "red. & vert."),
+    "editortranslator": (
+      single: "redacteur & vertaler",
+      multiple: "redacteuren & vertalers",
+    ),
+    "editortranslator-short": (
+      single: "red. & vert.",
+      multiple: "red. & vert.",
+    ),
     "editortranslator-verb": "bewerkt & vertaald door",
     "editortranslator-verb-short": "bewerkt & vertaald door",
     "interviewer-verb": "ge\u{00EF}nterviewd door",
