@@ -103,6 +103,12 @@
         year-sortable + "-" + month-padded + "-" + day-padded
       }
 
+      // Value for missing dates - use special marker that will be handled
+      // by sort-entries to always sort last regardless of direction
+      // The "~" prefix ensures it sorts after normal values in ascending order
+      // and sort-entries will handle descending by not inverting this marker
+      let missing-date-value = "~missing~"
+
       if var-name == "issued" {
         let year-str = fields.at("year", default: "")
         if year-str != "" {
@@ -134,14 +140,22 @@
             let month = if parts.len() >= 2 { parts.at(1) } else { "" }
             let day = if parts.len() >= 3 { parts.at(2) } else { "" }
             build-sortable-date(year, month, day)
-          } else { "" }
+          } else {
+            // No date - sort at end
+            missing-date-value
+          }
         }
       } else if var-name == "accessed" {
-        build-sortable-date(
-          fields.at("accessed-year", default: ""),
-          fields.at("accessed-month", default: ""),
-          fields.at("accessed-day", default: ""),
-        )
+        let accessed-year = fields.at("accessed-year", default: "")
+        if accessed-year != "" {
+          build-sortable-date(
+            accessed-year,
+            fields.at("accessed-month", default: ""),
+            fields.at("accessed-day", default: ""),
+          )
+        } else {
+          missing-date-value
+        }
       } else if var-name == "original-date" {
         let origdate = fields.at("origdate", default: "")
         if origdate != "" {
@@ -150,7 +164,9 @@
           let month = if parts.len() >= 2 { parts.at(1) } else { "" }
           let day = if parts.len() >= 3 { parts.at(2) } else { "" }
           build-sortable-date(year, month, day)
-        } else { "" }
+        } else {
+          missing-date-value
+        }
       } else {
         // event-date
         let eventdate = fields.at("eventdate", default: "")
@@ -160,7 +176,9 @@
           let month = if parts.len() >= 2 { parts.at(1) } else { "" }
           let day = if parts.len() >= 3 { parts.at(2) } else { "" }
           build-sortable-date(year, month, day)
-        } else { "" }
+        } else {
+          missing-date-value
+        }
       }
     } else {
       // Get regular variable value directly
@@ -267,8 +285,14 @@
     e
       .sort-keys
       .map(k => {
-        // For descending order, invert the value so string comparison works
-        if k.order == "descending" {
+        // Special handling for missing values (marked with ~missing~)
+        // These should always sort last regardless of direction
+        if k.value.starts-with("~missing") {
+          // Use "2" prefix to ensure missing values sort after both
+          // ascending ("0" prefix) and descending ("1" prefix) values
+          "2" + k.value
+        } else if k.order == "descending" {
+          // For descending order, invert the value so string comparison works
           "1" + invert-for-descending(k.value)
         } else {
           "0" + k.value
