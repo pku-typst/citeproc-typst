@@ -354,7 +354,10 @@
       == "true",
     // CSL spec: check if year-suffix is explicitly rendered via <text variable="year-suffix"/>
     // Also check in referenced macros
-    has-explicit-year-suffix: _has-explicit-year-suffix(citation-node, macros: macros),
+    has-explicit-year-suffix: _has-explicit-year-suffix(
+      citation-node,
+      macros: macros,
+    ),
     // Inheritable name attributes (from unified helper)
     ..name-attrs,
     // Layouts (CSL-M: may have locale-specific variants)
@@ -420,7 +423,10 @@
     ),
     // CSL spec: check if year-suffix is explicitly rendered via <text variable="year-suffix"/>
     // Also check in referenced macros
-    has-explicit-year-suffix: _has-explicit-year-suffix(bib-node, macros: macros),
+    has-explicit-year-suffix: _has-explicit-year-suffix(
+      bib-node,
+      macros: macros,
+    ),
     // Inheritable name attributes (from unified helper)
     ..name-attrs,
     // Layouts (may have locale-specific variants)
@@ -560,7 +566,10 @@
 
   // Parse citation and bibliography (pass macros for has-explicit-year-suffix check)
   let citation = parse-citation(find-child(root, "citation"), macros: macros)
-  let bibliography = parse-bibliography(find-child(root, "bibliography"), macros: macros)
+  let bibliography = parse-bibliography(
+    find-child(root, "bibliography"),
+    macros: macros,
+  )
 
   // Extract inheritable name attributes at style level (with defaults)
   let name-attrs = extract-name-attrs(attrs, is-style-level: true)

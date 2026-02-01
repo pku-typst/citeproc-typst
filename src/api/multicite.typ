@@ -603,7 +603,10 @@
             cite-number: citations.order.at(item.key, default: 0),
             names-expanded: item.disambig.at("names-expanded", default: 0),
             givenname-level: item.disambig.at("givenname-level", default: 0),
-            needs-disambiguate: item.disambig.at("needs-disambiguate", default: false),
+            needs-disambiguate: item.disambig.at(
+              "needs-disambiguate",
+              default: false,
+            ),
           ))
         })
         parts.join(delimiter)

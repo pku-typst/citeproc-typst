@@ -131,7 +131,13 @@
 
   for i in range(show-count) {
     let name = names.at(i)
-    let family = name.at("family", default: name.at("literal", default: ""))
+    // Handle literal names: fall back to literal when family is empty
+    let raw-family = name.at("family", default: "")
+    let family = if raw-family != "" {
+      raw-family
+    } else {
+      name.at("literal", default: "")
+    }
 
     let given-part = if givenname-level == 0 {
       ""

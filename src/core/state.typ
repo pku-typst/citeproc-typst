@@ -188,6 +188,11 @@
   }
   if names.len() > 0 {
     let first = names.first()
+    // Handle literal names (e.g., organizations like "Beijing Zoo")
+    let literal = first.at("literal", default: "")
+    if literal != "" {
+      return literal
+    }
     let prefix = first.at("prefix", default: "")
     let family = first.at("family", default: "")
     if prefix != "" { prefix + " " + family } else { family }

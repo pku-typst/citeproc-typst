@@ -310,10 +310,19 @@
     } else if name == "month" {
       // Season terms: 21=spring, 22=summer, 23=fall, 24=winter
       let season-num = dt.season
-      let season-key = "season-" + if season-num < 10 { "0" } else { "" } + str(
-        season-num,
+      let season-key = (
+        "season-"
+          + if season-num < 10 { "0" } else { "" }
+          + str(
+            season-num,
+          )
       )
-      let season-term = lookup-term(ctx, season-key, form: "long", plural: false)
+      let season-term = lookup-term(
+        ctx,
+        season-key,
+        form: "long",
+        plural: false,
+      )
       if season-term != none and season-term != "" {
         season-term
       } else {
