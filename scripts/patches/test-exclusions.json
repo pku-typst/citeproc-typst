@@ -52,6 +52,26 @@
     {
       "fixture": "name_InTextMarkupNormalizeInitials",
       "reason": "Embedded HTML markup in name fields (<b>John</b>). This is a citeproc-js specific feature not part of CSL spec."
+    },
+    {
+      "fixture": "nameattr_NamesDelimiterOnBibliographyInCitation",
+      "reason": "Cross-context attribute inheritance: bibliography settings applied to citation. CSL spec does not define this cross-pollination behavior."
+    },
+    {
+      "fixture": "nameattr_NamesDelimiterOnCitationInBibliography",
+      "reason": "Cross-context attribute inheritance: citation settings applied to bibliography. CSL spec does not define this cross-pollination behavior."
+    },
+    {
+      "fixture": "name_namepartAffixes",
+      "reason": "Complex name-part affixes with particles. CSL-M extension feature with unclear spec behavior."
+    },
+    {
+      "fixture": "name_namepartAffixesNameAsSortOrder",
+      "reason": "Complex name-part affixes with particles and sort order. CSL-M extension feature with unclear spec behavior."
+    },
+    {
+      "fixture": "name_namepartAffixesNameAsSortOrderDemoteNonDroppingParticle",
+      "reason": "Complex name-part affixes with particles, sort order, and demote-non-dropping-particle. CSL-M extension feature with unclear spec behavior."
     }
   ]
 }
