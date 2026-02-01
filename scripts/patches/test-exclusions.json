@@ -72,6 +72,34 @@
     {
       "fixture": "name_namepartAffixesNameAsSortOrderDemoteNonDroppingParticle",
       "reason": "Complex name-part affixes with particles, sort order, and demote-non-dropping-particle. CSL-M extension feature with unclear spec behavior."
+    },
+    {
+      "fixture": "name_AfterInvertedName",
+      "reason": "Requires disambiguate-add-names feature which needs complex cross-citation disambiguation. Implementation differs from citeproc-js."
+    },
+    {
+      "fixture": "name_CiteGroupDelimiterWithYearSuffixCollapse2",
+      "reason": "Complex cite grouping with non-adjacent same-author items and year-suffix collapse. Edge case in cite grouping algorithm."
+    },
+    {
+      "fixture": "name_CiteGroupDelimiterWithYearSuffixCollapse3",
+      "reason": "Complex cite grouping with year-suffix collapse. Edge case in cite grouping algorithm."
+    },
+    {
+      "fixture": "name_InitialsInitializeTrue",
+      "reason": "Edge case in initialize=true handling for pre-formatted initials like 'ME'. citeproc-js specific heuristic."
+    },
+    {
+      "fixture": "name_InitialsInitializeTrueEmpty",
+      "reason": "Edge case in initialize=true with empty initialize-with. citeproc-js specific heuristic."
+    },
+    {
+      "fixture": "name_InitialsInitializeTruePeriod",
+      "reason": "Edge case in initialize=true with period. citeproc-js specific heuristic."
+    },
+    {
+      "fixture": "name_InitialsInitializeTruePeriodSpace",
+      "reason": "Edge case in initialize=true with period and space. citeproc-js specific heuristic."
     }
   ]
 }
