@@ -114,9 +114,36 @@
       int(captures.at(2))
     } else { none }
 
-    // CSL uses months 21-24 for seasons
-    if month != none and month >= 21 and month <= 24 {
-      return (year: year, season: month, _is-season-date: true)
+    // CSL uses various month values for seasons:
+    // 13-16: Spring, Summer, Fall, Winter (standard CSL seasons)
+    // 17-18: Spring, Summer (Down Under / southern hemisphere)
+    // 21-24: Spring, Summer, Fall, Winter (alternate representation)
+    // Map all to 21-24 for consistent handling
+    if month != none {
+      let season = if month >= 21 and month <= 24 {
+        month
+      } else if month >= 13 and month <= 16 {
+        // Map 13-16 to 21-24 (same season)
+        month + 8
+      } else if month == 17 {
+        21 // Spring (southern hemisphere)
+      } else if month == 18 {
+        22 // Summer (southern hemisphere)
+      } else if month < 1 or month > 12 {
+        // Invalid month - treat as no date
+        none
+      } else {
+        none
+      }
+
+      if season != none {
+        return (year: year, season: season, _is-season-date: true)
+      }
+
+      // Invalid month (negative, >60, etc.) - skip and return year-only
+      if month < 1 or month > 12 {
+        return datetime(year: year, month: 1, day: 1)
+      }
     }
 
     if month != none and day != none {
@@ -208,15 +235,27 @@
     if parsed != none { day = parsed }
   }
 
-  // CSL uses months 21-24 for seasons (spring, summer, fall, winter)
-  // Typst's datetime doesn't support these, so we return a special dict
-  if month >= 21 and month <= 24 {
-    // Return a season dict instead of datetime
-    (
-      year: year,
-      season: month,
-      _is-season-date: true,
-    )
+  // CSL uses various month values for seasons:
+  // 13-16: Spring, Summer, Fall, Winter (standard CSL seasons)
+  // 17-18: Spring, Summer (Down Under / southern hemisphere)
+  // 21-24: Spring, Summer, Fall, Winter (alternate representation)
+  let season = if month >= 21 and month <= 24 {
+    month
+  } else if month >= 13 and month <= 16 {
+    month + 8 // Map 13-16 to 21-24
+  } else if month == 17 {
+    21 // Spring
+  } else if month == 18 {
+    22 // Summer
+  } else {
+    none
+  }
+
+  if season != none {
+    (year: year, season: season, _is-season-date: true)
+  } else if month < 1 or month > 12 {
+    // Invalid month - return year-only date
+    datetime(year: year, month: 1, day: 1)
   } else {
     datetime(year: year, month: month, day: day)
   }

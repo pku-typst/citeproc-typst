@@ -85,9 +85,10 @@
   }
 
   // If we got multiple uppercase followed by lowercase, normalize to title case (e.g., "TS" -> "Ts")
-  if initial.len() > 1 {
-    upper(initial.clusters().first()) + lower(initial.slice(1))
-  } else if initial.len() == 1 {
+  let initial-clusters = initial.clusters()
+  if initial-clusters.len() > 1 {
+    upper(initial-clusters.first()) + lower(initial-clusters.slice(1).join())
+  } else if initial-clusters.len() == 1 {
     initial
   } else {
     // No uppercase found, take first char uppercased

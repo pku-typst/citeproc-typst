@@ -303,7 +303,20 @@
     if start.len() >= 2 {
       let month-val = str(start.at(1))
       if month-val != "" {
-        result.insert("month", month-val)
+        // CSL valid months: 1-12 (regular months), 13-18 (seasons), 21-24 (alternate seasons)
+        // Invalid months (e.g., -1, 60) should not be inserted
+        let month-int = int(month-val)
+        let is-valid-month = (
+          month-int != none
+            and (
+              (month-int >= 1 and month-int <= 12)
+                or (month-int >= 13 and month-int <= 18)
+                or (month-int >= 21 and month-int <= 24)
+            )
+        )
+        if is-valid-month {
+          result.insert("month", month-val)
+        }
       }
     }
     if start.len() >= 3 {
