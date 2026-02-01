@@ -118,14 +118,16 @@ class CitationExtractor(HTMLParser):
 class BibliographyExtractor(HTMLParser):
     """Extract bibliography entries from HTML.
 
-    Extracts entire <p> elements that contain citeproc-ref spans.
+    Extracts entire <p> elements that contain citeproc-ref spans,
+    preserving inner tags (similar to CitationExtractor).
     """
 
     def __init__(self):
         super().__init__()
         self.entries = []
         self.in_bib_p = False
-        self.current_entry_text = []
+        self.current_content = []
+        self.tag_stack = []  # Track nested tags for reconstruction
         self.p_depth = 0
         self.has_bib_ref = False
 
@@ -133,17 +135,24 @@ class BibliographyExtractor(HTMLParser):
         attrs_dict = dict(attrs)
         if tag == 'p' and not self.in_bib_p:
             # Start tracking a potential bibliography paragraph
-            self.current_entry_text = []
+            self.current_content = []
+            self.tag_stack = []
             self.p_depth = 1
             self.in_bib_p = True
             self.has_bib_ref = False
             return
-        if tag == 'span' and self.in_bib_p:
-            span_id = attrs_dict.get('id', '')
-            if span_id.startswith('citeproc-ref-'):
-                self.has_bib_ref = True
-        if self.in_bib_p and tag == 'p':
-            self.p_depth += 1
+        if self.in_bib_p:
+            if tag == 'span':
+                span_id = attrs_dict.get('id', '')
+                if span_id.startswith('citeproc-ref-'):
+                    self.has_bib_ref = True
+                # Skip span tags (don't add to output)
+            elif tag == 'p':
+                self.p_depth += 1
+            else:
+                # Preserve other inner tags (em, i, b, strong, sup, sub, etc.)
+                self.tag_stack.append(tag)
+                self.current_content.append(f'<{tag}>')
 
     def handle_endtag(self, tag):
         if self.in_bib_p:
@@ -153,13 +162,17 @@ class BibliographyExtractor(HTMLParser):
                     # End of paragraph
                     self.in_bib_p = False
                     if self.has_bib_ref:
-                        text = ''.join(self.current_entry_text).strip()
+                        text = ''.join(self.current_content).strip()
                         if text:
                             self.entries.append(text)
+            elif tag != 'span' and self.tag_stack and self.tag_stack[-1] == tag:
+                # Close inner tag
+                self.tag_stack.pop()
+                self.current_content.append(f'</{tag}>')
 
     def handle_data(self, data):
         if self.in_bib_p:
-            self.current_entry_text.append(data)
+            self.current_content.append(data)
 
     def get_entries(self) -> str:
         return '\n'.join(self.entries)

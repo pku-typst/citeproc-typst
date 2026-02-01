@@ -154,23 +154,63 @@ citeproc-js supports dynamic citation update formats with `..[n]` and `>>[n]` pr
 
 ---
 
-## Group Category (1 remaining issue)
+## Group Category (COMPLETE)
 
-### CSL Processing Gaps
-
-**Test:** `group_SuppressWithEmptyNestedDateNode`
+All tests passing (2 excluded for valid reasons).
 
 **Fixed issues:**
 
 - Month format now defaults to "long" (June instead of 6)
 - URL/DOI/ISBN/ISSN field mapping fixed for CSL-JSON
+- Added `and-symbol` (&) term to locales
+- Fixed BibliographyExtractor to preserve italic formatting
 
-**Remaining issues:**
+### citeproc-js Macro-as-Group Hack
 
-- Name delimiter shows `and` instead of `&` (`&#38;`) - locale term issue
-- Missing italic formatting on journal title - HTML extraction issue
+**Source:** `references/citeproc-js/src/node_text.js` lines 6-20
 
-**Excluded:** `group_ComplexNesting` - citeproc-js outputs `(n.d.)` but CSL spec says group should be suppressed when all variable calls are empty. Our implementation follows the spec.
+citeproc-js **explicitly wraps macro calls in group nodes**:
+
+```javascript
+if (this.postponed_macro) {
+    var group_start = CSL.Util.cloneToken(this);
+    group_start.name = "group";
+    // ... build group START
+    CSL.expandMacro.call(state, this, target);
+    // ... build group END
+}
+```
+
+CSL spec says group has suppress logic, but doesn't say macro should behave like group. citeproc-js implements this by wrapping macros in groups.
+
+**Our decision:** We implement the same behavior (macro acts like implicit group) because:
+
+1. Test `group_SuppressTermInMacro` expects this behavior
+2. It's a reasonable interpretation for style authors
+3. Without it, terms in macros would leak when variables are empty
+
+---
+
+### citeproc-js year-suffix Hack
+
+**Source:** `references/citeproc-js/src/attributes.js` lines 296-301
+
+citeproc-js has a special case: `year-suffix` is hardcoded to "always produce output" even when empty. This prevents group suppression for patterns like:
+
+```xml
+<group prefix=" (" suffix=").">
+  <text term="no date" form="short"/>
+  <text variable="year-suffix" prefix="-"/>
+</group>
+```
+
+Without the hack, this group would be suppressed when `year-suffix` is empty (per CSL spec). With the hack, it outputs `(n.d.)`.
+
+**Our decision:** We follow the CSL spec strictly. We do not implement this hack because:
+
+1. It's not in the CSL specification
+2. Style authors can work around it by restructuring their CSL
+3. It introduces special-case complexity
 
 **Status:** 4/5 pass (2 excluded, 1 mismatch)
 

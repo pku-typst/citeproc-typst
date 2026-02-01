@@ -6,6 +6,7 @@
     // Basic terms
     "accessed": "zugegriffen",
     "and": "und",
+    "and-symbol": "&",
     "anonymous": "ohne Autor",
     "circa": "circa",
     "et-al": "u.\u{00A0}a.",
@@ -26,14 +27,8 @@
     "editorial-director-short": (single: "Hrsg.", multiple: "Hrsg."),
     "editorial-director-verb": "herausgegeben von",
     "editorial-director-verb-short": "hg. von",
-    "editortranslator": (
-      single: "Herausgeber\u{00A0}& \u{00DC}bersetzer",
-      multiple: "Herausgeber\u{00A0}& \u{00DC}bersetzer",
-    ),
-    "editortranslator-short": (
-      single: "Hrsg.\u{00A0}& \u{00DC}bers.",
-      multiple: "Hrsg.\u{00A0}& \u{00DC}bers",
-    ),
+    "editortranslator": (single: "Herausgeber\u{00A0}& \u{00DC}bersetzer", multiple: "Herausgeber\u{00A0}& \u{00DC}bersetzer"),
+    "editortranslator-short": (single: "Hrsg.\u{00A0}& \u{00DC}bers.", multiple: "Hrsg.\u{00A0}& \u{00DC}bers"),
     "editortranslator-verb": "herausgegeben und \u{00FC}bersetzt von",
     "editortranslator-verb-short": "hg.\u{00A0}& \u{00FC}bers. von",
     "interviewer-verb": "interviewt von",
@@ -90,10 +85,7 @@
     "by": "von",
     "circa-short": "ca.",
     "cited": "zitiert",
-    "collection-editor": (
-      single: "Reihenherausgeber",
-      multiple: "Reihenherausgeber",
-    ),
+    "collection-editor": (single: "Reihenherausgeber", multiple: "Reihenherausgeber"),
     "collection-editor-short": (single: "Hrsg.", multiple: "Hrsg."),
     "collection-editor-verb": "herausgegeben von",
     "collection-editor-verb-short": "hg. von",

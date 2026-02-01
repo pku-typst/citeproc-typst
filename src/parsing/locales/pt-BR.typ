@@ -6,6 +6,7 @@
     // Basic terms
     "accessed": "acessado",
     "and": "e",
+    "and-symbol": "&",
     "anonymous": "an\u{00F4}nimo",
     "circa": "circa",
     "et-al": "et al.",
@@ -26,14 +27,8 @@
     "editorial-director-short": (single: "ed.", multiple: "eds."),
     "editorial-director-verb": "editado por",
     "editorial-director-verb-short": "ed.",
-    "editortranslator": (
-      single: "editor e tradutor",
-      multiple: "editores e tradutores",
-    ),
-    "editortranslator-short": (
-      single: "ed. e trad.",
-      multiple: "eds. e trads.",
-    ),
+    "editortranslator": (single: "editor e tradutor", multiple: "editores e tradutores"),
+    "editortranslator-short": (single: "ed. e trad.", multiple: "eds. e trads."),
     "editortranslator-verb": "editado & traduzido por",
     "editortranslator-verb-short": "ed. e trad. por",
     "interviewer-verb": "entrevista de",
@@ -71,10 +66,7 @@
     "paragraph-symbol": (single: "\u{00B6}", multiple: "\u{00B6}\u{00B6}"),
     "part": (single: "parte", multiple: "partes"),
     "part-short": "pt.",
-    "section": (
-      single: "se\u{00E7}\u{00E3}o",
-      multiple: "se\u{00E7}\u{00F5}es",
-    ),
+    "section": (single: "se\u{00E7}\u{00E3}o", multiple: "se\u{00E7}\u{00F5}es"),
     "section-short": "se\u{00E7}.",
     "section-symbol": (single: "\u{00A7}", multiple: "\u{00A7}\u{00A7}"),
     "sub verbo": (single: "sub verbo", multiple: "sub verbis"),
@@ -94,10 +86,7 @@
     "circa-short": "c.",
     "cited": "citado",
     "container-author-verb": "por",
-    "edition": (
-      single: "edi\u{00E7}\u{00E3}o",
-      multiple: "edi\u{00E7}\u{00F5}es",
-    ),
+    "edition": (single: "edi\u{00E7}\u{00E3}o", multiple: "edi\u{00E7}\u{00F5}es"),
     "edition-short": "ed",
     "forthcoming": "a ser publicado",
     "ibid": "ibidem",

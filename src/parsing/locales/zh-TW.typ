@@ -6,6 +6,7 @@
     // Basic terms
     "accessed": "\u{5F15}\u{898B}\u{65BC}",
     "and": "\u{53CA}",
+    "and-symbol": "&",
     "anonymous": "\u{4F5C}\u{8005}\u{4E0D}\u{8A73}",
     "circa": "\u{4ECB}\u{65BC}",
     "et-al": "\u{7B49}",

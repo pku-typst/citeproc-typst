@@ -6,6 +6,7 @@
     // Basic terms
     "accessed": "udost\u{0119}pniono",
     "and": "i",
+    "and-symbol": "&",
     "anonymous": "anonim",
     "circa": "oko\u{0142}o",
     "et-al": "i in.",
@@ -26,14 +27,8 @@
     "editorial-director-short": (single: "red.", multiple: "red."),
     "editorial-director-verb": "zredagowane przez",
     "editorial-director-verb-short": "red.",
-    "editortranslator": (
-      single: "redaktor & t\u{0142}umacz",
-      multiple: "redaktorzy & t\u{0142}umacze",
-    ),
-    "editortranslator-short": (
-      single: "red.t\u{0142}um.",
-      multiple: "red.t\u{0142}um.",
-    ),
+    "editortranslator": (single: "redaktor & t\u{0142}umacz", multiple: "redaktorzy & t\u{0142}umacze"),
+    "editortranslator-short": (single: "red.t\u{0142}um.", multiple: "red.t\u{0142}um."),
     "editortranslator-verb": "zredagowane i przet\u{0142}umaczone przez",
     "editortranslator-verb-short": "red.t\u{0142}um.",
     "interviewer-verb": "przeprowadzony przez",
@@ -43,10 +38,7 @@
     "translator-verb": "przet\u{0142}umaczone przez",
     "translator-verb-short": "t\u{0142}um.",
     // Locator terms
-    "book": (
-      single: "ksi\u{0105}\u{017C}ka",
-      multiple: "ksi\u{0105}\u{017C}ki",
-    ),
+    "book": (single: "ksi\u{0105}\u{017C}ka", multiple: "ksi\u{0105}\u{017C}ki"),
     "book-short": "ksi\u{0105}\u{017C}ka",
     "chapter": (single: "rozdzia\u{0142}", multiple: "rozdzia\u{0142}y"),
     "chapter-short": "rozdz.",
@@ -72,10 +64,7 @@
     "paragraph": (single: "akapit", multiple: "akapity"),
     "paragraph-short": "akap.",
     "paragraph-symbol": (single: "\u{00B6}", multiple: "\u{00B6}\u{00B6}"),
-    "part": (
-      single: "cz\u{0119}\u{015B}\u{0107}",
-      multiple: "cz\u{0119}\u{015B}ci",
-    ),
+    "part": (single: "cz\u{0119}\u{015B}\u{0107}", multiple: "cz\u{0119}\u{015B}ci"),
     "part-short": "cz.",
     "section": (single: "sekcja", multiple: "sekcje"),
     "section-short": "sekc.",

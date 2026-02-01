@@ -131,6 +131,11 @@ def parse_locale_xml(xml_path: str) -> dict:
             else:
                 terms[key] = term.text or ''
 
+    # Add missing terms that CSL requires but aren't in all locale files
+    # CSL spec requires "and" to have both long and symbol forms
+    if 'and' in terms and 'and-symbol' not in terms:
+        terms['and-symbol'] = '&'  # Universal ampersand symbol
+
     return {
         'terms': terms,
         'term_genders': term_genders,
