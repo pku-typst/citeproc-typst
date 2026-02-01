@@ -676,11 +676,14 @@ def run_test(fixture: TestFixture, project_dir: Path, temp_dir: Path,
         if compare and html_path.exists():
             html_content = html_path.read_text(encoding='utf-8')
             actual = extract_output_from_html(html_content, fixture.mode)
-            result['actual'] = actual
 
             # Normalize HTML for comparison
             expected_normalized = normalize_html_for_comparison(fixture.result)
             actual_normalized = normalize_html_for_comparison(actual)
+
+            # Store normalized versions for report (to avoid misinterpreting HTML differences)
+            result['expected'] = expected_normalized
+            result['actual'] = actual_normalized
 
             # Simple comparison (can be made more sophisticated)
             result['match'] = expected_normalized == actual_normalized
