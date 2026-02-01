@@ -87,19 +87,19 @@
     },
     {
       "fixture": "name_InitialsInitializeTrue",
-      "reason": "Edge case in initialize=true handling for pre-formatted initials like 'ME'. citeproc-js specific heuristic."
+      "reason": "citeproc-js preserves pre-formatted initials (ME., Ph.) instead of re-initializing. Not in CSL spec."
     },
     {
       "fixture": "name_InitialsInitializeTrueEmpty",
-      "reason": "Edge case in initialize=true with empty initialize-with. citeproc-js specific heuristic."
+      "reason": "citeproc-js preserves pre-formatted initials with empty initialize-with. Not in CSL spec."
     },
     {
       "fixture": "name_InitialsInitializeTruePeriod",
-      "reason": "Edge case in initialize=true with period. citeproc-js specific heuristic."
+      "reason": "citeproc-js preserves pre-formatted initials with period. Not in CSL spec."
     },
     {
       "fixture": "name_InitialsInitializeTruePeriodSpace",
-      "reason": "Edge case in initialize=true with period and space. citeproc-js specific heuristic."
+      "reason": "citeproc-js preserves pre-formatted initials with period and space. Not in CSL spec."
     },
     {
       "fixture": "name_ParsedDroppingParticleWithApostrophe",
