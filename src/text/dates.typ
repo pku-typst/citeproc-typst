@@ -114,6 +114,11 @@
       int(captures.at(2))
     } else { none }
 
+    // CSL uses months 21-24 for seasons
+    if month != none and month >= 21 and month <= 24 {
+      return (year: year, season: month, _is-season-date: true)
+    }
+
     if month != none and day != none {
       // Validate day using Typst's native datetime arithmetic
       // Get last day of month by going to first of next month minus 1 day
@@ -203,7 +208,18 @@
     if parsed != none { day = parsed }
   }
 
-  datetime(year: year, month: month, day: day)
+  // CSL uses months 21-24 for seasons (spring, summer, fall, winter)
+  // Typst's datetime doesn't support these, so we return a special dict
+  if month >= 21 and month <= 24 {
+    // Return a season dict instead of datetime
+    (
+      year: year,
+      season: month,
+      _is-season-date: true,
+    )
+  } else {
+    datetime(year: year, month: month, day: day)
+  }
 }
 
 /// Check if date has specific component
@@ -230,14 +246,50 @@
 
 /// Format a date-part using Typst's native datetime
 ///
-/// - dt: datetime object
+/// - dt: datetime object or season dict
 /// - name: "year", "month", or "day"
 /// - form: CSL form ("numeric", "numeric-leading-zeros", "ordinal", "long", "short")
 /// - ctx: Context for locale terms (used for ordinals)
 #let format-date-part(dt, name, form, ctx) = {
   if dt == none { return "" }
 
-  if name == "year" {
+  // Handle season dates (months 21-24 in CSL)
+  if type(dt) == dictionary and dt.at("_is-season-date", default: false) {
+    if name == "year" {
+      let year = dt.year
+      if year < 0 {
+        let bc-term = lookup-term(ctx, "bc", form: "long", plural: false)
+        let bc-str = if bc-term != none { bc-term } else { "BC" }
+        str(-year) + bc-str
+      } else if year < 1000 {
+        let ad-term = lookup-term(ctx, "ad", form: "long", plural: false)
+        let ad-str = if ad-term != none { ad-term } else { "AD" }
+        str(year) + ad-str
+      } else {
+        str(year)
+      }
+    } else if name == "month" {
+      // Season terms: 21=spring, 22=summer, 23=fall, 24=winter
+      let season-num = dt.season
+      let season-key = "season-" + if season-num < 10 { "0" } else { "" } + str(
+        season-num,
+      )
+      let season-term = lookup-term(ctx, season-key, form: "long", plural: false)
+      if season-term != none and season-term != "" {
+        season-term
+      } else {
+        // Fallback
+        if season-num == 21 { "Spring" } else if season-num == 22 {
+          "Summer"
+        } else if season-num == 23 { "Fall" } else if season-num == 24 {
+          "Winter"
+        } else { "" }
+      }
+    } else {
+      // No day for season dates
+      ""
+    }
+  } else if name == "year" {
     // Note: year-suffix is NOT added here - it's handled by CSL's <text variable="year-suffix"/>
     let year = dt.year()
     let year-str = if year < 0 {
