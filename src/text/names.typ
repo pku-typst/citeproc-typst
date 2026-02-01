@@ -357,18 +357,33 @@
 
     // Build initials with initialize-with after each
     // CSL spec: lowercase particles (de, von, van, etc.) in given names are kept as-is
-    let initials = parts.map(p => {
-      if p.len() == 0 { "" } else if p == lower(p) {
-        // All lowercase = particle, keep as-is with space after
-        p + " "
+    // We need to track if next part is a particle to add space before it
+    let initials = ()
+    for (i, p) in parts.enumerate() {
+      if p.len() == 0 { continue }
+
+      let is-particle = p == lower(p)
+      let next-is-particle = if i + 1 < parts.len() {
+        let next = parts.at(i + 1)
+        next == lower(next)
+      } else { false }
+
+      if is-particle {
+        // Particle: keep as-is with space after
+        initials.push(p + " ")
       } else {
-        // Use clusters() to correctly handle Unicode graphemes
+        // Initial: use first character uppercased
         let clusters = p.clusters()
         if clusters.len() > 0 {
-          upper(clusters.first()) + initialize-with
-        } else { "" }
+          let init = upper(clusters.first()) + initialize-with
+          // Add space before particle if initialize-with doesn't end with space
+          if next-is-particle and not initialize-with.ends-with(" ") {
+            init = init + " "
+          }
+          initials.push(init)
+        }
       }
-    })
+    }
 
     // Join with hyphen if needed
     if initialize-hyphen and given.contains("-") {
@@ -625,7 +640,12 @@
     formatted.first()
   } else if formatted.len() == 2 and not use-et-al and and-term != none {
     // Two names with "and"
-    [#formatted.first() #and-term #formatted.last()]
+    // CSL spec: delimiter-precedes-last="always" means delimiter before "and" even for 2 names
+    if delimiter-precedes-last == "always" {
+      [#formatted.first()#delimiter#and-term #formatted.last()]
+    } else {
+      [#formatted.first() #and-term #formatted.last()]
+    }
   } else if and-term != none and not use-et-al {
     // Multiple names with "and" before last
     let all-but-last = formatted.slice(0, -1)

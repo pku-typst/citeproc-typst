@@ -387,6 +387,21 @@ def normalize_quotes(text: str) -> str:
     return text
 
 
+def normalize_html_entities(text: str) -> str:
+    """Normalize HTML entities to their character equivalents for comparison.
+
+    citeproc-js outputs HTML entities like &#38; but we output raw characters.
+    """
+    # Common HTML entities used by citeproc-js
+    text = text.replace('&#38;', '&')  # ampersand
+    text = text.replace('&amp;', '&')
+    text = text.replace('&#60;', '<')  # less than
+    text = text.replace('&lt;', '<')
+    text = text.replace('&#62;', '>')  # greater than
+    text = text.replace('&gt;', '>')
+    return text
+
+
 def normalize_html_for_comparison(text: str) -> str:
     """Normalize HTML for comparison between expected and actual output."""
     if not text:
@@ -401,6 +416,8 @@ def normalize_html_for_comparison(text: str) -> str:
         stripped = re.sub(r'<[^>]+>', '', text)
         result = ' '.join(html.unescape(stripped).split())
 
+    # Normalize HTML entities (&#38; -> &, etc.)
+    result = normalize_html_entities(result)
     # Normalize quotes for comparison
     return normalize_quotes(result)
 
