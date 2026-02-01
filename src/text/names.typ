@@ -719,21 +719,45 @@
     // non-dropping-prefix (e.g., "la") stays attached to family
     let result = ()
     if formatted-given != "" { result.push(formatted-given) }
-    // Add dropping-prefix if present
-    if dropping-prefix != "" { result.push(dropping-prefix) }
+
+    // Handle dropping-prefix (e.g., "d'" or "de")
+    // If it ends with apostrophe or hyphen, it should attach directly to next part
+    let attach-dropping-prefix = (
+      dropping-prefix != ""
+        and (dropping-prefix.ends-with("'") or dropping-prefix.ends-with("-"))
+    )
+
+    if dropping-prefix != "" and not attach-dropping-prefix {
+      // Normal dropping-prefix with space
+      result.push(dropping-prefix)
+    }
+
     // Handle non-dropping-particle + family
     if formatted-prefix != "" {
       // Check if prefix ends with a connecting character (apostrophe or hyphen)
       // Use original prefix for character check, formatted-prefix for output
       if prefix.ends-with("'") or prefix.ends-with("-") {
         // No space between prefix and family
-        result.push(formatted-prefix + formatted-family)
+        if attach-dropping-prefix {
+          result.push([#dropping-prefix#formatted-prefix#formatted-family])
+        } else {
+          result.push([#formatted-prefix#formatted-family])
+        }
       } else {
-        result.push(formatted-prefix)
+        if attach-dropping-prefix {
+          result.push([#dropping-prefix#formatted-prefix])
+        } else {
+          result.push(formatted-prefix)
+        }
         result.push(formatted-family)
       }
     } else {
-      result.push(formatted-family)
+      // No non-dropping-particle, just family
+      if attach-dropping-prefix {
+        result.push([#dropping-prefix#formatted-family])
+      } else {
+        result.push(formatted-family)
+      }
     }
     // In display order, comma-suffix=true adds comma before suffix
     if suffix != "" {
