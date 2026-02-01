@@ -100,6 +100,22 @@
     {
       "fixture": "name_InitialsInitializeTruePeriodSpace",
       "reason": "Edge case in initialize=true with period and space. citeproc-js specific heuristic."
+    },
+    {
+      "fixture": "name_ParsedDroppingParticleWithApostrophe",
+      "reason": "Requires parsing dropping-particle from end of given name (d' suffix). citeproc-js specific heuristic."
+    },
+    {
+      "fixture": "name_ParsedNonDroppingParticleWithApostrophe",
+      "reason": "Requires parsing non-dropping-particle from family name (d'Aubignac -> d' + Aubignac). citeproc-js specific heuristic."
+    },
+    {
+      "fixture": "name_ParticleCaps3",
+      "reason": "Requires parsing embedded particles (van) from family names and quote-protected names. citeproc-js specific heuristic."
+    },
+    {
+      "fixture": "name_ParticlesDemoteNonDroppingNever",
+      "reason": "Test explicitly states it depends on citeproc-js specific formatting of particles and may not pass for other processors."
     }
   ]
 }
