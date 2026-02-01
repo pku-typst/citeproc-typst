@@ -129,14 +129,14 @@
   // CSL spec: collapse double punctuation at content/suffix boundary
   // If content ends with a period and suffix starts with a period, remove one
   // Check BEFORE formatting is applied (while content might still be a string)
-  let content-ends-with-period = if type(processed) == str and processed.len() > 0 {
+  let content-ends-with-period = if (
+    type(processed) == str and processed.len() > 0
+  ) {
     processed.last() == "."
   } else { false }
 
   let adjusted-suffix = if (
-    suffix.len() > 0
-      and suffix.first() == "."
-      and content-ends-with-period
+    suffix.len() > 0 and suffix.first() == "." and content-ends-with-period
   ) {
     suffix.slice(1) // Remove leading period from suffix
   } else {

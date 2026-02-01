@@ -2,7 +2,7 @@
 //
 // Extracts sort keys from CSL <sort> element and sorts entries.
 
-#import "variables.typ": get-variable  // Same directory
+#import "variables.typ": NAME-VARS, get-variable
 #import "../interpreter/mod.typ": create-context
 #import "../interpreter/stack.typ": interpret-children-stack
 #import "../output/helpers.typ": content-to-string
@@ -45,8 +45,33 @@
       content-to-string(rendered)
     } else { "" }
   } else if key-spec.at("variable", default: "") != "" {
-    // Get variable value directly
-    get-variable(ctx, key-spec.variable)
+    let var-name = key-spec.variable
+    // Special handling for name variables: construct sort key from parsed names
+    if var-name in NAME-VARS {
+      let parsed-names = ctx.at("parsed-names", default: (:))
+      let names-list = parsed-names.at(var-name, default: ())
+      if names-list.len() > 0 {
+        // CSL spec: sort key is constructed from name parts
+        // For literal names: use literal value
+        // For structured names: "family given" for each name, joined by space
+        names-list
+          .map(name => {
+            if name.at("literal", default: "") != "" {
+              name.literal
+            } else {
+              let family = name.at("family", default: "")
+              let given = name.at("given", default: "")
+              let prefix = name.at("prefix", default: "") // non-dropping particle
+              // CSL sort order: family prefix given
+              (family, prefix, given).filter(p => p != "").join(" ")
+            }
+          })
+          .join(" ")
+      } else { "" }
+    } else {
+      // Get regular variable value directly
+      get-variable(ctx, var-name)
+    }
   } else {
     ""
   }

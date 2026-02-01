@@ -217,9 +217,12 @@
     let target-vars = substitute-vars.split(" ")
     // Check if ANY of our variables match the target variables
     let is-target-element = var-names.any(v => target-vars.contains(v))
-    
+
     if author-substitute != none and is-target-element {
-      let substitute-rule = ctx.at("author-substitute-rule", default: "complete-all")
+      let substitute-rule = ctx.at(
+        "author-substitute-rule",
+        default: "complete-all",
+      )
       if substitute-rule == "complete-all" {
         // Replace entire output with substitute string
         return (finalize(author-substitute, attrs), ())
@@ -227,7 +230,7 @@
       // For other rules (partial-each, etc.) we still need to render the substitute
       // to get the actual content to compare - but this is rare for substitute cases
     }
-    
+
     // Try substitute - CSL spec: try each child in order, use FIRST that produces output
     let substitute = children.find(c => (
       type(c) == dictionary and c.at("tag", default: "") == "substitute"
