@@ -569,7 +569,13 @@
   let sort-separator = _resolve-name-attr("sort-separator", attrs, ctx)
   // CSL spec default for sort-separator is ", " - apply if still none
   if sort-separator == none { sort-separator = ", " }
-  let name-form = attrs.at("form", default: "long")
+  // Check element-level "form" first, then cascade through "name-form"
+  let name-form = attrs.at("form", default: none)
+  if name-form == none {
+    name-form = _resolve-name-attr("name-form", attrs, ctx)
+  }
+  // CSL spec default is "long"
+  if name-form == none { name-form = "long" }
 
   // Apply name-part formatting
   let family-part-attrs = name-parts.at("family", default: (:))

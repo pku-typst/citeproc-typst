@@ -37,6 +37,11 @@
 #let extract-name-attrs(attrs, is-style-level: false) = {
   (
     "and": attrs.at("and", default: none), // "text" or "symbol"
+    name-form: if is-style-level {
+      attrs.at("name-form", default: "long")
+    } else {
+      attrs.at("name-form", default: none)
+    },
     name-delimiter: if is-style-level {
       attrs.at("name-delimiter", default: ", ")
     } else {
