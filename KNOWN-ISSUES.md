@@ -275,6 +275,42 @@ citeproc-js parses the `note` field to extract additional CSL variables like `re
 
 ---
 
+## Embedded Particle Parsing
+
+**Status:** Not implemented (citeproc-js heuristic)
+
+**Affected Tests:**
+- `name_HyphenatedNonDroppingParticle1`
+- `name_HyphenatedNonDroppingParticle2`
+- `name_ParseNames`
+
+**Issue:**
+
+citeproc-js parses particles (van, von, de, der, al-, etc.) from the family name field when they're embedded rather than in a separate `non-dropping-particle` field. For example:
+
+- `"family": "van Gogh"` → particle "van", family "Gogh"
+- `"family": "al-One"` → particle "al-", family "One"
+
+This requires maintaining a list of known particles and applying heuristic pattern matching.
+
+**Our Behavior:**
+
+We treat the entire family field as the family name. Users should use proper CSL-JSON with separate particle fields:
+
+```json
+{
+  "family": "Gogh",
+  "non-dropping-particle": "van",
+  "given": "Vincent"
+}
+```
+
+**Rationale:**
+
+The CSL-JSON spec defines separate fields for particles. Embedded particle parsing is a citeproc-js convenience feature, not a spec requirement.
+
+---
+
 ## Test Infrastructure Notes
 
 ### Bibliography HTML Format

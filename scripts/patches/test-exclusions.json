@@ -32,6 +32,18 @@
     {
       "fixture": "affix_WithCommas",
       "reason": "Uses citeproc-js citation update format (..[n] and >>[n] prefixes) for testing dynamic citation updates. Not applicable to static Typst compilation."
+    },
+    {
+      "fixture": "name_HyphenatedNonDroppingParticle1",
+      "reason": "Requires parsing embedded particles (al-, van, von, de) from family names. This heuristic pattern matching is citeproc-js specific behavior not defined in CSL spec."
+    },
+    {
+      "fixture": "name_HyphenatedNonDroppingParticle2",
+      "reason": "Requires parsing embedded particles (al-, van, von, de) from family names. This heuristic pattern matching is citeproc-js specific behavior not defined in CSL spec."
+    },
+    {
+      "fixture": "name_ParseNames",
+      "reason": "Requires parsing embedded particles (van, von, de, der) from family names for sorting. This heuristic is citeproc-js specific."
     }
   ]
 }

@@ -884,7 +884,28 @@
     formatted.first()
   } else if formatted.len() == 2 and not use-et-al and and-term != none {
     // Two names with "and"
-    let use-delim = delimiter-precedes-last == "always"
+    let name-as-sort-order = attrs.at(
+      "name-as-sort-order",
+      default: ctx.style.name-as-sort-order,
+    )
+    // Check if the first name (before last) is inverted
+    // Literal/institutional names are never inverted
+    let first-name = names.at(0, default: (:))
+    let first-is-literal = first-name.at("literal", default: "") != ""
+    let first-is-inverted = if first-is-literal {
+      false
+    } else {
+      name-as-sort-order == "all" or name-as-sort-order == "first"
+    }
+    
+    let use-delim = if delimiter-precedes-last == "always" {
+      true
+    } else if delimiter-precedes-last == "after-inverted-name" {
+      first-is-inverted
+    } else {
+      // "contextual" or "never" - no delimiter for 2 names
+      false
+    }
     _join-with-and(
       formatted.first(),
       formatted.last(),
@@ -896,10 +917,35 @@
     // Multiple names with "and" before last
     let all-but-last = formatted.slice(0, -1)
     let last = formatted.last()
-    let use-delim = (
-      delimiter-precedes-last == "always"
-        or (delimiter-precedes-last == "contextual" and formatted.len() > 2)
+    
+    // Determine if delimiter should precede the last name/and
+    let name-as-sort-order = attrs.at(
+      "name-as-sort-order",
+      default: ctx.style.name-as-sort-order,
     )
+    
+    // Check if the name before last is inverted (for after-inverted-name)
+    let before-last-idx = formatted.len() - 2
+    let before-last-name = names.at(before-last-idx, default: (:))
+    let before-last-is-literal = before-last-name.at("literal", default: "") != ""
+    let before-last-is-inverted = if before-last-is-literal {
+      false
+    } else {
+      // Position is 1-based, so before-last is at position (formatted.len() - 1)
+      let pos = before-last-idx + 1
+      name-as-sort-order == "all" or (name-as-sort-order == "first" and pos == 1)
+    }
+    
+    let use-delim = if delimiter-precedes-last == "always" {
+      true
+    } else if delimiter-precedes-last == "after-inverted-name" {
+      before-last-is-inverted
+    } else if delimiter-precedes-last == "contextual" {
+      formatted.len() > 2
+    } else {
+      // "never" or unknown
+      false
+    }
     _join-with-and(
       all-but-last.join(delimiter),
       last,
