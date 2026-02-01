@@ -23,7 +23,7 @@
     },
     {
       "fixture": "label_EditorTranslator1",
-      "reason": "Complex Russian GOST-style that uses 'note' variable presence as language-switching mechanism (English when note exists, Russian otherwise). This is a style-specific workaround pattern, not standard CSL behavior."
+      "reason": "Test expectation inconsistent with inline locale terms. The inline locale defines 'ed. & trans.' but expected output shows 'ed & trans.' (different punctuation). This appears to be a citeproc-js specific rendering quirk."
     }
   ]
 }

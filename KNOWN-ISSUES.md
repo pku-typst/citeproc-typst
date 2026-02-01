@@ -246,18 +246,15 @@ citeproc-js uses `\-` escape sequence to prevent hyphen-to-en-dash conversion. T
 
 ---
 
-#### 2. Complex Russian Bibliography Style
+#### 2. Russian GOST-style editortranslator Term
 
 **Test:** `label_EditorTranslator1`
 
-This test uses a complex Russian GOST-style bibliography that implements a non-standard language-switching mechanism: it uses `<if variable="note">` conditionals to switch between English and Russian output. When the `note` field is present, it outputs English terms; otherwise Russian.
+The test's inline locale defines `<term name="editortranslator" form="short">` as `ed. & trans.` (with periods), but the expected output shows `ed & trans.` (period only after trans). This inconsistency between the defined term and expected output indicates citeproc-js specific behavior.
 
-This pattern is:
-- A style-specific workaround, not standard CSL behavior
-- Relies on citeproc-js's specific interpretation of the conditionals
-- Not related to CSL-M's proper locale selection via `xml:lang`
+Our implementation correctly uses the inline locale term as defined.
 
-**Status:** Excluded from comparison (style-specific workaround pattern)
+**Status:** Excluded from comparison (test expectation inconsistent with inline locale)
 
 ---
 
