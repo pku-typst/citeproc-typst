@@ -170,6 +170,12 @@
     delimiter: "",
   )
 
+  // Apply citation-item level prefix/suffix (from locator metadata)
+  // CSL spec: these go INSIDE the layout prefix/suffix
+  if cite-item-prefix != "" or cite-item-suffix != "" {
+    result = [#cite-item-prefix#result#cite-item-suffix]
+  }
+
   // Handle form variations
   let final-result = if form == "author" {
     // Extract author only - use standard name formatter
@@ -239,11 +245,5 @@
     }
   }
 
-  // Apply citation-item level prefix/suffix (from locator metadata)
-  // CSL spec: these wrap the entire citation output
-  if cite-item-prefix != "" or cite-item-suffix != "" {
-    [#cite-item-prefix#final-result#cite-item-suffix]
-  } else {
-    final-result
-  }
+  final-result
 }

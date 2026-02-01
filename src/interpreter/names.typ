@@ -276,12 +276,14 @@
     } else { none }
 
     // Find et-al element if present (CSL spec: can override term with term="...")
+    // Also extract formatting attributes (font-style, font-weight, etc.)
     let et-al-node = children.find(c => (
       type(c) == dictionary and c.at("tag", default: "") == "et-al"
     ))
-    let et-al-term = if et-al-node != none {
-      et-al-node.at("attrs", default: (:)).at("term", default: "et-al")
-    } else { "et-al" }
+    let et-al-attrs = if et-al-node != none {
+      et-al-node.at("attrs", default: (:))
+    } else { (:) }
+    let et-al-term = et-al-attrs.at("term", default: "et-al")
 
     // Find label if present
     let label-node = children.find(c => (
@@ -310,6 +312,7 @@
         substitute-string: substitute-string-to-use,
         substitute-count: substitute-count-to-use,
         et-al-term: et-al-term,
+        et-al-attrs: et-al-attrs,
       )
     } else {
       format-names(
@@ -320,6 +323,7 @@
         substitute-string: substitute-string-to-use,
         substitute-count: substitute-count-to-use,
         et-al-term: et-al-term,
+        et-al-attrs: et-al-attrs,
       )
     }
 

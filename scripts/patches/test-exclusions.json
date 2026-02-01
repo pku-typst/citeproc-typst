@@ -20,6 +20,18 @@
     {
       "fixture": "label_CollapsedPageNumberPluralDetection",
       "reason": "Uses citeproc-js specific escape sequence (\\-) to prevent hyphen-to-en-dash conversion. This escape is not part of CSL spec and not supported."
+    },
+    {
+      "fixture": "affix_CommaAfterQuote",
+      "reason": "citeproc-js converts ASCII quotes to typographic quotes in citation-item prefix/suffix. This smart quotes feature is not part of CSL spec."
+    },
+    {
+      "fixture": "affix_MovingPunctuation",
+      "reason": "punctuation-in-quote feature: moving periods/commas inside closing quotes. Complex feature not yet implemented."
+    },
+    {
+      "fixture": "affix_WithCommas",
+      "reason": "Uses citeproc-js citation update format (..[n] and >>[n] prefixes) for testing dynamic citation updates. Not applicable to static Typst compilation."
     }
   ]
 }

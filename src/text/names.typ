@@ -6,6 +6,7 @@
 #import "../parsing/mod.typ": is-cjk-name, lookup-term
 #import "../core/constants.typ": POSITION
 #import "../core/utils.typ": capitalize-first-char
+#import "../core/formatting.typ": finalize
 
 // =============================================================================
 // Module-level regex patterns (avoid recompilation)
@@ -429,6 +430,7 @@
 /// - name-parts: Dict of name-part formatting from <name-part> elements
 /// - substitute-string: String to use for substituted names (for subsequent-author-substitute)
 /// - substitute-count: Number of names from start to substitute (0 = no substitution)
+/// - et-al-attrs: Formatting attributes for the et-al element (font-style, etc.)
 #let format-names(
   names,
   attrs,
@@ -437,6 +439,7 @@
   substitute-string: none,
   substitute-count: 0,
   et-al-term: "et-al",
+  et-al-attrs: (:),
 ) = {
   if names.len() == 0 { return [] }
 
@@ -492,6 +495,13 @@
   // If et-al-use-first >= names.len(), we show all names and don't use et-al
   let use-et-al = names.len() >= et-al-min and et-al-use-first < names.len()
   let show-count = if use-et-al { et-al-use-first } else { names.len() }
+
+  // CSL spec: when et-al-use-first="0", no names are shown at all
+  // This should trigger group suppression (names element renders empty)
+  // "et al." alone doesn't count as output from a variable
+  if show-count == 0 and use-et-al {
+    return []
+  }
 
   // Format individual names
   let formatted = ()
@@ -578,12 +588,19 @@
       // CSL spec: "followed by the name delimiter, the ellipsis character, and the last name"
       [#result#delimiter … #last-name]
     } else {
-      let et-al = lookup-term(ctx, et-al-term, form: "long")
+      let et-al-text = lookup-term(ctx, et-al-term, form: "long")
 
       // If et-al term is empty (e.g., "and others" defined as empty), skip et-al entirely
-      if et-al == "" {
+      if et-al-text == "" {
         result
       } else {
+        // Apply formatting from <et-al> element (e.g., font-style="italic")
+        let et-al = if et-al-attrs.len() > 0 {
+          finalize(et-al-text, et-al-attrs)
+        } else {
+          et-al-text
+        }
+
         // CSL spec: delimiter-precedes-et-al determines when to add delimiter before "et al."
         // "contextual" (default): delimiter only if 2+ names shown
         // "always": always add delimiter
@@ -678,6 +695,7 @@
 /// - name-parts: Dict of name-part formatting from <name-part> elements
 /// - substitute-string: String to use for substituted names
 /// - substitute-count: Number of names from start to substitute
+/// - et-al-attrs: Formatting attributes for the et-al element
 #let format-names-with-institutions(
   names,
   attrs,
@@ -687,6 +705,7 @@
   substitute-string: none,
   substitute-count: 0,
   et-al-term: "et-al",
+  et-al-attrs: (:),
 ) = {
   if names.len() == 0 { return [] }
 
@@ -721,6 +740,7 @@
       substitute-string: substitute-string,
       substitute-count: substitute-count,
       et-al-term: et-al-term,
+      et-al-attrs: et-al-attrs,
     )
   }
 
@@ -741,6 +761,7 @@
         ctx,
         name-parts: name-parts,
         et-al-term: et-al-term,
+        et-al-attrs: et-al-attrs,
       ))
     }
 
@@ -769,6 +790,7 @@
       ctx,
       name-parts: name-parts,
       et-al-term: et-al-term,
+      et-al-attrs: et-al-attrs,
     )
     [#unaffiliated-formatted #with-term #formatted-groups.join(group-delimiter)]
   } else if formatted-groups.len() > 0 {
@@ -780,6 +802,7 @@
       ctx,
       name-parts: name-parts,
       et-al-term: et-al-term,
+      et-al-attrs: et-al-attrs,
     )
   }
 
