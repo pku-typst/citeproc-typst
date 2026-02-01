@@ -88,6 +88,7 @@
 /// Handle <names> element
 /// Uses stack-based interpreter internally for substitute processing
 /// The third parameter is ignored (kept for dispatch table compatibility)
+/// Returns: (content, done-vars) tuple for substitute quashing support
 #let handle-names(node, ctx, .._rest) = {
   // Support suppress-author for collapse (CSL spec: subsequent cites in collapsed group omit author)
   let var-names-str = node
@@ -97,7 +98,7 @@
     ctx.at("suppress-author", default: false)
       and var-names-str.contains("author")
   ) {
-    return []
+    return ([], ())
   }
 
   // Import here to avoid circular dependency at module level
@@ -144,7 +145,7 @@
       }
     }
     if total-count > 0 {
-      return finalize(str(total-count), attrs)
+      return (finalize(str(total-count), attrs), ())
     }
     // Fall through to substitute handling if no names found
   }
@@ -179,15 +180,16 @@
           ),
           children: children,
         )
-        // Recursive call for single variable
-        let part = handle-names(single-var-node, ctx)
+        // Recursive call for single variable (returns (content, done-vars) tuple)
+        let (part, _part-done-vars) = handle-names(single-var-node, ctx)
         if not is-empty(part) {
           rendered-parts.push(part)
         }
       }
 
       if rendered-parts.len() > 0 {
-        return rendered-parts.join(names-delimiter)
+        // Multi-variable rendering doesn't trigger substitute quashing
+        return (rendered-parts.join(names-delimiter), ())
       }
     } else if vars-with-names.len() == 1 {
       // Only one variable has names, use it
@@ -223,7 +225,25 @@
       ))
 
       let sub-result = []
+      let sub-done-vars = ()
       for sub-child in substitute.at("children", default: ()) {
+        // Track which variable this substitute child will render
+        let child-var = if type(sub-child) == dictionary {
+          let child-tag = sub-child.at("tag", default: "")
+          let child-attrs = sub-child.at("attrs", default: (:))
+          if child-tag == "text" and "variable" in child-attrs {
+            // <text variable="..."/> - track this variable
+            (child-attrs.variable,)
+          } else if child-tag == "names" and "variable" in child-attrs {
+            // <names variable="..."/> - track all name variables
+            child-attrs.variable.split(" ")
+          } else {
+            ()
+          }
+        } else {
+          ()
+        }
+
         // For names elements, inject parent's name/label if not present
         let child-to-render = if (
           type(sub-child) == dictionary
@@ -257,11 +277,13 @@
         let rendered = interpret-children-stack((child-to-render,), ctx)
         if not is-empty(rendered) {
           sub-result = rendered
+          // CSL Substitute Quashing: mark rendered variables as "done"
+          sub-done-vars = child-var
           break // Use first non-empty result only
         }
       }
-      sub-result
-    } else { [] }
+      (sub-result, sub-done-vars)
+    } else { ([], ()) }
   } else {
     // Check for subsequent-author-substitute (bibliography grouping)
     // CSL spec: "Substitution is limited to the names of the first cs:names element rendered"
@@ -303,7 +325,7 @@
 
       if substitute-rule == "complete-all" {
         // Replace entire name list with substitute string (no inline substitution)
-        return finalize(author-substitute, attrs)
+        return (finalize(author-substitute, attrs), ())
       } else if substitute-rule == "complete-each" {
         // All names match: substitute each name inline
         substitute-string-to-use = author-substitute
@@ -437,6 +459,7 @@
       }
     } else { names-content }
 
-    finalize(result, attrs)
+    // Normal names rendering - no substitute quashing needed
+    (finalize(result, attrs), ())
   }
 }

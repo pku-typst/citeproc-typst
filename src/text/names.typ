@@ -20,7 +20,9 @@
 // Romanesque script detection (from citeproc-js STARTSWITH_ROMANESQUE_REGEXP)
 // Used to determine if a space is needed before et-al term
 // Matches: Latin, Greek, Cyrillic, Hebrew, Arabic, Thai, and related scripts
-#let _romanesque-start-pattern = regex("^[&a-zA-Z\u{0e01}-\u{0e5b}\u{00c0}-\u{017f}\u{0370}-\u{03ff}\u{0400}-\u{052f}\u{0590}-\u{05d4}\u{05d6}-\u{05ff}\u{1f00}-\u{1fff}\u{0600}-\u{06ff}\u{200c}\u{200d}\u{200e}\u{0218}\u{0219}\u{021a}\u{021b}\u{202a}-\u{202e}]")
+#let _romanesque-start-pattern = regex(
+  "^[&a-zA-Z\u{0e01}-\u{0e5b}\u{00c0}-\u{017f}\u{0370}-\u{03ff}\u{0400}-\u{052f}\u{0590}-\u{05d4}\u{05d6}-\u{05ff}\u{1f00}-\u{1fff}\u{0600}-\u{06ff}\u{200c}\u{200d}\u{200e}\u{0218}\u{0219}\u{021a}\u{021b}\u{202a}-\u{202e}]",
+)
 
 /// Extract the initial from a name part
 /// CSL spec: take all leading uppercase characters (for multi-char initials like Mongolian "Ts")
@@ -960,8 +962,11 @@
           // When no delimiter, determine if a space is needed before et-al.
           // Romanesque scripts need a space; CJK and other scripts do not.
           let et-al-str = if type(et-al-text) == str { et-al-text } else { "" }
-          let needs-space = et-al-str.len() > 0 and et-al-str.first().match(_romanesque-start-pattern) != none
-          
+          let needs-space = (
+            et-al-str.len() > 0
+              and et-al-str.first().match(_romanesque-start-pattern) != none
+          )
+
           if needs-space {
             [#result#" "#et-al]
           } else {
