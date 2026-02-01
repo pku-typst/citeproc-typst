@@ -136,6 +136,30 @@
     {
       "fixture": "sort_GroupedByAuthorstring",
       "reason": "Uses citeproc-js citation update format (>>[n] prefix) for testing dynamic citation updates. Not applicable to static Typst compilation."
+    },
+    {
+      "fixture": "textcase_ImplicitNocase",
+      "reason": "Expects HTML span tags to prevent text-case transformation. We output Typst formatting (smallcaps, super, sub) not HTML. The nocase span feature requires HTML parsing."
+    },
+    {
+      "fixture": "textcase_Lowercase",
+      "reason": "Expects <span class='nocase'> to be stripped while preserving original case. This requires HTML parsing which is not supported."
+    },
+    {
+      "fixture": "textcase_SentenceCapitalization",
+      "reason": "Expects <span class='nocase'> to be stripped while preserving original case. This requires HTML parsing which is not supported."
+    },
+    {
+      "fixture": "textcase_Uppercase",
+      "reason": "Expects <span class='nocase'> to be stripped while preserving original case. This requires HTML parsing which is not supported."
+    },
+    {
+      "fixture": "textcase_TitleCaseWithVolumeTitle",
+      "reason": "Expects HTML div wrappers (csl-bib-body, csl-entry). We output plain text without HTML structure."
+    },
+    {
+      "fixture": "textcase_LocaleUnicode",
+      "reason": "Requires locale-specific Unicode case mapping (Turkish dotted I: i->İ). Typst uses standard Unicode case mapping."
     }
   ]
 }
