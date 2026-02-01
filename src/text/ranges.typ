@@ -79,6 +79,39 @@
   none
 }
 
+/// Expand a shortened range end to its full form
+///
+/// Examples:
+/// - expand-range-end("100", "4") -> "104"
+/// - expand-range-end("600", "13") -> "613"
+/// - expand-range-end("1100", "23") -> "1123"
+/// - expand-range-end("100", "104") -> "104" (already full)
+///
+/// - start: Full start number string
+/// - end: Possibly shortened end number string
+/// Returns: Expanded end number string
+#let expand-range-end(start, end) = {
+  // If end is already same length or longer, no expansion needed
+  if end.len() >= start.len() {
+    return end
+  }
+  
+  // Simple case: both are pure digits
+  // This handles common cases like "100-4" -> "100-104"
+  let s-is-digits = start.match(_digit-pattern) != none and start.clusters().all(c => c.match(_digit-pattern) != none)
+  let e-is-digits = end.match(_digit-pattern) != none and end.clusters().all(c => c.match(_digit-pattern) != none)
+  
+  if s-is-digits and e-is-digits {
+    // Simple expansion: prepend prefix digits from start
+    let prefix-len = start.len() - end.len()
+    return start.slice(0, prefix-len) + end
+  }
+  
+  // For more complex cases with prefixes/suffixes, return as-is for now
+  // (will be handled by parse-page-parts after it's defined)
+  end
+}
+
 // Pattern for detecting Roman numerals
 #let _roman-pattern = regex("^[ivxlcdmIVXLCDM]+$")
 
@@ -203,11 +236,11 @@
 
 /// Format a range with Chicago 15th edition style
 ///
-/// Chicago 15th:
-/// - 1-99: use all digits
-/// - 100+: use changed digits only, except:
-///   - if second is in 1-9, use two digits (e.g., 107-8 -> 107-8, 1007-8 -> 1007-8)
-///   - if second is in 10-99, use two digits (e.g., 1496-504 -> 1496-504)
+/// Chicago 15th (from CMOS 9.61):
+/// - Numbers < 100: use all digits (4-11, 81-83)
+/// - 100 or multiples of 100: use all digits (100-105, 1200-1213)
+/// - x01-x09 (ends in 01-09): use changed part only (101-4, 303-7, 1002-6)
+/// - x10-x99: use two digits minimum (253-64, 1077-79, 1597-600)
 ///
 /// - start: Start of range
 /// - end: End of range
@@ -224,22 +257,54 @@
   let s-int = int(s-num)
   let e-int = int(e-num)
 
-  // Calculate minimized end
-  let minimized-end = if s-int > 100 and calc.rem(s-int, 100) != 0 {
-    // Check if they share the same hundreds
-    let s-hundreds = calc.floor(s-int / 100)
-    let e-hundreds = calc.floor(e-int / 100)
-
-    if s-hundreds == e-hundreds {
-      str(calc.rem(e-int, 100))
-    } else if s-int >= 10000 {
-      str(calc.rem(e-int, 1000))
-    } else {
-      e-num
-    }
-  } else {
-    e-num
+  // Rule 1: Numbers < 100 - use all digits
+  if s-int < 100 {
+    return s-prefix + s-num + s-suffix + delimiter + e-prefix + e-num + e-suffix
   }
+
+  // Rule 2: 100 or multiples of 100 - use all digits
+  if calc.rem(s-int, 100) == 0 {
+    return s-prefix + s-num + s-suffix + delimiter + e-prefix + e-num + e-suffix
+  }
+
+  let s-str = str(s-int)
+  let e-str = str(e-int)
+
+  // If different lengths, use expanded
+  if s-str.len() != e-str.len() {
+    return format-range-expanded(start, end, delimiter)
+  }
+
+  // Rule 3: x01-x09 - use changed part only (can be single digit)
+  // BUT: only if end is also in single-digit range (x01-x09)
+  let s-last-two = calc.rem(s-int, 100)
+  let e-last-two = calc.rem(e-int, 100)
+  if s-last-two >= 1 and s-last-two <= 9 and e-last-two >= 1 and e-last-two <= 9 {
+    // Both start and end are in x01-x09 range, just show the changed digit
+    let minimized-end = str(calc.rem(e-int, 10))
+    return s-prefix + s-num + s-suffix + delimiter + e-prefix + minimized-end + e-suffix
+  }
+
+  // Rule 4: x10-x99 - use two digits minimum, more if needed
+  // Find first differing position from left
+  let diff-pos = s-str.len()
+  for i in range(s-str.len()) {
+    if s-str.at(i) != e-str.at(i) {
+      diff-pos = i
+      break
+    }
+  }
+
+  // Number of digits to keep from end
+  let keep-digits = s-str.len() - diff-pos
+
+  // Minimum 2 digits
+  if keep-digits < 2 {
+    keep-digits = 2
+  }
+
+  // Extract the abbreviated end
+  let minimized-end = e-str.slice(e-str.len() - keep-digits)
 
   s-prefix + s-num + s-suffix + delimiter + e-prefix + minimized-end + e-suffix
 }
@@ -329,14 +394,18 @@
   }
 
   let start = range.start
-  let end = range.end
+  let end-raw = range.end
 
   // Only process as numeric range if both parts contain digits
   // Non-numeric content like "Michaelson-Morely" should be returned as-is
-  if not is-numeric-string(start) or not is-numeric-string(end) {
+  if not is-numeric-string(start) or not is-numeric-string(end-raw) {
     // Not a numeric range, return original string unchanged
     return str(page-str)
   }
+
+  // Expand shortened end (e.g., "100-4" -> "100-104")
+  // This is required before applying any range format
+  let end = expand-range-end(start, end-raw)
 
   if format == "expanded" or format == none {
     format-range-expanded(start, end, delimiter)
