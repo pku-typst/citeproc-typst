@@ -897,7 +897,7 @@
     } else {
       name-as-sort-order == "all" or name-as-sort-order == "first"
     }
-    
+
     let use-delim = if delimiter-precedes-last == "always" {
       true
     } else if delimiter-precedes-last == "after-inverted-name" {
@@ -917,25 +917,30 @@
     // Multiple names with "and" before last
     let all-but-last = formatted.slice(0, -1)
     let last = formatted.last()
-    
+
     // Determine if delimiter should precede the last name/and
     let name-as-sort-order = attrs.at(
       "name-as-sort-order",
       default: ctx.style.name-as-sort-order,
     )
-    
+
     // Check if the name before last is inverted (for after-inverted-name)
     let before-last-idx = formatted.len() - 2
     let before-last-name = names.at(before-last-idx, default: (:))
-    let before-last-is-literal = before-last-name.at("literal", default: "") != ""
+    let before-last-is-literal = (
+      before-last-name.at("literal", default: "") != ""
+    )
     let before-last-is-inverted = if before-last-is-literal {
       false
     } else {
       // Position is 1-based, so before-last is at position (formatted.len() - 1)
       let pos = before-last-idx + 1
-      name-as-sort-order == "all" or (name-as-sort-order == "first" and pos == 1)
+      (
+        name-as-sort-order == "all"
+          or (name-as-sort-order == "first" and pos == 1)
+      )
     }
-    
+
     let use-delim = if delimiter-precedes-last == "always" {
       true
     } else if delimiter-precedes-last == "after-inverted-name" {

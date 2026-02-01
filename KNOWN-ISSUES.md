@@ -280,6 +280,7 @@ citeproc-js parses the `note` field to extract additional CSL variables like `re
 **Status:** Not implemented (citeproc-js heuristic)
 
 **Affected Tests:**
+
 - `name_HyphenatedNonDroppingParticle1`
 - `name_HyphenatedNonDroppingParticle2`
 - `name_ParseNames`

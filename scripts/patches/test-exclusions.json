@@ -44,6 +44,14 @@
     {
       "fixture": "name_ParseNames",
       "reason": "Requires parsing embedded particles (van, von, de, der) from family names for sorting. This heuristic is citeproc-js specific."
+    },
+    {
+      "fixture": "name_InTextMarkupInitialize",
+      "reason": "Embedded HTML markup in name fields (<b>John</b>). This is a citeproc-js specific feature not part of CSL spec."
+    },
+    {
+      "fixture": "name_InTextMarkupNormalizeInitials",
+      "reason": "Embedded HTML markup in name fields (<b>John</b>). This is a citeproc-js specific feature not part of CSL spec."
     }
   ]
 }
