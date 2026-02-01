@@ -430,6 +430,16 @@ def generate_data_typ(locale_codes: list[str]) -> str:
     for code in sorted(locale_codes):
         lines.append(f'  "{code}": _{code},')
 
+    # Add locale aliases (non-standard codes that map to standard locales)
+    # kh-KH is a common typo/variant for km-KH (Khmer)
+    locale_aliases = {
+        "kh-KH": "km-KH",
+    }
+    for alias, target in sorted(locale_aliases.items()):
+        if target in locale_codes:
+            safe_target = target.replace("-", "-")
+            lines.append(f'  "{alias}": _{safe_target},')
+
     lines.extend([
         ")",
         "",
@@ -492,6 +502,7 @@ def generate_data_typ(locale_codes: list[str]) -> str:
         "es": "es-ES",
         "pt": "pt-BR",
         "sr": "sr-Latn-RS",
+        "kh": "km-KH",  # kh is often used as an alias for km (Khmer)
     }
 
     for code in sorted(locale_codes):
@@ -501,6 +512,11 @@ def generate_data_typ(locale_codes: list[str]) -> str:
 
     for prefix in sorted(prefix_to_locale.keys()):
         lines.append(f'  "{prefix}": "{prefix_to_locale[prefix]}",')
+
+    # Add language prefix aliases that aren't derived from locale codes
+    # These are manually added for common alternative codes
+    if "kh" not in prefix_to_locale and "km-KH" in locale_codes:
+        lines.append('  "kh": "km-KH",')
 
     lines.extend([
         ")",
