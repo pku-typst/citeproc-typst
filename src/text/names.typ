@@ -774,7 +774,13 @@
   } else if formatted-groups.len() > 0 {
     formatted-groups.join(group-delimiter)
   } else {
-    format-names(names, attrs, ctx, name-parts: name-parts, et-al-term: et-al-term)
+    format-names(
+      names,
+      attrs,
+      ctx,
+      name-parts: name-parts,
+      et-al-term: et-al-term,
+    )
   }
 
   result

@@ -251,6 +251,7 @@ citeproc-js uses `\-` escape sequence to prevent hyphen-to-en-dash conversion. T
 **Test:** `label_EditorTranslator1` - **NOW PASSING**
 
 This complex Russian GOST-style test is now passing. Fixed issues:
+
 - **`strip-periods`**: Now correctly strips periods from term but preserves suffix periods (`ed & trans.`)
 - **`<et-al term="...">`**: Now supports custom et-al term via `term` attribute
 - **Empty et-al term**: When term is empty (like `and others` in this style), no et-al text is output

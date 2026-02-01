@@ -253,7 +253,8 @@ def main():
     script_dir = Path(__file__).parent
     project_dir = script_dir.parent
 
-    xml_base = project_dir / "references" / "citeproc-js-docs" / "_static" / "data" / "locales"
+    # Use official CSL locales from https://github.com/citation-style-language/locales
+    xml_base = project_dir / "references" / "csl-locales"
     output_dir = project_dir / "src" / "parsing" / "locales"
 
     for our_name, csl_name in LOCALE_MAP.items():

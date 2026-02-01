@@ -33,3 +33,4 @@ Thumbs.db
 # Tytanic test artifacts (out/ and diff/ are generated, ref/ is committed)
 tests/*/out/
 tests/*/diff/
+references/csl-locales/
