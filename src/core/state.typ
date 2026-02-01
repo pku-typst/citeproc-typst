@@ -168,7 +168,7 @@
     // Will be populated by sorting/disambiguation
     sort-keys: (),
     disambig: (
-      year-suffix: "",
+      year-suffix: none,
       names-expanded: 0,
       add-givenname: false,
     ),

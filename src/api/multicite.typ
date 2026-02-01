@@ -11,7 +11,10 @@
   render-names-for-grouping, select-layout,
 )
 #import "../parsing/mod.typ": detect-language
-#import "../data/mod.typ": apply-collapse
+#import "../data/mod.typ": (
+  apply-collapse, collapse-numeric-ranges, collapse-suffix-ranges,
+  num-to-suffix, process-ranges,
+)
 #import "../init/core.typ": _get-precomputed
 
 // =============================================================================
@@ -134,12 +137,36 @@
     )
 
     // Detect style class
-    let is-note-style = style.class == STYLE-CLASS.note
+    let collapse-mode = style.citation.at("collapse", default: none)
+
+    // Check for citation-number collapse (uses numeric range logic)
+    let has-citation-number-collapse = collapse-mode == COLLAPSE.citation-number
+
+    // Note style: only true if NOT using citation-number collapse
+    let is-note-style = (
+      style.class == STYLE-CLASS.note and not has-citation-number-collapse
+    )
+
+    // Use author-date logic if:
+    // 1. Has year/year-suffix collapse (works for any style), OR
+    // 2. Explicit author-date style
+    let has-year-collapse = (
+      collapse-mode
+        in (
+          COLLAPSE.year,
+          COLLAPSE.year-suffix,
+          COLLAPSE.year-suffix-ranged,
+        )
+    )
     let is-author-date = (
-      style.class == STYLE-CLASS.in-text
-        and (
-          style.citation.at("disambiguate-add-year-suffix", default: false)
-            or layout.at("prefix", default: "") == "("
+      has-year-collapse
+        or (
+          style.class == STYLE-CLASS.in-text
+            and not has-citation-number-collapse
+            and (
+              style.citation.at("disambiguate-add-year-suffix", default: false)
+                or layout.at("prefix", default: "") == "("
+            )
         )
     )
 
@@ -148,105 +175,16 @@
     let suffix = layout.at("suffix", default: "")
     let delimiter = layout.at("delimiter", default: ", ")
 
-    if is-note-style {
-      // Note/footnote style: render each citation fully and join with delimiter
-      // Wrap in footnote unless using prose/author/year form
-      let is-multicite = normalized.len() > 1
-
-      let cite-parts = normalized.map(item => {
-        let entry = bib.at(item.key, default: none)
-        if entry == none { return [] }
-        // Apply punctuation collapsing to each citation
-        collapse-punctuation(render-citation(
-          entry,
-          style,
-          supplement: item.supplement,
-          form: if form != none { form } else { "full" },
-          // Suppress affixes for individual citations in multi-cite context
-          // (affixes applied once at the end)
-          suppress-affixes: is-multicite,
-        ))
-      })
-
-      let joined = cite-parts.filter(p => p != []).join(delimiter)
-
-      // For multi-cite, apply suffix once at the end
-      let result = if is-multicite {
-        [#prefix#joined#suffix]
-      } else {
-        joined
-      }
-
-      let linked = link(label("citeproc-ref-" + first-key), result)
-
-      // Wrap in footnote unless using inline forms
-      let is-inline-form = (
-        form in (CITE-FORM.prose, CITE-FORM.author, CITE-FORM.year)
-      )
-      if is-inline-form {
-        linked
-      } else {
-        footnote(linked)
-      }
-    } else if is-author-date {
-      // Author-date style: format as "(Author1, Year1; Author2, Year2)"
-      // Get collapse mode from citation style
+    // Check if we should use collapse logic (takes precedence over note-style)
+    if is-author-date {
+      // Author-date style with proper CSL rendering and collapse support
       let collapse-mode = style.citation.at("collapse", default: none)
-
-      // Get disambiguation states for proper name rendering
       let disambig-states = precomputed.at("disambig-states", default: (:))
 
-      // Build items with rendered author (for grouping), year, suffix
-      // CSL spec: "The comparison is limited to the output of the (first) cs:names element"
-      let cite-items = normalized
-        .map(item => {
-          let entry = bib.at(item.key, default: none)
-          if entry == none { return none }
-
-          // Get disambiguation state for this entry
-          let disambig = disambig-states.at(item.key, default: (
-            names-expanded: 0,
-            givenname-level: 0,
-          ))
-
-          // Render names for grouping comparison (string, uses first cs:names output)
-          let author = render-names-for-grouping(
-            entry,
-            style,
-            names-expanded: disambig.at("names-expanded", default: 0),
-            givenname-level: disambig.at("givenname-level", default: 0),
-          )
-
-          // Render names for display (content, uses full macro rendering)
-          let author-display = render-names-for-citation-display(
-            entry,
-            style,
-            names-expanded: disambig.at("names-expanded", default: 0),
-            givenname-level: disambig.at("givenname-level", default: 0),
-          )
-
-          let year = get-entry-year(entry)
-          let suffix = suffixes.at(item.key, default: "")
-
-          (
-            key: item.key,
-            author: author,
-            author-display: author-display,
-            year: year,
-            suffix: suffix,
-            supplement: item.supplement,
-            order: citations.order.at(item.key, default: 0),
-          )
-        })
-        .filter(x => x != none)
-
-      // Get delimiters from style (with fallbacks)
-      let cite-group-delim = style.citation.at(
-        "cite-group-delimiter",
-        default: ", ",
-      )
-      let year-suffix-delim = _get-with-fallback(
-        style.citation.at("year-suffix-delimiter", default: none),
+      // Get delimiters
+      // cite-group-delimiter falls back to layout delimiter if not explicitly set
+      let cite-group-delim = _get-with-fallback(
+        style.citation.at("cite-group-delimiter", default: none),
         layout.at("delimiter", default: ", "),
       )
       let after-collapse-delim = _get-with-fallback(
@@ -254,12 +192,7 @@
         layout.at("delimiter", default: "; "),
       )
 
-      // Check if cite-group-delimiter is explicitly set (triggers grouping)
-      let has-cite-group-delim = (
-        style.citation.at("cite-group-delimiter", default: none) != none
-      )
-
-      // Determine effective collapse mode (year-suffix falls back to year)
+      // Determine effective collapse mode
       let has-year-suffix = style.citation.at(
         "disambiguate-add-year-suffix",
         default: "false",
@@ -269,39 +202,302 @@
         has-year-suffix,
       )
 
-      // Enable grouping if collapse is set OR cite-group-delimiter is set
-      let enable-grouping = (
-        effective-collapse-mode != none or has-cite-group-delim
+      // Build items with author key for grouping
+      let cite-items = normalized
+        .map(item => {
+          let entry = bib.at(item.key, default: none)
+          if entry == none { return none }
+
+          let disambig = disambig-states.at(item.key, default: (
+            names-expanded: 0,
+            givenname-level: 0,
+          ))
+
+          // Get author string for grouping comparison
+          let author-key = render-names-for-grouping(
+            entry,
+            style,
+            names-expanded: disambig.at("names-expanded", default: 0),
+            givenname-level: disambig.at("givenname-level", default: 0),
+          )
+
+          // Get year for year-suffix collapse detection
+          let year = get-entry-year(entry)
+
+          (
+            key: item.key,
+            entry: entry,
+            author-key: author-key,
+            year: year,
+            supplement: item.supplement,
+            disambig: disambig,
+          )
+        })
+        .filter(x => x != none)
+
+      // Check if cite-group-delimiter is explicitly set (triggers grouping)
+      let has-cite-group-delim = (
+        style.citation.at("cite-group-delimiter", default: none) != none
       )
 
-      // Apply collapsing/grouping
-      let result = if (
+      // Apply grouping/collapse using CSL rendering
+      let should-group = (
         effective-collapse-mode
           in (COLLAPSE.year, COLLAPSE.year-suffix, COLLAPSE.year-suffix-ranged)
-          or enable-grouping
-      ) {
-        apply-collapse(
-          cite-items,
-          effective-collapse-mode,
-          enable-grouping: enable-grouping,
-          delimiter: "; ",
-          cite-group-delimiter: cite-group-delim,
-          year-suffix-delimiter: year-suffix-delim,
-          after-collapse-delimiter: after-collapse-delim,
-        )
-      } else {
-        // No collapsing or grouping - format each citation separately
-        let parts = cite-items.map(it => {
-          let year-str = str(it.year) + it.suffix
-          // Use author-display for display (fall back to author string)
-          let display-author = it.at("author-display", default: it.author)
-          if it.supplement != none {
-            [#display-author, #year-str: #it.supplement]
-          } else {
-            [#display-author, #year-str]
+          or has-cite-group-delim
+      )
+      let result = if should-group {
+        // Group by author
+        let by-author = (:)
+        let author-order = ()
+        for item in cite-items {
+          if item.author-key not in by-author {
+            by-author.insert(item.author-key, ())
+            author-order.push(item.author-key)
           }
+          by-author.at(item.author-key).push(item)
+        }
+
+        // Get year-suffix-delimiter
+        let year-suffix-delim = _get-with-fallback(
+          style.citation.at("year-suffix-delimiter", default: none),
+          layout.at("delimiter", default: ", "),
+        )
+
+        // Render each author group, tracking if collapse occurred
+        let author-groups = () // Array of (content, collapsed: bool)
+        for author-key in author-order {
+          let items = by-author.at(author-key)
+          let collapsed = items.len() > 1 // More than one item means collapse occurred
+
+          // For year-suffix-ranged: group by year first, then collapse suffix ranges
+          if effective-collapse-mode == COLLAPSE.year-suffix-ranged {
+            // Group items by year within this author
+            let by-year = (:)
+            let year-order = ()
+            for item in items {
+              let y = if item.year != none { str(item.year) } else { "" }
+              if y not in by-year {
+                by-year.insert(y, ())
+                year-order.push(y)
+              }
+              by-year.at(y).push(item)
+            }
+
+            let year-group-parts = () // Parts for each year group
+            let is-first-in-author = true
+
+            for (year-idx, y) in year-order.enumerate() {
+              let year-items = by-year.at(y)
+              // Get suffixes for this year group (as numeric indices)
+              let year-suffixes = year-items.map(it => suffixes.at(it.key, default: none))
+              let suffix-ranges = collapse-suffix-ranges(year-suffixes)
+
+              // Parts within this year group (joined with year-suffix-delimiter)
+              let suffix-parts = ()
+              let is-first-in-year = true
+
+              // If no valid suffixes (e.g., single item without disambiguation),
+              // render items directly without range processing
+              if suffix-ranges.len() == 0 {
+                for item in year-items {
+                  let rendered = collapse-punctuation(render-citation(
+                    item.entry,
+                    style,
+                    supplement: item.supplement,
+                    year-suffix: suffixes.at(item.key, default: none),
+                    suppress-affixes: true,
+                    suppress-author: not is-first-in-author,
+                    suppress-year: not is-first-in-year,
+                    cite-number: citations.order.at(item.key, default: 0),
+                    names-expanded: item.disambig.at("names-expanded", default: 0),
+                    givenname-level: item.disambig.at("givenname-level", default: 0),
+                  ))
+                  suffix-parts.push(rendered)
+                  is-first-in-author = false
+                  is-first-in-year = false
+                }
+              } else {
+                for r in suffix-ranges {
+                  // Only suppress year for subsequent items in same year, not for new years
+                  let do-suppress-year = not is-first-in-year
+
+                  if r.start == r.end {
+                    // Single item
+                    let item = year-items.find(it => (
+                      suffixes.at(it.key, default: none) == r.start
+                    ))
+                    if item != none {
+                      let rendered = collapse-punctuation(render-citation(
+                        item.entry,
+                        style,
+                        supplement: item.supplement,
+                        year-suffix: r.start,
+                        suppress-affixes: true,
+                        suppress-author: not is-first-in-author,
+                        suppress-year: do-suppress-year,
+                        cite-number: citations.order.at(item.key, default: 0),
+                        names-expanded: item.disambig.at("names-expanded", default: 0),
+                        givenname-level: item.disambig.at("givenname-level", default: 0),
+                      ))
+                      suffix-parts.push(rendered)
+                      is-first-in-author = false
+                      is-first-in-year = false
+                    }
+                  } else {
+                    // Range of 2+ consecutive suffixes - render as range
+                    let start-item = year-items.find(it => (
+                      suffixes.at(it.key, default: none) == r.start
+                    ))
+                    let end-item = year-items.find(it => (
+                      suffixes.at(it.key, default: none) == r.end
+                    ))
+                    if start-item != none and end-item != none {
+                      // Render start with full year+suffix
+                      let start-rendered = collapse-punctuation(render-citation(
+                        start-item.entry,
+                        style,
+                        year-suffix: r.start,
+                        suppress-affixes: true,
+                        suppress-author: not is-first-in-author,
+                        suppress-year: do-suppress-year,
+                        cite-number: citations.order.at(start-item.key, default: 0),
+                        names-expanded: start-item.disambig.at("names-expanded", default: 0),
+                        givenname-level: start-item.disambig.at("givenname-level", default: 0),
+                      ))
+                      // For end, just use the suffix letter
+                      let end-suffix = num-to-suffix(r.end)
+                      suffix-parts.push([#start-rendered–#end-suffix])
+                      is-first-in-author = false
+                      is-first-in-year = false
+                    }
+                  }
+                }
+              }
+              // Join suffixes within this year with year-suffix-delimiter
+              if suffix-parts.len() > 0 {
+                year-group-parts.push(suffix-parts.join(year-suffix-delim))
+              }
+            }
+            // Join different years with layout delimiter
+            author-groups.push((content: year-group-parts.join(cite-group-delim), collapsed: collapsed))
+          } else if effective-collapse-mode == COLLAPSE.year-suffix {
+            // year-suffix mode: group by year, use year-suffix-delimiter within year
+            let by-year = (:)
+            let year-order = ()
+            for item in items {
+              let y = if item.year != none { str(item.year) } else { "" }
+              if y not in by-year {
+                by-year.insert(y, ())
+                year-order.push(y)
+              }
+              by-year.at(y).push(item)
+            }
+
+            let year-group-parts = ()
+            let is-first-in-author = true
+
+            for y in year-order {
+              let year-items = by-year.at(y)
+              let suffix-parts = ()
+              let is-first-in-year = true
+
+              for item in year-items {
+                let rendered = collapse-punctuation(render-citation(
+                  item.entry,
+                  style,
+                  supplement: item.supplement,
+                  year-suffix: suffixes.at(item.key, default: none),
+                  suppress-affixes: true,
+                  suppress-author: not is-first-in-author,
+                  suppress-year: not is-first-in-year,
+                  cite-number: citations.order.at(item.key, default: 0),
+                  names-expanded: item.disambig.at("names-expanded", default: 0),
+                  givenname-level: item.disambig.at("givenname-level", default: 0),
+                ))
+                suffix-parts.push(rendered)
+                is-first-in-author = false
+                is-first-in-year = false
+              }
+              if suffix-parts.len() > 0 {
+                year-group-parts.push(suffix-parts.join(year-suffix-delim))
+              }
+            }
+            // Join different years with layout delimiter
+            author-groups.push((content: year-group-parts.join(cite-group-delim), collapsed: collapsed))
+          } else {
+            // year mode: no suffix grouping
+            // Use after-collapse-delimiter after items with locators
+            let group-parts = ()
+            let prev-had-locator = false
+
+            for (i, item) in items.enumerate() {
+              let do-suppress-author = i > 0
+
+              let rendered = collapse-punctuation(render-citation(
+                item.entry,
+                style,
+                supplement: item.supplement,
+                year-suffix: suffixes.at(item.key, default: none),
+                suppress-affixes: true,
+                suppress-author: do-suppress-author,
+                suppress-year: false,
+                cite-number: citations.order.at(item.key, default: 0),
+                names-expanded: item.disambig.at("names-expanded", default: 0),
+                givenname-level: item.disambig.at("givenname-level", default: 0),
+              ))
+
+              // Use after-collapse-delimiter after items with locators
+              if prev-had-locator and group-parts.len() > 0 {
+                let last = group-parts.pop()
+                group-parts.push([#last#after-collapse-delim#rendered])
+              } else if group-parts.len() > 0 {
+                let last = group-parts.pop()
+                group-parts.push([#last#cite-group-delim#rendered])
+              } else {
+                group-parts.push(rendered)
+              }
+
+              prev-had-locator = item.supplement != none
+            }
+            author-groups.push((content: group-parts.join(), collapsed: collapsed))
+          }
+        }
+
+        // Join author groups with appropriate delimiter
+        // Use after-collapse-delimiter after groups that had collapse
+        let author-parts = ()
+        let prev-collapsed = false
+        for grp in author-groups {
+          if author-parts.len() == 0 {
+            author-parts.push(grp.content)
+          } else if prev-collapsed {
+            // Previous group had collapse, use after-collapse-delimiter
+            let last = author-parts.pop()
+            author-parts.push([#last#after-collapse-delim#grp.content])
+          } else {
+            // No collapse in previous group, use layout delimiter
+            let last = author-parts.pop()
+            author-parts.push([#last#delimiter#grp.content])
+          }
+          prev-collapsed = grp.collapsed
+        }
+        author-parts.join()
+      } else {
+        // No collapse - render each citation fully
+        let parts = cite-items.map(item => {
+          collapse-punctuation(render-citation(
+            item.entry,
+            style,
+            supplement: item.supplement,
+            year-suffix: suffixes.at(item.key, default: none),
+            suppress-affixes: normalized.len() > 1,
+            cite-number: citations.order.at(item.key, default: 0),
+            names-expanded: item.disambig.at("names-expanded", default: 0),
+            givenname-level: item.disambig.at("givenname-level", default: 0),
+          ))
         })
-        parts.join("; ")
+        parts.join(delimiter)
       }
 
       // Apply formatting and link
@@ -315,38 +511,139 @@
         let formatted = _apply-affixes(result, prefix, suffix, valign: valign)
         _make-ref-link(formatted, first-key)
       }
+    } else if is-note-style {
+      // Note/footnote style without collapse: render each citation fully
+      let is-multicite = normalized.len() > 1
+
+      let cite-parts = normalized.map(item => {
+        let entry = bib.at(item.key, default: none)
+        if entry == none { return [] }
+        collapse-punctuation(render-citation(
+          entry,
+          style,
+          supplement: item.supplement,
+          form: if form != none { form } else { "full" },
+          suppress-affixes: is-multicite,
+          cite-number: citations.order.at(item.key, default: 0),
+        ))
+      })
+
+      let joined = cite-parts.filter(p => p != []).join(delimiter)
+
+      let result = if is-multicite {
+        [#prefix#joined#suffix]
+      } else {
+        joined
+      }
+
+      let linked = link(label("citeproc-ref-" + first-key), result)
+
+      let is-inline-form = (
+        form in (CITE-FORM.prose, CITE-FORM.author, CITE-FORM.year)
+      )
+      if is-inline-form {
+        linked
+      } else {
+        footnote(linked)
+      }
     } else {
       // Numeric style: format as "[1, 2, 3]" or "[1-3]"
       let collapse-mode = style.citation.at("collapse", default: none)
 
-      // Build items with order numbers
-      let cite-items = normalized.map(item => {
-        let order = citations.order.at(item.key, default: 0)
-        (
-          key: item.key,
-          order: order,
-          supplement: item.supplement,
-        )
-      })
+      // Build items with order numbers and entries
+      let cite-items = normalized
+        .map(item => {
+          let entry = bib.at(item.key, default: none)
+          let order = citations.order.at(item.key, default: 0)
+          (
+            key: item.key,
+            entry: entry,
+            order: order,
+            supplement: item.supplement,
+          )
+        })
+        .filter(it => it.entry != none)
 
-      // Apply collapsing
-      let result = apply-collapse(
-        cite-items,
-        collapse-mode,
-        delimiter: delimiter,
-        cite-group-delimiter: style.citation.at(
-          "cite-group-delimiter",
-          default: ", ",
-        ),
-        year-suffix-delimiter: style.citation.at(
-          "year-suffix-delimiter",
-          default: ", ",
-        ),
-        after-collapse-delimiter: style.citation.at(
-          "after-collapse-delimiter",
-          default: none,
-        ),
-      )
+      // Render using CSL with collapse support
+      let result = if collapse-mode == COLLAPSE.citation-number {
+        // Items with locator break collapse - segment by locator presence
+        // Each segment without locators can be collapsed, items with locators are standalone
+        let segments = ()
+        let current-segment = ()
+
+        for item in cite-items {
+          if item.supplement != none {
+            // Item has locator - flush current segment and add this as standalone
+            if current-segment.len() > 0 {
+              segments.push((items: current-segment, has-locator: false))
+              current-segment = ()
+            }
+            segments.push((items: (item,), has-locator: true))
+          } else {
+            current-segment.push(item)
+          }
+        }
+        if current-segment.len() > 0 {
+          segments.push((items: current-segment, has-locator: false))
+        }
+
+        // Process each segment
+        let all-parts = ()
+        for seg in segments {
+          if seg.has-locator {
+            // Single item with locator - render as-is, no collapse
+            let item = seg.items.first()
+            all-parts.push(collapse-punctuation(render-citation(
+              item.entry,
+              style,
+              supplement: item.supplement,
+              cite-number: item.order,
+              suppress-affixes: true,
+            )))
+          } else {
+            // Segment without locators - can collapse
+            let numbers = seg.items.map(it => it.order)
+            let ranges = collapse-numeric-ranges(numbers)
+
+            let parts = process-ranges(
+              ranges,
+              seg.items,
+              it => collapse-punctuation(render-citation(
+                it.entry,
+                style,
+                cite-number: it.order,
+                suppress-affixes: true,
+              )),
+              it => collapse-punctuation(render-citation(
+                it.entry,
+                style,
+                cite-number: it.order,
+                suppress-affixes: true,
+              )),
+              it => collapse-punctuation(render-citation(
+                it.entry,
+                style,
+                cite-number: it.order,
+                suppress-affixes: true,
+              )),
+            )
+            all-parts += parts
+          }
+        }
+        all-parts.join(delimiter)
+      } else {
+        // No collapse - render each citation fully
+        let parts = cite-items.map(item => {
+          collapse-punctuation(render-citation(
+            item.entry,
+            style,
+            supplement: item.supplement,
+            cite-number: item.order,
+            suppress-affixes: normalized.len() > 1,
+          ))
+        })
+        parts.join(delimiter)
+      }
 
       // Apply formatting and link
       let valign = layout.at("vertical-align", default: none)

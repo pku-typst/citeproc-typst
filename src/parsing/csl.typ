@@ -220,7 +220,7 @@
     collapse: citation-node.attrs.at("collapse", default: none),
     cite-group-delimiter: citation-node.attrs.at(
       "cite-group-delimiter",
-      default: ", ",
+      default: none,
     ),
     after-collapse-delimiter: citation-node.attrs.at(
       "after-collapse-delimiter",

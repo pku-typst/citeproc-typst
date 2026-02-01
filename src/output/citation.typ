@@ -32,9 +32,11 @@
   supplement: none,
   locator-label: "page",
   cite-number: none,
-  year-suffix: "",
+  year-suffix: none,
   position: POSITION.first,
   suppress-affixes: false,
+  suppress-author: false,
+  suppress-year: false,
   first-note-number: none,
   abbreviations: (:),
   names-expanded: 0,
@@ -46,6 +48,14 @@
     cite-number: cite-number,
     abbreviations: abbreviations,
   )
+
+  // Set suppress flags in context for CSL interpreter
+  if suppress-author {
+    ctx = (..ctx, suppress-author: true)
+  }
+  if suppress-year {
+    ctx = (..ctx, suppress-year: true)
+  }
 
   // Inject locator into fields if provided
   // CSL spec: locator is rendered via <text variable="locator"/>

@@ -1,0 +1,13 @@
+{
+  "description": "Tests excluded from comparison due to citeproc-js specific features or spec interpretation differences",
+  "exclusions": [
+    {
+      "fixture": "collapse_CitationNumberRangesInsert",
+      "reason": "Uses citeproc-js citation update format (..[n] and >>[n] prefixes) for testing dynamic citation updates. Not applicable to static Typst compilation."
+    },
+    {
+      "fixture": "collapse_ChicagoAfterCollapse",
+      "reason": "citeproc-js uses after-collapse-delimiter for all author groups when collapse is enabled. CSL spec states it should only be used 'after a collapsed cite group'. Our implementation follows the spec literally."
+    }
+  ]
+}

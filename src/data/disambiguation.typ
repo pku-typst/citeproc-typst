@@ -88,11 +88,8 @@
 /// - entry: Entry from citegeist
 /// Returns: Array of name dicts with (family, given, literal)
 #let get-all-authors(entry) = {
-  let fields = entry.at("fields", default: (:))
-  let author-field = fields.at("author", default: none)
-  if author-field == none { return () }
-
   // Note: field name is parsed_names (underscore) from citegeist
+  // CSL-JSON entries store authors directly in parsed_names, not in fields
   let parsed = entry.at("parsed_names", default: (:))
   parsed.at("author", default: ())
 }
@@ -504,7 +501,6 @@
 /// - states: Current states dict (will be mutated)
 /// Returns: Updated states dict
 #let _assign-year-suffixes(ambiguous, entries, states) = {
-  let suffix-chars = "abcdefghijklmnopqrstuvwxyz"
   let new-states = states
 
   for (citation-key, entry-keys) in ambiguous {
@@ -518,11 +514,11 @@
 
     let sorted-keys = entry-keys.sorted(key: k => key-order.at(k, default: 999))
 
+    // Store numeric index (0, 1, 2, ...) instead of letter
+    // Conversion to letter (a, b, c, ...) happens at render time
     for (i, key) in sorted-keys.enumerate() {
-      if i < suffix-chars.len() {
-        let state = new-states.at(key)
-        new-states.insert(key, (..state, year-suffix: suffix-chars.at(i)))
-      }
+      let state = new-states.at(key)
+      new-states.insert(key, (..state, year-suffix: i))
     }
   }
 
@@ -553,7 +549,7 @@
     return entries.map(e => (
       ..e,
       disambig: (
-        year-suffix: "",
+        year-suffix: none,
         names-expanded: 0,
         givenname-level: 0,
         needs-disambiguate: false,
@@ -593,7 +589,7 @@
       givenname-level: 0,
       names-expanded: 0,
       needs-disambiguate: false,
-      year-suffix: "",
+      year-suffix: none,
     ))
     entry-map.insert(e.key, e)
   }

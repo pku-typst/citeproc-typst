@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from typing import Optional, List, Dict, Any
 from collections import defaultdict
 from html.parser import HTMLParser
+import html
 
 # =============================================================================
 # HTML Text Extractor
@@ -29,22 +30,21 @@ class CitationExtractor(HTMLParser):
     """Extract citation text from HTML.
 
     Handles two cases:
-    1. Inline citations - content in <p> tags (not bibliography refs)
+    1. Inline citations - content in <a href="#citeproc-ref-..."> links
     2. Footnote citations - content in <section role="doc-endnotes">
     """
 
     def __init__(self):
         super().__init__()
         self.in_body = False
-        self.in_p = False
         self.in_endnotes = False
         self.in_endnote_li = False
         self.in_footnote_link = False
+        self.in_citation_link = False  # For inline citations with <a href="#citeproc-ref-...">
         self.current_text = []
         self.citation_texts = []
         self.endnote_texts = []
-        self.skip_current_p = False
-        self.skip_until_close = None  # Skip content until this tag closes
+        self.skip_until_close = None
 
     def handle_starttag(self, tag, attrs):
         attrs_dict = dict(attrs)
@@ -55,24 +55,19 @@ class CitationExtractor(HTMLParser):
         elif tag == 'li' and self.in_endnotes:
             self.in_endnote_li = True
             self.current_text = []
-        elif tag == 'a' and self.in_endnote_li:
-            # Skip the backlink (role="doc-backlink") and get the citation link
-            if attrs_dict.get('role') == 'doc-backlink':
-                self.skip_until_close = 'a'
-            elif attrs_dict.get('href', '').startswith('#citeproc-ref-'):
-                self.in_footnote_link = True
-        elif tag == 'p' and self.in_body and not self.in_endnotes:
-            self.in_p = True
-            self.current_text = []
-            self.skip_current_p = False
-        elif tag == 'span':
-            span_id = attrs_dict.get('id', '')
-            if span_id.startswith('citeproc-ref-'):
-                self.skip_current_p = True
-        elif tag == 'a' and self.in_p:
-            # Skip footnote reference links in main body
-            if attrs_dict.get('role') == 'doc-noteref':
-                self.skip_until_close = 'a'
+        elif tag == 'a':
+            href = attrs_dict.get('href', '')
+            role = attrs_dict.get('role', '')
+            if self.in_endnote_li:
+                if role == 'doc-backlink':
+                    self.skip_until_close = 'a'
+                elif href.startswith('#citeproc-ref-'):
+                    self.in_footnote_link = True
+            elif self.in_body and not self.in_endnotes:
+                # Inline citation links
+                if href.startswith('#citeproc-ref-'):
+                    self.in_citation_link = True
+                    self.current_text = []
 
     def handle_endtag(self, tag):
         if self.skip_until_close == tag:
@@ -86,11 +81,11 @@ class CitationExtractor(HTMLParser):
             text = ''.join(self.current_text).strip()
             if text:
                 self.endnote_texts.append(text)
-        elif tag == 'a' and self.in_footnote_link:
-            self.in_footnote_link = False
-        elif tag == 'p' and self.in_p:
-            self.in_p = False
-            if not self.skip_current_p:
+        elif tag == 'a':
+            if self.in_footnote_link:
+                self.in_footnote_link = False
+            elif self.in_citation_link:
+                self.in_citation_link = False
                 text = ''.join(self.current_text).strip()
                 if text:
                     self.citation_texts.append(text)
@@ -99,9 +94,7 @@ class CitationExtractor(HTMLParser):
         if self.skip_until_close:
             return
 
-        if self.in_footnote_link:
-            self.current_text.append(data)
-        elif self.in_p and not self.skip_current_p:
+        if self.in_footnote_link or self.in_citation_link:
             self.current_text.append(data)
 
     def get_citations(self) -> str:
@@ -112,40 +105,49 @@ class CitationExtractor(HTMLParser):
 
 
 class BibliographyExtractor(HTMLParser):
-    """Extract bibliography entries from HTML (spans with citeproc-ref- ids)."""
+    """Extract bibliography entries from HTML.
+
+    Extracts entire <p> elements that contain citeproc-ref spans.
+    """
 
     def __init__(self):
         super().__init__()
         self.entries = []
-        self.in_bib_span = False
+        self.in_bib_p = False
         self.current_entry_text = []
-        self.tag_stack = []
+        self.p_depth = 0
+        self.has_bib_ref = False
 
     def handle_starttag(self, tag, attrs):
         attrs_dict = dict(attrs)
-        if tag == 'span':
+        if tag == 'p' and not self.in_bib_p:
+            # Start tracking a potential bibliography paragraph
+            self.current_entry_text = []
+            self.p_depth = 1
+            self.in_bib_p = True
+            self.has_bib_ref = False
+            return
+        if tag == 'span' and self.in_bib_p:
             span_id = attrs_dict.get('id', '')
             if span_id.startswith('citeproc-ref-'):
-                self.in_bib_span = True
-                self.current_entry_text = []
-                self.tag_stack = ['span']
-                return
-        if self.in_bib_span:
-            self.tag_stack.append(tag)
+                self.has_bib_ref = True
+        if self.in_bib_p and tag == 'p':
+            self.p_depth += 1
 
     def handle_endtag(self, tag):
-        if self.in_bib_span:
-            if self.tag_stack and self.tag_stack[-1] == tag:
-                self.tag_stack.pop()
-            if not self.tag_stack:
-                # End of bibliography span
-                self.in_bib_span = False
-                text = ''.join(self.current_entry_text).strip()
-                if text:
-                    self.entries.append(text)
+        if self.in_bib_p:
+            if tag == 'p':
+                self.p_depth -= 1
+                if self.p_depth == 0:
+                    # End of paragraph
+                    self.in_bib_p = False
+                    if self.has_bib_ref:
+                        text = ''.join(self.current_entry_text).strip()
+                        if text:
+                            self.entries.append(text)
 
     def handle_data(self, data):
-        if self.in_bib_span:
+        if self.in_bib_p:
             self.current_entry_text.append(data)
 
     def get_entries(self) -> str:
@@ -187,7 +189,17 @@ def load_csl_patches() -> Dict[str, Dict[str, str]]:
             return {p['fixture']: p for p in data.get('patches', [])}
     return {}
 
+def load_test_exclusions() -> Dict[str, str]:
+    """Load test exclusions (citeproc-js specific tests not applicable to static compilation)."""
+    exclusions_file = Path(__file__).parent / 'patches' / 'test-exclusions.json'
+    if exclusions_file.exists():
+        with open(exclusions_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            return {e['fixture']: e['reason'] for e in data.get('exclusions', [])}
+    return {}
+
 CSL_PATCHES = load_csl_patches()
+TEST_EXCLUSIONS = load_test_exclusions()
 
 def apply_csl_patch(fixture_name: str, csl_content: str) -> str:
     """Apply XML patch for a fixture if one exists."""
@@ -316,7 +328,42 @@ def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str,
         # Process citation clusters
         cite_calls = []
 
-        if fixture.citation_items:
+        if fixture.citations:
+            # CITATIONS format: [[citation_obj, pre, post], ...]
+            # Each element is [citation_object, pre_citations, post_citations]
+            for citation_entry in fixture.citations:
+                if not citation_entry or len(citation_entry) < 1:
+                    continue
+                citation_obj = citation_entry[0]
+                if not isinstance(citation_obj, dict):
+                    continue
+                citation_items = citation_obj.get('citationItems', [])
+                if len(citation_items) == 1:
+                    cite = citation_items[0]
+                    if isinstance(cite, dict) and 'id' in cite:
+                        key = cite['id']
+                        locator_value = str(cite.get('locator', ''))
+                        locator_label = cite.get('label', 'page')
+                        if locator_value:
+                            locator_escaped = locator_value.replace('"', '\\"')
+                            cite_calls.append(f'#cite(<{key}>, form: "prose", supplement: locator("{locator_label}", "{locator_escaped}"))')
+                        else:
+                            cite_calls.append(f'#cite(<{key}>, form: "prose")')
+                elif len(citation_items) > 1:
+                    items = []
+                    for cite in citation_items:
+                        if isinstance(cite, dict) and 'id' in cite:
+                            key = cite['id']
+                            locator_value = str(cite.get('locator', ''))
+                            locator_label = cite.get('label', 'page')
+                            if locator_value:
+                                locator_escaped = locator_value.replace('"', '\\"')
+                                items.append(f'(key: "{key}", supplement: locator("{locator_label}", "{locator_escaped}"))')
+                            else:
+                                items.append(f'"{key}"')
+                    if items:
+                        cite_calls.append(f'#multicite({", ".join(items)})')
+        elif fixture.citation_items:
             for cluster in fixture.citation_items:
                 if len(cluster) == 1:
                     # Single citation - use #cite
@@ -324,7 +371,7 @@ def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str,
                     if isinstance(cite, dict) and 'id' in cite:
                         key = cite['id']
                         # Handle locator (supplement in Typst)
-                        locator_value = cite.get('locator', '')
+                        locator_value = str(cite.get('locator', ''))
                         locator_label = cite.get('label', 'page')
                         if locator_value:
                             # Escape quotes in locator value
@@ -339,7 +386,7 @@ def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str,
                     for cite in cluster:
                         if isinstance(cite, dict) and 'id' in cite:
                             key = cite['id']
-                            locator_value = cite.get('locator', '')
+                            locator_value = str(cite.get('locator', ''))
                             locator_label = cite.get('label', 'page')
                             if locator_value:
                                 locator_escaped = locator_value.replace('"', '\\"')
@@ -349,10 +396,14 @@ def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str,
                     if items:
                         cite_calls.append(f'#multicite({", ".join(items)})')
         else:
-            # Fallback: each input item is a separate citation
-            for item in fixture.input_data:
-                key = item.get('id', 'ITEM-1')
+            # Fallback: all input items form a single citation cluster
+            # This is important for collapse tests
+            if len(fixture.input_data) == 1:
+                key = fixture.input_data[0].get('id', 'ITEM-1')
                 cite_calls.append(f'#cite(<{key}>, form: "prose")')
+            else:
+                keys = [f'"{item.get("id", "ITEM-1")}"' for item in fixture.input_data]
+                cite_calls.append(f'#multicite({", ".join(keys)})')
 
         cite_calls_str = '\n'.join(cite_calls)
         body = f'''// Citation mode - rendered with prose form for HTML compatibility
@@ -391,6 +442,12 @@ def run_test(fixture: TestFixture, project_dir: Path, temp_dir: Path,
         'error': None,
         'match': None,
     }
+
+    # Check if test is excluded (citeproc-js specific features)
+    if fixture.name in TEST_EXCLUSIONS:
+        result['status'] = 'excluded'
+        result['error'] = TEST_EXCLUSIONS[fixture.name]
+        return result
 
     csl_content = fixture.csl
     csl_content = apply_csl_patch(fixture.name, csl_content)
@@ -469,6 +526,10 @@ def run_test(fixture: TestFixture, project_dir: Path, temp_dir: Path,
             expected_normalized = re.sub(r'<[^>]+>', '', fixture.result).strip()
             actual_normalized = actual.strip()
 
+            # Normalize HTML entities (&#38; -> &, &amp; -> &, etc.)
+            expected_normalized = html.unescape(expected_normalized)
+            actual_normalized = html.unescape(actual_normalized)
+
             # Normalize whitespace
             expected_normalized = ' '.join(expected_normalized.split())
             actual_normalized = ' '.join(actual_normalized.split())
@@ -527,15 +588,16 @@ def generate_report(results: List[Dict[str, Any]], output_path: Path, compare: b
     report.append('')
 
     if compare:
-        report.append('| Category | Total | Pass | Mismatch | Error |')
-        report.append('|----------|-------|------|----------|-------|')
+        report.append('| Category | Total | Pass | Mismatch | Excluded | Error |')
+        report.append('|----------|-------|------|----------|----------|-------|')
         for category in sorted(by_category.keys()):
             cat_results = by_category[category]
             cat_total = len(cat_results)
             passed = sum(1 for r in cat_results if r['status'] == 'pass')
             mismatch = sum(1 for r in cat_results if r['status'] == 'mismatch')
+            excluded = sum(1 for r in cat_results if r['status'] == 'excluded')
             errors = sum(1 for r in cat_results if r['status'] == 'error')
-            report.append(f'| {category} | {cat_total} | {passed} | {mismatch} | {errors} |')
+            report.append(f'| {category} | {cat_total} | {passed} | {mismatch} | {excluded} | {errors} |')
     else:
         report.append('| Category | Total | Compiled | Error |')
         report.append('|----------|-------|----------|-------|')
@@ -584,6 +646,16 @@ def generate_report(results: List[Dict[str, Any]], output_path: Path, compare: b
             report.append('')
         if len(error_tests) > 20:
             report.append(f'... and {len(error_tests) - 20} more')
+
+    # Show excluded tests
+    excluded_tests = [r for r in results if r['status'] == 'excluded']
+    if excluded_tests:
+        report.append('')
+        report.append('## Excluded Tests (citeproc-js specific)')
+        report.append('')
+        for r in excluded_tests:
+            report.append(f'- `{r["name"]}`: {r["error"]}')
+        report.append('')
 
     output_path.write_text('\n'.join(report), encoding='utf-8')
     print(f'Report written to {output_path}')

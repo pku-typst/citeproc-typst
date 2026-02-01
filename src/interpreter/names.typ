@@ -10,6 +10,17 @@
 /// Uses stack-based interpreter internally for substitute processing
 /// The third parameter is ignored (kept for dispatch table compatibility)
 #let handle-names(node, ctx, .._rest) = {
+  // Support suppress-author for collapse (CSL spec: subsequent cites in collapsed group omit author)
+  let var-names-str = node
+    .at("attrs", default: (:))
+    .at("variable", default: "author")
+  if (
+    ctx.at("suppress-author", default: false)
+      and var-names-str.contains("author")
+  ) {
+    return []
+  }
+
   // Import here to avoid circular dependency at module level
   import "stack.typ": interpret-children-stack
   let attrs = node.at("attrs", default: (:))

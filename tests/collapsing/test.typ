@@ -15,7 +15,13 @@
       <key variable="citation-number"/>
     </sort>
     <layout prefix="[" suffix="]" delimiter=", ">
-      <text variable="citation-number"/>
+      <group delimiter=", ">
+        <text variable="citation-number"/>
+        <group delimiter=" ">
+          <label variable="locator" form="short"/>
+          <text variable="locator"/>
+        </group>
+      </group>
     </layout>
   </citation>
   <bibliography>
@@ -79,7 +85,7 @@ First cite ref4 here: @ref4
 
 Now cite ref1-3, ref5 (should be [1-3, 5]): #multicite("ref1", "ref2", "ref3", "ref5")
 
-Multiple with supplements (should NOT collapse): #multicite(
+Multiple with supplements (locator breaks collapse): #multicite(
   (key: "ref1", supplement: "p. 10"),
   "ref2",
   "ref3",

@@ -9,15 +9,116 @@
 
 #import "../core/constants.typ": COLLAPSE
 
-/// Collapse consecutive numeric citations into ranges
+// =============================================================================
+// Generic Range Processing
+// =============================================================================
+
+/// Process ranges and render collapsed output
 ///
-/// Example: (1, 2, 3, 5, 7, 8, 9) → ((1, 3), (5, 5), (7, 9))
-/// Returns array of (start, end) tuples
-#let collapse-numeric-ranges(numbers) = {
-  if numbers.len() == 0 { return () }
+/// This is a generic function that handles both citation-number and year-suffix
+/// range collapsing with the same logic pattern.
+///
+/// - ranges: Array of (start, end) tuples from collapse-*-ranges
+/// - items: Array of items to render
+/// - get-key: Function (item) -> key value to match against range start/end
+/// - render-single: Function (item) -> content for single items
+/// - render-range-start: Function (item) -> content for range start
+/// - render-range-end: Function (end-key) -> content for range end (just the suffix part)
+/// - delimiter: Delimiter between items
+/// - range-delimiter: Delimiter for ranges (default: en-dash)
+/// Returns: Array of rendered content parts
+/// Process ranges and render collapsed output (index-based)
+///
+/// - ranges: Array of (start-idx, end-idx) tuples from collapse-numeric-ranges
+/// - items: Array of items to render
+/// - render-single: Function (item) -> content for single items
+/// - render-range-start: Function (item) -> content for range start
+/// - render-range-end: Function (item) -> content for range end
+/// - range-delimiter: Delimiter for ranges (default: en-dash)
+/// Returns: Array of rendered content parts
+#let process-ranges(
+  ranges,
+  items,
+  render-single,
+  render-range-start,
+  render-range-end,
+  range-delimiter: "–",
+) = {
+  let parts = ()
+
+  for r in ranges {
+    let start-idx = r.start-idx
+    let end-idx = r.end-idx
+
+    if start-idx == end-idx {
+      // Single item
+      parts.push(render-single(items.at(start-idx)))
+    } else if end-idx == start-idx + 1 {
+      // Two consecutive - no range notation
+      parts.push(render-single(items.at(start-idx)))
+      parts.push(render-single(items.at(end-idx)))
+    } else {
+      // Range of 3+ - render as range
+      let start-rendered = render-range-start(items.at(start-idx))
+      let end-rendered = render-range-end(items.at(end-idx))
+      parts.push([#start-rendered#range-delimiter#end-rendered])
+    }
+  }
+
+  parts
+}
+
+/// Convert year-suffix letter to number (a=0, b=1, ..., z=25, aa=26, ab=27, ...)
+#let suffix-to-num(suffix) = {
+  if suffix == none or suffix == "" { return none }
+  let s = str(suffix).trim()
+  if s.len() == 0 { return none }
+  if s.len() == 1 {
+    let code = s.codepoints().first()
+    // a-z: 97-122
+    if code >= 97 and code <= 122 {
+      code - 97
+    } else {
+      none
+    }
+  } else if s.len() == 2 {
+    // aa=26, ab=27, ..., az=51, ba=52, ...
+    let c1 = s.codepoints().at(0)
+    let c2 = s.codepoints().at(1)
+    if c1 >= 97 and c1 <= 122 and c2 >= 97 and c2 <= 122 {
+      26 + (c1 - 97) * 26 + (c2 - 97)
+    } else {
+      none
+    }
+  } else {
+    none
+  }
+}
+
+/// Convert number back to year-suffix letter
+#let num-to-suffix(n) = {
+  if n < 26 {
+    str.from-unicode(97 + n)
+  } else {
+    let n2 = n - 26
+    str.from-unicode(97 + calc.quo(n2, 26)) + str.from-unicode(97 + calc.rem(n2, 26))
+  }
+}
+
+/// Collapse consecutive year-suffix indices into ranges
+///
+/// Example: (0, 1, 2, 4) → ((0, 2), (4, 4)) representing (a-c, e)
+/// Input: Array of numeric indices (0=a, 1=b, etc) or none values
+/// Returns: Array of (start, end) tuples with numeric indices
+#let collapse-suffix-ranges(suffix-indices) = {
+  if suffix-indices.len() == 0 { return () }
+
+  // Filter out none values and ensure integers
+  let nums = suffix-indices.filter(n => n != none and type(n) == int)
+  if nums.len() == 0 { return () }
 
   // Sort numbers
-  let sorted = numbers.sorted()
+  let sorted = nums.sorted()
 
   let ranges = ()
   let start = sorted.first()
@@ -26,18 +127,57 @@
   for i in range(1, sorted.len()) {
     let num = sorted.at(i)
     if num == end + 1 {
-      // Continue the range
       end = num
     } else {
-      // End current range, start new one
       ranges.push((start: start, end: end))
       start = num
       end = num
     }
   }
 
-  // Push final range
   ranges.push((start: start, end: end))
+  ranges
+}
+
+/// Collapse consecutive numeric citations into ranges (by index)
+///
+/// CSL spec: Only increasing ranges collapse. Duplicates break ranges.
+/// Example: (1, 2, 3, 5, 7, 8, 9) → ((start-idx: 0, end-idx: 2), ...)
+/// Example: (1, 2, 2, 3, 4) → (idx 0), (idx 1), (idx 2-4) - first 2 alone, then 2-4 range
+/// Example: (1, 2, 3, 3, 4, 5) → (idx 0-2), (idx 3-5) - 1-3 range, then 3-5 range
+/// Returns array of (start-idx, end-idx) tuples - indices into original array
+#let collapse-numeric-ranges(numbers) = {
+  if numbers.len() == 0 { return () }
+
+  let ranges = ()
+  let i = 0
+
+  while i < numbers.len() {
+    let start-idx = i
+    let start-val = numbers.at(i)
+    let end-idx = i
+    let end-val = start-val
+
+    // Look ahead to build range - stop at duplicate or gap
+    let j = i + 1
+    while j < numbers.len() {
+      let num = numbers.at(j)
+      if num == end-val + 1 {
+        // Strictly increasing - extend range
+        end-idx = j
+        end-val = num
+        j += 1
+      } else {
+        // Duplicate (num == end-val) or gap (num > end-val + 1) - stop
+        break
+      }
+    }
+
+    // Output the range we built
+    ranges.push((start-idx: start-idx, end-idx: end-idx))
+    i = j
+  }
+
   ranges
 }
 
@@ -47,23 +187,30 @@
 /// - items: Original items with supplements (for locator handling)
 /// - delimiter: Delimiter between items
 /// - range-delimiter: Delimiter for ranges (default: en-dash)
+/// - number-prefix: Prefix for each number (e.g., "[")
+/// - number-suffix: Suffix for each number (e.g., "]")
 /// Returns: Formatted content
 #let format-collapsed-numeric(
   ranges,
   items,
   delimiter: ", ",
   range-delimiter: "–",
+  number-prefix: "",
+  number-suffix: "",
 ) = {
   let parts = ()
+
+  // Helper to format a single number with prefix/suffix
+  let fmt-num(n) = number-prefix + str(n) + number-suffix
 
   for r in ranges {
     if r.start == r.end {
       // Single item
       let item = items.find(it => it.order == r.start)
       if item != none and item.supplement != none {
-        parts.push([#r.start: #item.supplement])
+        parts.push([#fmt-num(r.start): #item.supplement])
       } else {
-        parts.push(str(r.start))
+        parts.push(fmt-num(r.start))
       }
     } else if r.end == r.start + 1 {
       // Two consecutive items - don't use range
@@ -71,15 +218,15 @@
       let item2 = items.find(it => it.order == r.end)
 
       if item1 != none and item1.supplement != none {
-        parts.push([#r.start: #item1.supplement])
+        parts.push([#fmt-num(r.start): #item1.supplement])
       } else {
-        parts.push(str(r.start))
+        parts.push(fmt-num(r.start))
       }
 
       if item2 != none and item2.supplement != none {
-        parts.push([#r.end: #item2.supplement])
+        parts.push([#fmt-num(r.end): #item2.supplement])
       } else {
-        parts.push(str(r.end))
+        parts.push(fmt-num(r.end))
       }
     } else {
       // Range of 3+ items
@@ -99,15 +246,15 @@
         while n <= r.end {
           let item = items.find(it => it.order == n)
           if item != none and item.supplement != none {
-            parts.push([#n: #item.supplement])
+            parts.push([#fmt-num(n): #item.supplement])
           } else {
-            parts.push(str(n))
+            parts.push(fmt-num(n))
           }
           n += 1
         }
       } else {
         // Collapse to range
-        parts.push(str(r.start) + range-delimiter + str(r.end))
+        parts.push(fmt-num(r.start) + range-delimiter + fmt-num(r.end))
       }
     }
   }
@@ -272,6 +419,7 @@
 /// - cite-group-delimiter: Delimiter for grouped items (same author)
 /// - year-suffix-delimiter: Delimiter for year suffixes
 /// - after-collapse-delimiter: Delimiter after collapsed group
+/// - name-year-delimiter: Delimiter between author name and year (from CSL group delimiter)
 /// Returns: Formatted collapsed content
 #let apply-collapse(
   items,
@@ -281,6 +429,7 @@
   cite-group-delimiter: ", ",
   year-suffix-delimiter: ", ",
   after-collapse-delimiter: none,
+  name-year-delimiter: " ",
 ) = {
   // Apply cite grouping if enabled (reorder items)
   let grouped-items = if enable-grouping or collapse-mode != none {
@@ -310,7 +459,9 @@
             year-str
           }
         })
-        author-parts.push([#display-author, #years.join(cite-group-delimiter)])
+        author-parts.push([#display-author#name-year-delimiter#years.join(
+            cite-group-delimiter,
+          )])
       }
       return author-parts.join(delimiter)
     }
@@ -371,7 +522,9 @@
             year-str
           }
         })
-        author-parts.push([#display-author, #years.join(cite-group-delimiter)])
+        author-parts.push([#display-author#name-year-delimiter#years.join(
+            cite-group-delimiter,
+          )])
       } else {
         // year-suffix or year-suffix-ranged: group by base year too
         let by-year = (:)
@@ -413,7 +566,9 @@
         }
 
         author-parts.push(
-          [#display-author, #year-parts.join(cite-group-delimiter)],
+          [#display-author#name-year-delimiter#year-parts.join(
+              cite-group-delimiter,
+            )],
         )
       }
     }

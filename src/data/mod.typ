@@ -17,5 +17,6 @@
 
 #import "collapsing.typ": (
   apply-cite-grouping, apply-collapse, collapse-numeric-ranges,
-  collapse-year-suffix, collapse-year-suffix-ranged, format-collapsed-numeric,
+  collapse-suffix-ranges, collapse-year-suffix, collapse-year-suffix-ranged,
+  format-collapsed-numeric, num-to-suffix, process-ranges, suffix-to-num,
 )

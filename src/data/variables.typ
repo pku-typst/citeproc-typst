@@ -3,6 +3,8 @@
 // Functions for accessing entry variables/fields
 // Includes CSL-M legal variable extensions
 
+#import "collapsing.typ": num-to-suffix
+
 // =============================================================================
 // Module-level constants (avoid recreating on each call)
 // =============================================================================
@@ -59,8 +61,12 @@
   }
 
   if name == "year-suffix" {
-    // Year suffix for disambiguation (e.g., "a", "b") - stored in context
-    return ctx.at("year-suffix", default: "")
+    // Year suffix stored as numeric index (0, 1, 2, ...)
+    // Convert to letter (a, b, c, ...) for rendering
+    let suffix = ctx.at("year-suffix", default: none)
+    if suffix == none or suffix == "" { return "" }
+    if type(suffix) == int { return num-to-suffix(suffix) }
+    return str(suffix) // Fallback for already-converted values
   }
 
   if name == "first-reference-note-number" {

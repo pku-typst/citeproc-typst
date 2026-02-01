@@ -30,6 +30,7 @@
     let result = if "variable" in attrs {
       let var-name = attrs.variable
       let val = get-variable(ctx, var-name)
+
       if val != "" {
         if (
           var-name == "page"
