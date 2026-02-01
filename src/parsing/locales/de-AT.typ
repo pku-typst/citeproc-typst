@@ -1,4 +1,4 @@
-// citrus - German (Germany) Locale
+// citrus - German (Austria) Locale
 // Auto-generated from official CSL locale
 
 #let locale = (
@@ -58,7 +58,6 @@
     "translator-verb": "\u{00FC}bersetzt von",
     "translator-verb-short": "\u{00FC}bers. von",
     // Locator terms
-    "article": "preprint",
     "article-journal": "Zeitschriftenartikel",
     "article-journal-short": "Zeitschriftenart.",
     "article-locator": (single: "Artikel", multiple: "Artikel"),
@@ -66,7 +65,7 @@
     "article-magazine": "Magazinartikel",
     "article-magazine-short": "Mag. Art.",
     "article-newspaper": "Zeitungsartikel",
-    "article-newspaper-short": "newspaper art.",
+    "article-newspaper-short": "Zeitungsart.",
     "book": (single: "Buch", multiple: "B\u{00FC}cher"),
     "book-short": "B.",
     "chapter": (single: "Kapitel", multiple: "Kapitel"),
@@ -113,7 +112,7 @@
     "volume": (single: "Band", multiple: "B\u{00E4}nde"),
     "volume-short": (single: "Bd.", multiple: "Bde."),
     // Range delimiters
-    "act": (single: "Akt", multiple: "Akten"),
+    "act": (single: "act", multiple: "acts"),
     "ad": "\u{00A0}n.\u{00A0}Chr.",
     "advance-online-publication": "Online-Vorab-Publikation",
     "album": "Album",
@@ -233,7 +232,7 @@
     "on": "auf",
     "online": "online",
     "op-cit": "op. cit.",
-    "organizer": (single: "Veranstalter", multiple: "Veranstalter"),
+    "organizer": (single: "Organisator", multiple: "Organisatoren"),
     "organizer-short": (single: "org.", multiple: "orgs."),
     "organizer-verb": "organisiert von",
     "organizer-verb-short": "org. von",
@@ -286,10 +285,10 @@
     "script-writer": (single: "Drehbuchautor", multiple: "Drehbuchautoren"),
     "script-writer-short": (single: "writ.", multiple: "writs."),
     "script-writer-verb": "geschrieben von",
-    "script-writer-verb-short": "writ. by",
+    "script-writer-verb-short": "geschr. von",
     "semicolon": ";",
     "series-creator": (single: "Idee", multiple: "Idee"),
-    "series-creator-short": (single: "Idee", multiple: "Idee"),
+    "series-creator-short": (single: "cre.", multiple: "cres."),
     "series-creator-verb": "Idee von",
     "series-creator-verb-short": "Idee von",
     "software": "Software",
@@ -336,8 +335,8 @@
     "long-ordinal-10": "zehnter",
     "ordinal": ".",
     // Months
-    "month-01": "Januar",
-    "month-01-short": "Jan.",
+    "month-01": "J\u{00E4}nner",
+    "month-01-short": "J\u{00E4}n.",
     "month-02": "Februar",
     "month-02-short": "Feb.",
     "month-03": "M\u{00E4}rz",

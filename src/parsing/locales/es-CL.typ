@@ -1,4 +1,4 @@
-// citrus - Spanish (Spain) Locale
+// citrus - Spanish (Chile) Locale
 // Auto-generated from official CSL locale
 
 #let locale = (
@@ -35,10 +35,10 @@
     "editor-translator-verb-short": "ed. y trad.",
     "editor-verb": "editado por",
     "editor-verb-short": "ed.",
-    "editorial-director": (single: "editor", multiple: "editores"),
-    "editorial-director-short": (single: "ed.", multiple: "eds."),
-    "editorial-director-verb": "editado por",
-    "editorial-director-verb-short": "ed.",
+    "editorial-director": (single: "coordinador", multiple: "coordinadores"),
+    "editorial-director-short": (single: "coord.", multiple: "coords."),
+    "editorial-director-verb": "coordinado por",
+    "editorial-director-verb-short": "coord.",
     "editortranslator": (
       single: "editor y traductor",
       multiple: "editores y traductores",
@@ -80,7 +80,7 @@
     "folio": (single: "folio", multiple: "folios"),
     "folio-short": "f.",
     "issue": (single: "n\u{00FA}mero", multiple: "n\u{00FA}meros"),
-    "issue-short": "n.\u{00BA}",
+    "issue-short": "n\u{00BA}",
     "line": (single: "l\u{00ED}nea", multiple: "l\u{00ED}neas"),
     "line-short": "l.",
     "note": (single: "nota", multiple: "notas"),
@@ -96,7 +96,7 @@
     "page": (single: "p\u{00E1}gina", multiple: "p\u{00E1}ginas"),
     "page-first": (single: "page", multiple: "pages"),
     "page-first-short": (single: "p.", multiple: "pp."),
-    "page-range-delimiter": "-",
+    "page-range-delimiter": "\u{2013}",
     "page-short": (single: "p.", multiple: "pp."),
     "paragraph": (single: "p\u{00E1}rrafo", multiple: "p\u{00E1}rrafos"),
     "paragraph-short": "p\u{00E1}rr.",
@@ -117,7 +117,7 @@
     "ad": "d.\u{00A0}C.",
     "advance-online-publication": "advance online publication",
     "album": "album",
-    "and others": "y otros",
+    "and others": "et\u{00A0}al.",
     "anonymous-short": "an\u{00F3}n.",
     "appendix": (single: "appendix", multiple: "appendices"),
     "appendix-short": (single: "app.", multiple: "apps."),
@@ -143,7 +143,7 @@
     "collection-editor-verb": "edited by",
     "collection-editor-verb-short": "ed. by",
     "collection-number": (single: "n\u{00FA}mero", multiple: "n\u{00FA}meros"),
-    "collection-number-short": "n.\u{00BA}",
+    "collection-number-short": "n\u{00BA}",
     "colon": ":",
     "comma": ",",
     "compiler": (single: "compiler", multiple: "compilers"),
@@ -189,7 +189,7 @@
       multiple: "references",
     ),
     "first-reference-note-number-short": (single: "ref.", multiple: "refs."),
-    "forthcoming": "previsto",
+    "forthcoming": "en preparaci\u{00F3}n",
     "graphic": "graphic",
     "graphic-short": "graph.",
     "guest": (single: "guest", multiple: "guests"),
@@ -237,7 +237,7 @@
     "organizer-verb": "organized by",
     "organizer-verb-short": "org. by",
     "original-author": "",
-    "original-work-published": "obra original publicada en",
+    "original-work-published": "original work published",
     "pamphlet": "pamphlet",
     "paper-conference": "conference paper",
     "patent": "patent",
@@ -318,10 +318,10 @@
     "webpage": "webpage",
     "working-paper": "working paper",
     // Quote marks
-    "close-inner-quote": "\u{201D}",
-    "close-quote": "\u{00BB}",
-    "open-inner-quote": "\u{201C}",
-    "open-quote": "\u{00AB}",
+    "close-inner-quote": "\u{2019}",
+    "close-quote": "\u{201D}",
+    "open-inner-quote": "\u{2018}",
+    "open-quote": "\u{201C}",
     // Ordinals
     "long-ordinal-01": "primera",
     "long-ordinal-02": "segunda",
@@ -333,7 +333,7 @@
     "long-ordinal-08": "octava",
     "long-ordinal-09": "novena",
     "long-ordinal-10": "d\u{00E9}cima",
-    "ordinal": ".\u{00AA}",
+    "ordinal": "\u{00AA}",
     // Months
     "month-01": "enero",
     "month-01-short": "ene.",

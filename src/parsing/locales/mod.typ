@@ -1,50 +1,11 @@
 // citrus - Locale Management
 //
-// Centralized language detection and built-in locale data.
-// Each locale is defined in its own file for maintainability.
+// Module entrance for locale functionality.
+// Data is generated in data.typ; handler functions are defined here.
 
-// =============================================================================
-// Import All Locales
-// =============================================================================
-
-#import "en-US.typ": locale as _en-US
-#import "zh-CN.typ": locale as _zh-CN
-#import "zh-TW.typ": locale as _zh-TW
-#import "de-DE.typ": locale as _de-DE
-#import "fr-FR.typ": locale as _fr-FR
-#import "es-ES.typ": locale as _es-ES
-#import "ja-JP.typ": locale as _ja-JP
-#import "ko-KR.typ": locale as _ko-KR
-#import "pt-BR.typ": locale as _pt-BR
-#import "ru-RU.typ": locale as _ru-RU
-#import "ar.typ": locale as _ar
-#import "tr-TR.typ": locale as _tr-TR
-#import "it-IT.typ": locale as _it-IT
-#import "nl-NL.typ": locale as _nl-NL
-#import "pl-PL.typ": locale as _pl-PL
-#import "cs-CZ.typ": locale as _cs-CZ
-
-// =============================================================================
-// Built-in Locale Registry
-// =============================================================================
-
-#let _builtin-locales = (
-  "en-US": _en-US,
-  "zh-CN": _zh-CN,
-  "zh-TW": _zh-TW,
-  "de-DE": _de-DE,
-  "fr-FR": _fr-FR,
-  "es-ES": _es-ES,
-  "ja-JP": _ja-JP,
-  "ko-KR": _ko-KR,
-  "pt-BR": _pt-BR,
-  "ru-RU": _ru-RU,
-  "ar": _ar,
-  "tr-TR": _tr-TR,
-  "it-IT": _it-IT,
-  "nl-NL": _nl-NL,
-  "pl-PL": _pl-PL,
-  "cs-CZ": _cs-CZ,
+#import "data.typ": (
+  _builtin-locales, _language-code-prefixes, _language-family-map,
+  _language-name-map,
 )
 
 // =============================================================================
@@ -72,38 +33,6 @@
   let given = name.at("given", default: "")
   is-cjk-text(family + given)
 }
-
-// Language name to code mappings
-#let _language-name-map = (
-  "chinese": "zh",
-  "english": "en",
-  "german": "de",
-  "french": "fr",
-  "spanish": "es",
-  "japanese": "ja",
-  "korean": "ko",
-  "portuguese": "pt",
-  "russian": "ru",
-)
-
-// Language code prefixes for detection
-#let _language-code-prefixes = (
-  "zh",
-  "en",
-  "de",
-  "fr",
-  "es",
-  "ja",
-  "ko",
-  "pt",
-  "ru",
-  "ar",
-  "tr",
-  "it",
-  "nl",
-  "pl",
-  "cs",
-)
 
 /// Detect language from context or fields
 #let detect-language(ctx-or-fields) = {
@@ -147,25 +76,6 @@
 // =============================================================================
 // Locale Access
 // =============================================================================
-
-/// Language family mappings for fallback
-#let _language-family-map = (
-  "zh": "zh-CN",
-  "en": "en-US",
-  "de": "de-DE",
-  "fr": "fr-FR",
-  "es": "es-ES",
-  "ja": "ja-JP",
-  "ko": "ko-KR",
-  "pt": "pt-BR",
-  "ru": "ru-RU",
-  "ar": "ar",
-  "tr": "tr-TR",
-  "it": "it-IT",
-  "nl": "nl-NL",
-  "pl": "pl-PL",
-  "cs": "cs-CZ",
-)
 
 /// Get a built-in locale by language code
 #let get-builtin-locale(lang) = {
