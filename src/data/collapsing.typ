@@ -515,19 +515,26 @@
 
       if collapse-mode == COLLAPSE.year {
         // Year collapsing: just show author once with all years
-        let years = author-items.map(it => {
-          let year-str = (
-            str(it.at("year", default: "")) + it.at("suffix", default: "")
-          )
-          if it.supplement != none {
-            [#year-str: #it.supplement]
-          } else {
-            year-str
-          }
-        })
-        author-parts.push([#display-author#name-year-delimiter#years.join(
-            cite-group-delimiter,
-          )])
+        let years = author-items
+          .map(it => {
+            let year-str = (
+              str(it.at("year", default: "")) + it.at("suffix", default: "")
+            )
+            if it.supplement != none {
+              [#year-str: #it.supplement]
+            } else {
+              year-str
+            }
+          })
+          .filter(y => y != "" and y != []) // Filter out empty years
+        if years.len() > 0 {
+          author-parts.push([#display-author#name-year-delimiter#years.join(
+              cite-group-delimiter,
+            )])
+        } else {
+          // All years empty - just show author
+          author-parts.push(display-author)
+        }
       } else {
         // year-suffix or year-suffix-ranged: group by base year too
         let by-year = (:)

@@ -493,6 +493,19 @@
                 ),
               ))
 
+              // Skip items that would render empty (e.g., no date when author is suppressed)
+              // Check BEFORE rendering: if author is suppressed and no date, skip
+              if do-suppress-author {
+                let fields = item.entry.at("fields", default: (:))
+                let has-date = (
+                  fields.at("year", default: "") != ""
+                    or fields.at("date", default: "") != ""
+                )
+                if not has-date and item.supplement == none {
+                  continue
+                }
+              }
+
               // Use after-collapse-delimiter after items with locators
               if prev-had-locator and group-parts.len() > 0 {
                 let last = group-parts.pop()

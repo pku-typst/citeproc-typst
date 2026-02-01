@@ -235,7 +235,29 @@
 
   if name == "year" {
     // Note: year-suffix is NOT added here - it's handled by CSL's <text variable="year-suffix"/>
-    dt.display("[year]")
+    let year = dt.year()
+    let year-str = if year < 0 {
+      // Negative year: display as positive with BC suffix
+      str(-year)
+    } else if year < 1000 {
+      // Years before 1000 AD: no zero-padding, will add era suffix
+      str(year)
+    } else {
+      // Modern years: use standard 4-digit format
+      dt.display("[year]")
+    }
+    // CSL spec: years before 1000 should include era suffix
+    if year < 0 {
+      // BC year
+      let bc-term = lookup-term(ctx, "bc", form: "long", plural: false)
+      year-str + bc-term
+    } else if year < 1000 {
+      // AD year (before 1000)
+      let ad-term = lookup-term(ctx, "ad", form: "long", plural: false)
+      year-str + ad-term
+    } else {
+      year-str
+    }
   } else if name == "month" {
     if form == "numeric" {
       dt.display("[month padding:none]")
