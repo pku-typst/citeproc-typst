@@ -39,6 +39,33 @@
     .join("")
 }
 
+/// Recursively check if a node tree contains <text variable="year-suffix"/>
+/// This is used to determine whether year-suffix should be auto-appended to dates
+/// CSL spec: "By default, the year-suffix is appended the first year rendered through
+/// cs:date... but its location can be controlled by explicitly rendering the
+/// 'year-suffix' variable using cs:text"
+#let _has-explicit-year-suffix(node) = {
+  if type(node) != dictionary { return false }
+
+  // Check if this node is <text variable="year-suffix"/>
+  let tag = node.at("tag", default: "")
+  if tag == "text" {
+    let attrs = node.at("attrs", default: (:))
+    if attrs.at("variable", default: "") == "year-suffix" {
+      return true
+    }
+  }
+
+  // Recursively check children
+  let children = node.at("children", default: ())
+  for child in children {
+    if _has-explicit-year-suffix(child) {
+      return true
+    }
+  }
+  false
+}
+
 /// Parse a single term element
 /// Terms can be simple text or have single/multiple sub-elements
 #let parse-term(term-node) = {
@@ -222,6 +249,9 @@
       default: "false",
     )
       == "true",
+    // CSL spec: check if year-suffix is explicitly rendered via <text variable="year-suffix"/>
+    // If true, year-suffix is NOT auto-appended to dates; if false, it IS auto-appended
+    has-explicit-year-suffix: _has-explicit-year-suffix(citation-node),
     // Et-al settings (inheritable name options)
     et-al-min: if citation-node.attrs.at("et-al-min", default: none) != none {
       int(citation-node.attrs.at("et-al-min"))
@@ -297,6 +327,9 @@
       "subsequent-author-substitute-rule",
       default: "complete-all",
     ),
+    // CSL spec: check if year-suffix is explicitly rendered via <text variable="year-suffix"/>
+    // If true, year-suffix is NOT auto-appended to dates; if false, it IS auto-appended
+    has-explicit-year-suffix: _has-explicit-year-suffix(bib-node),
     // Et-al settings
     et-al-min: int(bib-node.attrs.at("et-al-min", default: "4")),
     et-al-use-first: int(bib-node.attrs.at("et-al-use-first", default: "3")),

@@ -53,6 +53,7 @@
 
   // CSL-M: Set render-context for context condition
   // Also pass et-al-subsequent settings for subsequent cites
+  // CSL spec: has-explicit-year-suffix determines if year-suffix is auto-appended to dates
   let ctx = (
     ..ctx,
     year-suffix: year-suffix,
@@ -72,6 +73,10 @@
     ),
     citation-et-al-min: citation.at("et-al-min", default: none),
     citation-et-al-use-first: citation.at("et-al-use-first", default: none),
+    has-explicit-year-suffix: citation.at(
+      "has-explicit-year-suffix",
+      default: false,
+    ),
   )
 
   // CSL-M: Select layout based on entry language
@@ -96,10 +101,12 @@
   }
 
   // Interpret citation layout using stack-based interpreter with memoization
+  // NOTE: layout.delimiter is for separating multiple cites within a citation,
+  // NOT for separating elements within the layout. Don't pass it here.
   let result = interpret-children-stack(
     layout.children,
     ctx,
-    delimiter: layout.delimiter,
+    delimiter: "",
   )
 
   // Handle form variations

@@ -84,6 +84,8 @@
   // Inject year suffix and disambiguation info into context for rendering
   // CSL-M: Set render-context for context condition
   // Also add author-substitute info for bibliography grouping
+  // CSL spec: has-explicit-year-suffix determines if year-suffix is auto-appended to dates
+  let bib-settings = style.at("bibliography", default: (:))
   let ctx = (
     ..ctx,
     year-suffix: year-suffix,
@@ -95,6 +97,10 @@
     author-substitute-count: author-substitute-count,
     substitute-vars: substitute-vars, // Variables from first cs:names element
     auto-links: auto-links,
+    has-explicit-year-suffix: bib-settings.at(
+      "has-explicit-year-suffix",
+      default: false,
+    ),
   )
 
   let entry-lang = detect-language(entry.at("fields", default: (:)))

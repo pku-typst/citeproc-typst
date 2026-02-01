@@ -7,6 +7,27 @@
   format-date-part, format-date-with-form, parse-bibtex-date,
 )
 
+/// Check if year-suffix should be auto-appended to this date
+/// CSL spec: "By default, the year-suffix is appended the first year rendered
+/// through cs:date... but its location can be controlled by explicitly
+/// rendering the 'year-suffix' variable using cs:text"
+#let _should-append-year-suffix(ctx) = {
+  // Get year-suffix value from context
+  let suffix = ctx.at("year-suffix", default: "")
+  if suffix == "" { return false }
+
+  // Check if style has explicit year-suffix rendering
+  // If has-explicit-year-suffix is true, don't auto-append
+  let has-explicit = ctx.at("has-explicit-year-suffix", default: false)
+  if has-explicit { return false }
+
+  // Check if we've already appended year-suffix in this render pass
+  let already-done = ctx.at("year-suffix-done", default: false)
+  if already-done { return false }
+
+  true
+}
+
 /// Handle <date> element
 /// The third parameter is ignored (kept for dispatch table compatibility)
 #let handle-date(node, ctx, .._rest) = {
@@ -46,9 +67,16 @@
   ))
 
   if dt != none {
+    // Check if we should auto-append year-suffix
+    let append-suffix = _should-append-year-suffix(ctx)
+    let year-suffix = if append-suffix {
+      ctx.at("year-suffix", default: "")
+    } else { "" }
+
     let result = if date-part-nodes.len() > 0 {
       // Use inline date-part specifications
       let parts = ()
+      let year-rendered = false
       for dp in date-part-nodes {
         let dp-attrs = dp.at("attrs", default: (:))
         let dp-name = dp-attrs.at("name", default: "")
@@ -58,7 +86,13 @@
 
         let formatted = format-date-part(dt, dp-name, dp-form, ctx)
         if formatted != "" {
-          parts.push([#dp-prefix#formatted#dp-suffix])
+          // Auto-append year-suffix after the first year part
+          if dp-name == "year" and not year-rendered and year-suffix != "" {
+            year-rendered = true
+            parts.push([#dp-prefix#formatted#year-suffix#dp-suffix])
+          } else {
+            parts.push([#dp-prefix#formatted#dp-suffix])
+          }
         }
       }
       parts.join()
@@ -66,7 +100,13 @@
       // Use form attribute or default
       let form = attrs.at("form", default: "numeric")
       let date-parts = attrs.at("date-parts", default: "year-month-day")
-      format-date-with-form(dt, form, date-parts, ctx)
+      let date-result = format-date-with-form(dt, form, date-parts, ctx)
+      // For localized dates, append year-suffix at the end (year is typically last)
+      if year-suffix != "" {
+        [#date-result#year-suffix]
+      } else {
+        date-result
+      }
     }
 
     finalize(result, attrs)

@@ -358,7 +358,12 @@
     let demote = ctx.style.demote-non-dropping-particle
     if prefix != "" and demote == "never" {
       // Prefix stays with family name
-      formatted-family = prefix + " " + formatted-family
+      // No space if prefix ends with connecting character (apostrophe or hyphen)
+      if prefix.ends-with("'") or prefix.ends-with("-") {
+        formatted-family = prefix + formatted-family
+      } else {
+        formatted-family = prefix + " " + formatted-family
+      }
     }
 
     // Build name parts
@@ -373,12 +378,23 @@
     result
   } else {
     // Display order: Given Family
-    let parts = ()
-    if formatted-given != "" { parts.push(formatted-given) }
-    if prefix != "" { parts.push(prefix) }
-    parts.push(formatted-family)
-    if suffix != "" { parts.push(suffix) }
-    parts.join(" ")
+    // Handle particle-family spacing: particles ending with ' or - don't add space
+    let result = ()
+    if formatted-given != "" { result.push(formatted-given) }
+    if prefix != "" {
+      // Check if prefix ends with a connecting character (apostrophe or hyphen)
+      if prefix.ends-with("'") or prefix.ends-with("-") {
+        // No space between prefix and family
+        result.push(prefix + formatted-family)
+      } else {
+        result.push(prefix)
+        result.push(formatted-family)
+      }
+    } else {
+      result.push(formatted-family)
+    }
+    if suffix != "" { result.push(suffix) }
+    result.join(" ")
   }
 }
 

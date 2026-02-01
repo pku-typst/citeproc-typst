@@ -25,53 +25,108 @@ from html.parser import HTMLParser
 # HTML Text Extractor
 # =============================================================================
 
-class HTMLTextExtractor(HTMLParser):
-    """Extract text content from HTML, preserving structure."""
+class CitationExtractor(HTMLParser):
+    """Extract citation text from HTML (content before bibliography refs)."""
 
     def __init__(self):
         super().__init__()
-        self.text_parts = []
         self.in_body = False
-        self.skip_tags = {'style', 'script', 'head'}
-        self.current_skip = 0
+        self.in_p = False
+        self.current_p_text = []
+        self.citation_texts = []
+        self.current_span_id = None
+        self.skip_current_p = False
 
     def handle_starttag(self, tag, attrs):
+        attrs_dict = dict(attrs)
         if tag == 'body':
             self.in_body = True
-        if tag in self.skip_tags:
-            self.current_skip += 1
+        elif tag == 'p' and self.in_body:
+            self.in_p = True
+            self.current_p_text = []
+            self.skip_current_p = False
+        elif tag == 'span':
+            span_id = attrs_dict.get('id', '')
+            if span_id.startswith('citeproc-ref-'):
+                self.skip_current_p = True
 
     def handle_endtag(self, tag):
-        if tag in self.skip_tags:
-            self.current_skip -= 1
+        if tag == 'p' and self.in_p:
+            self.in_p = False
+            if not self.skip_current_p:
+                text = ''.join(self.current_p_text).strip()
+                if text:
+                    self.citation_texts.append(text)
 
     def handle_data(self, data):
-        if self.in_body and self.current_skip == 0:
-            text = data.strip()
-            if text:
-                self.text_parts.append(text)
+        if self.in_p and not self.skip_current_p:
+            self.current_p_text.append(data)
 
-    def get_text(self) -> str:
-        return '\n'.join(self.text_parts)
+    def get_citations(self) -> str:
+        return '\n'.join(self.citation_texts)
 
 
-def extract_text_from_html(html: str) -> str:
-    """Extract text content from HTML output."""
-    parser = HTMLTextExtractor()
-    parser.feed(html)
-    return parser.get_text()
+class BibliographyExtractor(HTMLParser):
+    """Extract bibliography entries from HTML (spans with citeproc-ref- ids)."""
+
+    def __init__(self):
+        super().__init__()
+        self.entries = []
+        self.in_bib_span = False
+        self.current_entry_text = []
+        self.tag_stack = []
+
+    def handle_starttag(self, tag, attrs):
+        attrs_dict = dict(attrs)
+        if tag == 'span':
+            span_id = attrs_dict.get('id', '')
+            if span_id.startswith('citeproc-ref-'):
+                self.in_bib_span = True
+                self.current_entry_text = []
+                self.tag_stack = ['span']
+                return
+        if self.in_bib_span:
+            self.tag_stack.append(tag)
+
+    def handle_endtag(self, tag):
+        if self.in_bib_span:
+            if self.tag_stack and self.tag_stack[-1] == tag:
+                self.tag_stack.pop()
+            if not self.tag_stack:
+                # End of bibliography span
+                self.in_bib_span = False
+                text = ''.join(self.current_entry_text).strip()
+                if text:
+                    self.entries.append(text)
+
+    def handle_data(self, data):
+        if self.in_bib_span:
+            self.current_entry_text.append(data)
+
+    def get_entries(self) -> str:
+        return '\n'.join(self.entries)
 
 
 def extract_citation_from_html(html: str) -> str:
-    """Extract citation text (first paragraph) from HTML."""
-    # Find first <p> content after <body>
-    match = re.search(r'<body>\s*<p[^>]*>(.*?)</p>', html, re.DOTALL)
-    if match:
-        # Strip HTML tags from content
-        content = match.group(1)
-        content = re.sub(r'<[^>]+>', '', content)
-        return content.strip()
-    return extract_text_from_html(html).split('\n')[0] if extract_text_from_html(html) else ''
+    """Extract citation text from HTML."""
+    parser = CitationExtractor()
+    parser.feed(html)
+    return parser.get_citations()
+
+
+def extract_bibliography_from_html(html: str) -> str:
+    """Extract bibliography entries from HTML."""
+    parser = BibliographyExtractor()
+    parser.feed(html)
+    return parser.get_entries()
+
+
+def extract_output_from_html(html: str, mode: str) -> str:
+    """Extract appropriate content from HTML based on test mode."""
+    if mode.startswith('bibliography'):
+        return extract_bibliography_from_html(html)
+    else:
+        return extract_citation_from_html(html)
 
 
 # =============================================================================
@@ -201,7 +256,16 @@ def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str,
         abbrevs_param = f',\n  abbreviations: json("/{abbrevs_path}")'
 
     if is_bib_mode:
-        body = '''// Bibliography mode
+        # Bibliography mode - need hidden citations to populate bibliography
+        # Use box(width: 0pt) to hide citations (hide is ignored in HTML export)
+        hidden_cites = []
+        for item in fixture.input_data:
+            key = item.get('id', 'ITEM-1')
+            hidden_cites.append(f'#box(width: 0pt, height: 0pt, clip: true)[#cite(<{key}>)]')
+        hidden_cites_str = '\n'.join(hidden_cites)
+        body = f'''// Bibliography mode - hidden citations to populate bibliography
+{hidden_cites_str}
+
 #csl-bibliography(title: none)'''
     else:
         # Process citation clusters
@@ -336,12 +400,17 @@ def run_test(fixture: TestFixture, project_dir: Path, temp_dir: Path,
         # Extract and compare if requested
         if compare and html_path.exists():
             html_content = html_path.read_text(encoding='utf-8')
-            actual = extract_citation_from_html(html_content)
+            actual = extract_output_from_html(html_content, fixture.mode)
             result['actual'] = actual
 
-            # Normalize for comparison
-            expected_normalized = fixture.result.strip()
+            # Normalize for comparison - strip HTML tags from both
+            # Expected may contain HTML tags like <i>, <b>, <span> etc.
+            expected_normalized = re.sub(r'<[^>]+>', '', fixture.result).strip()
             actual_normalized = actual.strip()
+
+            # Normalize whitespace
+            expected_normalized = ' '.join(expected_normalized.split())
+            actual_normalized = ' '.join(actual_normalized.split())
 
             # Simple comparison (can be made more sophisticated)
             result['match'] = expected_normalized == actual_normalized
