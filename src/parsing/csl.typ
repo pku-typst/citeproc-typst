@@ -247,7 +247,7 @@
     // Layouts (CSL-M: may have locale-specific variants)
     layouts: layouts.map(l => (
       locale: l.attrs.at("locale", default: none),
-      delimiter: l.attrs.at("delimiter", default: ", "),
+      delimiter: l.attrs.at("delimiter", default: ""),
       prefix: l.attrs.at("prefix", default: ""),
       suffix: l.attrs.at("suffix", default: ""),
       vertical-align: l.attrs.at("vertical-align", default: none),

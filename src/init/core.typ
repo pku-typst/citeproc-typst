@@ -3,6 +3,15 @@
 // Shared initialization logic for CSL processing.
 
 #import "../core/constants.typ": CITE-FORM, POSITION, STYLE-CLASS
+
+// =============================================================================
+// Configuration from sys.inputs
+// =============================================================================
+
+/// Whether to use footnotes for note-style citations
+/// Can be disabled via: --input use-footnote=false
+/// This is useful for HTML export which has convergence issues with footnotes
+#let _use-footnote = sys.inputs.at("use-footnote", default: "true") == "true"
 #import "../parsing/mod.typ": parse-csl, parse-locale-file
 #import "../output/mod.typ": (
   collapse-punctuation, get-rendered-entries, process-entries, render-citation,
@@ -97,7 +106,11 @@
     context {
       let precomputed = _get-precomputed()
       let style = _csl-style.get()
-      let rendered-citations = precomputed.at("rendered-citations", default: ())
+      let rendered-citations = if precomputed != none {
+        precomputed.at("rendered-citations", default: ())
+      } else {
+        ()
+      }
 
       // Get citation index (0-based) from global counter
       let cite-idx = _cite-global-idx.get().first() - 1
@@ -109,12 +122,13 @@
         let form = cite-data.form
 
         // Add footnote/link wrapper
+        // Note: footnote can be disabled via --input use-footnote=false for HTML export
         let is-note-style = style.class == STYLE-CLASS.note
         let is-inline-form = (
           form in (CITE-FORM.prose, CITE-FORM.author, CITE-FORM.year)
         )
 
-        if is-note-style and not is-inline-form {
+        if is-note-style and not is-inline-form and _use-footnote {
           footnote(link(label("citeproc-ref-" + cite-key), result))
         } else {
           link(label("citeproc-ref-" + cite-key), result)

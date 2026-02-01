@@ -15,7 +15,7 @@
   read("/" + csl-path)
 } else {
   // Minimal valid CSL that will produce an error message
-  "<?xml version=\"1.0\"?><style xmlns=\"http://purl.org/net/xbiblio/csl\" class=\"in-text\" version=\"1.0\"><info><title>Error</title><id>error</id></info><citation><layout><text value=\"ERROR: No CSL specified\"/></layout></citation><bibliography><layout><text variable=\"title\"/></layout></bibliography></style>"
+  "<?xml version=\"1.0\"?><style xmlns=\"http://purl.org/net/xbiblio/csl\" class=\"in-text\" version=\"1.0\"><info><title>Error</title><id>error</id></info><citation><layout delimiter=\", \"><text value=\"ERROR: No CSL specified\"/></layout></citation><bibliography><layout><text variable=\"title\"/></layout></bibliography></style>"
 }
 
 #let display-path = if csl-path != none { csl-path } else {
