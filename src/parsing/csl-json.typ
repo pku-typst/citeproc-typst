@@ -6,6 +6,127 @@
 #import "../data/variables.typ": NAME-VARS
 
 // =============================================================================
+// Note Field Parsing (citeproc-js compatibility)
+// =============================================================================
+//
+// citeproc-js parses the "note" field to extract embedded CSL variables.
+// This allows Zotero's "Extra" field to contain structured data.
+//
+// Formats supported:
+// 1. Line format: "variable-name: value" on separate lines
+// 2. For names: "variable-name: Family || Given" (double pipe separator)
+//
+// Example note field:
+//   reviewed-title: Some Title
+//   genre: Peer commentary
+//   reviewed-author: Smith || John
+
+/// Regex pattern for note field variable lines
+/// Matches: variable-name: value
+#let _note-field-pattern = regex("^([a-z][a-z0-9-]*[a-z0-9]):\\s*(.+)$")
+
+/// Parse embedded variables from note field
+///
+/// Extracts CSL variables embedded in the note field following citeproc-js format.
+/// Variables that don't exist in the entry are extracted and added.
+///
+/// - note: Note field string
+/// - existing-fields: Dictionary of existing fields (to avoid overwriting)
+/// - existing-names: Dictionary of existing parsed names
+/// Returns: (fields: dict, names: dict, cleaned-note: str)
+#let parse-note-field-vars(note, existing-fields, existing-names) = {
+  if note == none or note == "" {
+    return (fields: (:), names: (:), cleaned-note: "")
+  }
+
+  let lines = note.split("\n")
+  let extracted-fields = (:)
+  let extracted-names = (:)
+  let remaining-lines = ()
+  let found-non-var-line = false
+
+  for (i, line) in lines.enumerate() {
+    let trimmed = line.trim()
+
+    // Skip empty lines
+    if trimmed == "" {
+      if found-non-var-line {
+        remaining-lines.push(line)
+      }
+      continue
+    }
+
+    // Try to match variable pattern
+    let matches = trimmed.matches(_note-field-pattern)
+
+    if matches.len() > 0 {
+      let m = matches.first()
+      let var-name = m.captures.at(0)
+      let value = m.captures.at(1).trim()
+
+      // Only extract if not already present in entry
+      let field-exists = var-name in existing-fields
+      let name-exists = var-name in existing-names
+
+      if not field-exists and not name-exists {
+        // Check if this is a name variable
+        if var-name in NAME-VARS {
+          // Parse name: "Family || Given" format
+          let parts = value.split("||").map(p => p.trim())
+          let name-entry = if parts.len() == 1 {
+            // Literal name
+            (
+              family: "",
+              given: "",
+              suffix: "",
+              prefix: "",
+              literal: parts.at(0),
+            )
+          } else if parts.len() >= 2 {
+            // Family || Given format
+            (
+              family: parts.at(0),
+              given: parts.at(1),
+              suffix: "",
+              prefix: "",
+              literal: "",
+            )
+          } else {
+            none
+          }
+
+          if name-entry != none {
+            if var-name not in extracted-names {
+              extracted-names.insert(var-name, ())
+            }
+            extracted-names.at(var-name).push(name-entry)
+          }
+        } else {
+          // Regular text variable
+          extracted-fields.insert(var-name, value)
+        }
+      }
+      // Don't add to remaining lines (consumed)
+    } else {
+      // Non-variable line - keep in note
+      // Once we hit a non-variable line (except at start), stop parsing
+      if i > 0 or trimmed != "" {
+        found-non-var-line = true
+      }
+      remaining-lines.push(line)
+    }
+  }
+
+  let cleaned-note = if remaining-lines.len() > 0 {
+    remaining-lines.join("\n").trim()
+  } else {
+    ""
+  }
+
+  (fields: extracted-fields, names: extracted-names, cleaned-note: cleaned-note)
+}
+
+// =============================================================================
 // CSL-JSON State
 // =============================================================================
 
@@ -383,6 +504,32 @@
           parsed-names.insert("bookauthor", normalized)
         }
       }
+    }
+  }
+
+  // Parse note field for embedded variables (citeproc-js compatibility)
+  // This extracts variables like "reviewed-title: ...", "genre: ...", etc.
+  let note-content = fields.at("note", default: "")
+  if note-content != "" {
+    let note-result = parse-note-field-vars(note-content, fields, parsed-names)
+
+    // Add extracted fields (only if not already present)
+    for (k, v) in note-result.fields.pairs() {
+      if k not in fields {
+        fields.insert(k, v)
+      }
+    }
+
+    // Add extracted names (only if not already present)
+    for (k, v) in note-result.names.pairs() {
+      if k not in parsed-names {
+        parsed-names.insert(k, v)
+      }
+    }
+
+    // Update note field to cleaned version (variables removed)
+    if note-result.cleaned-note != note-content {
+      fields.insert("note", note-result.cleaned-note)
     }
   }
 

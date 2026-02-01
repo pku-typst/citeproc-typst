@@ -228,6 +228,9 @@ Without the hack, this group would be suppressed when `year-suffix` is empty (pe
 - Date component detection: Fixed `.matches() != none` bug that caused incorrect day component detection
 - Already-initialized name handling: Names like `K.S.` are now correctly formatted as `K. S.` with `initialize-with=". "`
 - Multiple space collapsing: Consecutive spaces from delimiter + prefix combinations are now collapsed to single space
+- Editor-translator merging: When `variable="editor translator"` and both contain identical names, now correctly uses `editortranslator` term for label
+- Note field variable parsing: Extracts CSL variables embedded in `note` field (e.g., `reviewed-title: value`, `reviewed-author: Family || Given`)
+- Fixed `has-variable` for name variables: Now correctly checks `ctx.parsed-names` instead of wrong key
 
 ### Remaining Issues
 
@@ -245,21 +248,29 @@ citeproc-js uses `\-` escape sequence to prevent hyphen-to-en-dash conversion. T
 
 **Test:** `label_EditorTranslator1`
 
-Complex GOST-style Russian bibliography with editor/translator handling. Multiple formatting differences.
+Complex GOST-style Russian bibliography with editor/translator handling. This style uses `note` variable presence as a language-switching mechanism (English when `note` exists, Russian otherwise). This is a style-specific pattern not related to CSL-M locale selection.
 
-**Status:** Under investigation
+**Differences:**
+
+- Locale selection: Uses Russian terms (`т.`, `ред. и пер.`) instead of English (`vols.`, `ed. & trans.`)
+- The style's `<if variable="note">` conditionals control language, which our implementation follows differently
+
+**Status:** Style-specific behavior, low priority
 
 ---
 
-#### 3. Note Field Variable Parsing
+#### 3. Note Field Variable Parsing (Implemented)
 
 **Test:** `label_NameLabelThroughSubstitute`
 
 citeproc-js parses the `note` field to extract additional CSL variables like `reviewed-title`, `genre`, and `reviewed-author`. This allows rendering of content like `[Peer commentary, <i>Decrease of Deaf potential...</i>]`.
 
-**Our Status:** Not implemented. The `note` field is treated as a simple text field.
+**Our Status:** Implemented in `src/parsing/csl-json.typ`. The `parse-note-field-vars` function extracts:
 
-**Impact:** Tests using note-embedded variables will show missing content.
+- Text variables (e.g., `reviewed-title: value`, `genre: value`)
+- Name variables (e.g., `reviewed-author: Family || Given`)
+
+**Remaining difference:** HTML tag `<i>` vs `<em>` for italics - both render correctly, just different serialization.
 
 ---
 

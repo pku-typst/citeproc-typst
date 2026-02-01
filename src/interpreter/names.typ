@@ -6,6 +6,84 @@
 #import "../text/names.typ": format-names, format-names-with-institutions
 #import "../parsing/mod.typ": lookup-term
 
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+/// Compare two name arrays for equality
+///
+/// CSL spec: When variable="editor translator" and both have identical names,
+/// use the "editortranslator" term for the label instead of separate terms.
+///
+/// - names1: First array of name dicts
+/// - names2: Second array of name dicts
+/// Returns: bool - true if all names match
+#let names-are-equal(names1, names2) = {
+  if names1.len() != names2.len() { return false }
+  if names1.len() == 0 { return false }
+
+  for (i, name1) in names1.enumerate() {
+    let name2 = names2.at(i)
+    // Compare key name parts: family, given, prefix (dropping-particle), suffix
+    let parts = ("family", "given", "prefix", "suffix")
+    for part in parts {
+      let v1 = name1.at(part, default: "")
+      let v2 = name2.at(part, default: "")
+      if v1 != v2 { return false }
+    }
+  }
+  true
+}
+
+/// Get the common term for merged name variables
+///
+/// CSL spec: When multiple variables like "editor translator" have identical names,
+/// use a combined term (e.g., "editortranslator") for the label.
+///
+/// - var-names: Array of variable names (e.g., ("editor", "translator"))
+/// - ctx: Context with parsed names
+/// Returns: (common-term: str or none, names: array) - the merged term name and the names to render
+#let get-common-term-for-variables(var-names, ctx) = {
+  // Only applicable for exactly 2 variables
+  if var-names.len() != 2 {
+    return (common-term: none, names: none, used-var: none)
+  }
+
+  let var1 = var-names.at(0)
+  let var2 = var-names.at(1)
+  let names1 = ctx.parsed-names.at(var1, default: ())
+  let names2 = ctx.parsed-names.at(var2, default: ())
+
+  // Both must have names
+  if names1.len() == 0 or names2.len() == 0 {
+    return (common-term: none, names: none, used-var: none)
+  }
+
+  // Check if names are identical
+  if not names-are-equal(names1, names2) {
+    return (common-term: none, names: none, used-var: none)
+  }
+
+  // Build combined term name (variables sorted and joined)
+  // e.g., ("editor", "translator") -> "editortranslator"
+  let sorted-vars = var-names.sorted()
+  let common-term = sorted-vars.join("")
+
+  // Check if the locale has this term
+  let term-value = lookup-term(ctx, common-term, form: "short", plural: false)
+  if term-value == "" {
+    // Also try long form
+    term-value = lookup-term(ctx, common-term, form: "long", plural: false)
+  }
+
+  if term-value == "" {
+    return (common-term: none, names: none, used-var: none)
+  }
+
+  // Return the first variable's names (they're identical) and the common term
+  (common-term: common-term, names: names1, used-var: var1)
+}
+
 /// Handle <names> element
 /// Uses stack-based interpreter internally for substitute processing
 /// The third parameter is ignored (kept for dispatch table compatibility)
@@ -27,15 +105,23 @@
   let children = node.at("children", default: ())
   let var-names = attrs.at("variable", default: "author").split(" ")
 
-  // Try each variable in order
-  let names = none
-  let used-var = none
-  for var-name in var-names {
-    let candidate = ctx.parsed-names.at(var-name, default: ())
-    if candidate.len() > 0 {
-      names = candidate
-      used-var = var-name
-      break
+  // Check for merged editor-translator pattern first
+  // CSL spec: When variable="editor translator" and both have identical names,
+  // render once with "editortranslator" label
+  let common-term-result = get-common-term-for-variables(var-names, ctx)
+  let common-term = common-term-result.common-term
+  let names = common-term-result.names
+  let used-var = common-term-result.used-var
+
+  // If no common term match, try each variable in order (standard behavior)
+  if names == none {
+    for var-name in var-names {
+      let candidate = ctx.parsed-names.at(var-name, default: ())
+      if candidate.len() > 0 {
+        names = candidate
+        used-var = var-name
+        break
+      }
     }
   }
 
@@ -197,7 +283,9 @@
       let label-attrs = label-node.at("attrs", default: (:))
       let form = label-attrs.at("form", default: "long")
       let plural = names.len() > 1
-      let term = lookup-term(ctx, used-var, form: form, plural: plural)
+      // Use common term (e.g., "editortranslator") if available, otherwise use variable name
+      let term-name = if common-term != none { common-term } else { used-var }
+      let term = lookup-term(ctx, term-name, form: form, plural: plural)
       // Only apply formatting if term is non-empty (to avoid prefix/suffix on empty content)
       if term == "" { [] } else { finalize(term, label-attrs) }
     } else { [] }

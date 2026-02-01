@@ -260,9 +260,9 @@
 /// Check if variable exists and has value
 /// Handles both regular variables (fields) and name variables (names dict)
 #let has-variable(ctx, name) = {
-  // Name variables are stored in ctx.names, not ctx.fields
+  // Name variables are stored in ctx.parsed-names, not ctx.fields
   if name in NAME-VARS {
-    let names = ctx.at("names", default: (:))
+    let names = ctx.at("parsed-names", default: (:))
     let name-list = names.at(name, default: ())
     return name-list.len() > 0
   }
