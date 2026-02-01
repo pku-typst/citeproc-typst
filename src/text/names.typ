@@ -249,6 +249,7 @@
   let prefix = name.at("prefix", default: "") // non-dropping-particle
   let dropping-prefix = name.at("dropping-prefix", default: "") // dropping-particle
   let suffix = name.at("suffix", default: "") // "Jr.", "III", etc.
+  let comma-suffix = name.at("comma-suffix", default: false) // true = add comma before suffix in display order
 
   let is-chinese = is-cjk-name(name)
 
@@ -307,7 +308,10 @@
           ". "
         }
         let initials = parts.map(p => {
-          if p.len() > 0 { upper(p.first()) + init-sep } else { "" }
+          let clusters = p.clusters()
+          if clusters.len() > 0 { upper(clusters.first()) + init-sep } else {
+            ""
+          }
         })
         formatted-given = initials.join("").trim(at: end)
       }
@@ -352,8 +356,18 @@
     }
 
     // Build initials with initialize-with after each
+    // CSL spec: lowercase particles (de, von, van, etc.) in given names are kept as-is
     let initials = parts.map(p => {
-      if p.len() > 0 { upper(p.first()) + initialize-with } else { "" }
+      if p.len() == 0 { "" } else if p == lower(p) {
+        // All lowercase = particle, keep as-is with space after
+        p + " "
+      } else {
+        // Use clusters() to correctly handle Unicode graphemes
+        let clusters = p.clusters()
+        if clusters.len() > 0 {
+          upper(clusters.first()) + initialize-with
+        } else { "" }
+      }
     })
 
     // Join with hyphen if needed
@@ -441,7 +455,14 @@
     } else {
       result.push(formatted-family)
     }
-    if suffix != "" { result.push(suffix) }
+    // In display order, comma-suffix=true adds comma before suffix
+    if suffix != "" {
+      if comma-suffix {
+        // Join what we have, then add ", Suffix"
+        return result.join(" ") + ", " + suffix
+      }
+      result.push(suffix)
+    }
     result.join(" ")
   }
 }
@@ -553,19 +574,42 @@
     }
   }
 
-  // Get delimiters
+  // Get delimiters with inheritance: name attrs -> citation/bib level -> style level
   let delimiter = attrs.at("delimiter", default: ctx.style.name-delimiter)
-  let and-mode = attrs.at("and", default: ctx.style.and-term) // "text", "symbol", or none
+
+  // Resolve "and" with fallback to citation level, then style level
+  let and-mode = attrs.at("and", default: none)
+  if and-mode == none { and-mode = ctx.at("citation-and", default: none) }
+  if and-mode == none { and-mode = ctx.style.and-term }
+
+  // Resolve delimiter-precedes-last with fallback
   let delimiter-precedes-last = attrs.at(
     "delimiter-precedes-last",
-    default: "contextual",
+    default: none,
   )
+  if delimiter-precedes-last == none {
+    delimiter-precedes-last = ctx.at(
+      "citation-delimiter-precedes-last",
+      default: none,
+    )
+  }
+  if delimiter-precedes-last == none { delimiter-precedes-last = "contextual" }
+
   // CSL spec: delimiter-precedes-et-al controls delimiter before "et al."
   // Default is "contextual" (delimiter only if list has 2+ names)
   let delimiter-precedes-et-al = attrs.at(
     "delimiter-precedes-et-al",
-    default: "contextual",
+    default: none,
   )
+  if delimiter-precedes-et-al == none {
+    delimiter-precedes-et-al = ctx.at(
+      "citation-delimiter-precedes-et-al",
+      default: none,
+    )
+  }
+  if delimiter-precedes-et-al == none {
+    delimiter-precedes-et-al = "contextual"
+  }
 
   // Get the "and" term
   let and-term = if and-mode == "symbol" {

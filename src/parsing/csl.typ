@@ -279,6 +279,16 @@
       != none {
       int(citation-node.attrs.at("et-al-subsequent-use-first"))
     } else { none },
+    // Name formatting options (inheritable)
+    "and": citation-node.attrs.at("and", default: none),
+    delimiter-precedes-et-al: citation-node.attrs.at(
+      "delimiter-precedes-et-al",
+      default: none,
+    ),
+    delimiter-precedes-last: citation-node.attrs.at(
+      "delimiter-precedes-last",
+      default: none,
+    ),
     // Layouts (CSL-M: may have locale-specific variants)
     layouts: layouts.map(l => (
       locale: l.attrs.at("locale", default: none),
@@ -351,6 +361,16 @@
     ),
     et-al-use-last: bib-node.attrs.at("et-al-use-last", default: "false").trim()
       == "true",
+    // Name formatting options (inheritable)
+    "and": bib-node.attrs.at("and", default: none),
+    "delimiter-precedes-et-al": bib-node.attrs.at(
+      "delimiter-precedes-et-al",
+      default: none,
+    ),
+    "delimiter-precedes-last": bib-node.attrs.at(
+      "delimiter-precedes-last",
+      default: none,
+    ),
     // Layouts (may have locale-specific variants)
     // Note: suffix defaults to empty - CSL puts suffix on child elements, not layout
     layouts: layouts.map(l => (

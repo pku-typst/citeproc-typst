@@ -113,6 +113,41 @@
   let names = common-term-result.names
   let used-var = common-term-result.used-var
 
+  // Check for form="count" - special handling for multiple variables
+  // CSL spec: form="count" returns the total count of names across all variables
+  let name-node = children.find(c => (
+    type(c) == dictionary and c.at("tag", default: "") == "name"
+  ))
+  let name-attrs = if name-node != none {
+    name-node.at("attrs", default: (:))
+  } else { (:) }
+  let name-form = name-attrs.at("form", default: "long")
+
+  if name-form == "count" {
+    // For form="count", sum the counts from ALL variables (after et-al truncation each)
+    import "../text/names.typ": _resolve-et-al-settings
+    let total-count = 0
+    for var-name in var-names {
+      let var-names-list = ctx.parsed-names.at(var-name, default: ())
+      if var-names-list.len() > 0 {
+        // Apply et-al truncation per CSL spec
+        let et-al = _resolve-et-al-settings(name-attrs, ctx)
+        let use-et-al = (
+          var-names-list.len() >= et-al.et-al-min
+            and et-al.et-al-use-first < var-names-list.len()
+        )
+        let show-count = if use-et-al { et-al.et-al-use-first } else {
+          var-names-list.len()
+        }
+        total-count += show-count
+      }
+    }
+    if total-count > 0 {
+      return finalize(str(total-count), attrs)
+    }
+    // Fall through to substitute handling if no names found
+  }
+
   // If no common term match, try each variable in order (standard behavior)
   if names == none {
     for var-name in var-names {

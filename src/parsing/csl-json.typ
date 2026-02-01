@@ -493,6 +493,7 @@
               suffix: n.at("suffix", default: ""),
               prefix: n.at("non-dropping-particle", default: ""),
               dropping-prefix: n.at("dropping-particle", default: ""),
+              comma-suffix: n.at("comma-suffix", default: false),
               literal: n.at("literal", default: ""),
             )
           } else if type(n) == str {
@@ -503,6 +504,7 @@
               suffix: "",
               prefix: "",
               dropping-prefix: "",
+              comma-suffix: false,
               literal: n,
             )
           } else {
@@ -512,6 +514,7 @@
               suffix: "",
               prefix: "",
               dropping-prefix: "",
+              comma-suffix: false,
               literal: "",
             )
           }
