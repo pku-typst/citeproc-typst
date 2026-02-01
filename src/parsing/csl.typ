@@ -450,10 +450,18 @@
       let lang-base = create-fallback-locale(lang)
       let lang-locale = merge-locales(lang-base, parsed)
       locales.insert(lang, lang-locale)
-    }
 
-    // Also merge into default locale (CSL fallback behavior)
-    merged-locale = merge-locales(merged-locale, parsed)
+      // Only merge into default locale if lang matches default-locale prefix
+      // e.g., "en" matches "en-US", "es" matches "es-ES"
+      let default-prefix = default-locale.split("-").first()
+      let lang-prefix = lang.split("-").first()
+      if lang-prefix == default-prefix {
+        merged-locale = merge-locales(merged-locale, parsed)
+      }
+    } else {
+      // Locale without lang applies to all (merge into default)
+      merged-locale = merge-locales(merged-locale, parsed)
+    }
   }
 
   // Ensure default locale is in the locales dict

@@ -231,6 +231,8 @@ Without the hack, this group would be suppressed when `year-suffix` is empty (pe
 - Editor-translator merging: When `variable="editor translator"` and both contain identical names, now correctly uses `editortranslator` term for label
 - Note field variable parsing: Extracts CSL variables embedded in `note` field (e.g., `reviewed-title: value`, `reviewed-author: Family || Given`)
 - Fixed `has-variable` for name variables: Now correctly checks `ctx.parsed-names` instead of wrong key
+- Term lookup fallback chain: `verb-short` now correctly falls back to `verb` form (e.g., "by" for reviewed-author)
+- Locale merging fix: Inline locale blocks (e.g., `<locale xml:lang="es">`) no longer incorrectly merge into default locale
 
 ### Remaining Issues
 
@@ -259,18 +261,17 @@ Complex GOST-style Russian bibliography with editor/translator handling. This st
 
 ---
 
-#### 3. Note Field Variable Parsing (Implemented)
+#### 3. Note Field Variable Parsing (Fixed)
 
-**Test:** `label_NameLabelThroughSubstitute`
+**Test:** `label_NameLabelThroughSubstitute` - NOW PASSING
 
-citeproc-js parses the `note` field to extract additional CSL variables like `reviewed-title`, `genre`, and `reviewed-author`. This allows rendering of content like `[Peer commentary, <i>Decrease of Deaf potential...</i>]`.
+citeproc-js parses the `note` field to extract additional CSL variables like `reviewed-title`, `genre`, and `reviewed-author`.
 
-**Our Status:** Implemented in `src/parsing/csl-json.typ`. The `parse-note-field-vars` function extracts:
+**Fixes Applied:**
 
-- Text variables (e.g., `reviewed-title: value`, `genre: value`)
-- Name variables (e.g., `reviewed-author: Family || Given`)
-
-**Remaining difference:** HTML tag `<i>` vs `<em>` for italics - both render correctly, just different serialization.
+1. Note field parsing in `src/parsing/csl-json.typ` - extracts text and name variables
+2. Term lookup fallback chain in `src/parsing/locales/mod.typ` - `verb-short` falls back to `verb` (renders "by" for reviewed-author)
+3. Locale merging in `src/parsing/csl.typ` - language-specific inline locales no longer pollute default locale
 
 ---
 

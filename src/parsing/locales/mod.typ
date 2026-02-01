@@ -249,14 +249,52 @@
 // =============================================================================
 
 /// Look up a term from locale
+///
+/// CSL term lookup follows this fallback chain:
+/// 1. Exact form match (e.g., "reviewed-author-verb-short")
+/// 2. Form base fallback (e.g., "verb-short" -> "verb", "short" -> "long")
+/// 3. Base term name (e.g., "reviewed-author")
 #let lookup-term(ctx, name, form: "long", plural: false) = {
-  let key = if form == "long" { name } else { name + "-" + form }
+  let terms = ctx.locale.terms
 
-  let term-value = ctx.locale.terms.at(key, default: none)
-  if term-value == none {
-    term-value = ctx.locale.terms.at(name, default: "")
+  // Build list of keys to try in order
+  let keys-to-try = ()
+
+  if form == "long" {
+    keys-to-try = (name,)
+  } else if form == "verb-short" {
+    // verb-short -> verb -> base
+    keys-to-try = (name + "-verb-short", name + "-verb", name)
+  } else if form == "short" {
+    // short -> long (base)
+    keys-to-try = (name + "-short", name)
+  } else if form == "verb" {
+    // verb -> base
+    keys-to-try = (name + "-verb", name)
+  } else if form == "symbol" {
+    // symbol -> short -> base
+    keys-to-try = (name + "-symbol", name + "-short", name)
+  } else {
+    // Generic fallback
+    keys-to-try = (name + "-" + form, name)
   }
 
+  // Try each key in order
+  let term-value = none
+  for key in keys-to-try {
+    let val = terms.at(key, default: none)
+    if val != none {
+      term-value = val
+      break
+    }
+  }
+
+  // If still none, return empty string
+  if term-value == none {
+    return ""
+  }
+
+  // Handle singular/plural dictionary format
   if type(term-value) == dictionary {
     if plural {
       term-value.at("multiple", default: term-value.at("single", default: ""))
