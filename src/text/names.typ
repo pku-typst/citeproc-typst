@@ -1047,12 +1047,32 @@
         // "always": always add delimiter
         // "never": never add delimiter (just space)
         // "after-inverted-name": delimiter only after inverted name
-        let use-delimiter-before-et-al = (
-          (delimiter-precedes-et-al == "always")
-            or (
-              delimiter-precedes-et-al == "contextual" and formatted.len() >= 2
+        let use-delimiter-before-et-al = if delimiter-precedes-et-al == "always" {
+          true
+        } else if delimiter-precedes-et-al == "contextual" {
+          formatted.len() >= 2
+        } else if delimiter-precedes-et-al == "after-inverted-name" {
+          // Check if the last shown name is inverted
+          let name-as-sort-order = _resolve-name-attr(
+            "name-as-sort-order",
+            attrs,
+            ctx,
+          )
+          let last-shown-idx = show-count - 1
+          let last-shown-name = names.at(last-shown-idx, default: (:))
+          let is-literal = last-shown-name.at("literal", default: "") != ""
+          if is-literal {
+            false
+          } else {
+            let pos = last-shown-idx + 1
+            name-as-sort-order == "all" or (
+              name-as-sort-order == "first" and pos == 1
             )
-        )
+          }
+        } else {
+          // "never" or unknown
+          false
+        }
 
         if use-delimiter-before-et-al {
           [#result#delimiter#et-al]
