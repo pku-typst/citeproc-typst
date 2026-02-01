@@ -219,7 +219,13 @@
     // CSL spec: Content is plural when it contains multiple numbers
     // (e.g. "pages 1-3", "volumes 2 & 4")
     // Non-numeric content like "Michaelson-Morely" is NOT plural
-    let plural = _is-plural-value(val-str)
+    // Special case: number-of-* variables are plural when value > 1
+    let plural = if var-name.starts-with("number-of-") {
+      let num = safe-int(val-str)
+      num != none and num > 1
+    } else {
+      _is-plural-value(val-str)
+    }
 
     // CSL spec: for locator variable, use locator-label to determine the term
     // e.g., locator-label="page" → lookup term "page" → "p." or "pp."

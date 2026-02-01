@@ -229,9 +229,14 @@
     return ""
   }
 
-  // Standard mapping
-  let field-name = _field-map.at(name, default: name)
-  let value = fields.at(field-name, default: "")
+  // Standard mapping - try original name first (CSL-JSON), then mapped name (BibTeX)
+  let value = fields.at(name, default: "")
+  if value == "" {
+    let field-name = _field-map.at(name, default: name)
+    if field-name != name {
+      value = fields.at(field-name, default: "")
+    }
+  }
 
   // Apply abbreviations if available
   let abbrevs = ctx.at("abbreviations", default: (:))

@@ -199,9 +199,19 @@
         } else { "after" }
       } else { "after" }
 
+      // If label has its own prefix, use it directly; otherwise use names delimiter
+      let label-attrs = if label-node != none {
+        label-node.at("attrs", default: (:))
+      } else { (:) }
+      let label-has-prefix = label-attrs.at("prefix", default: "") != ""
+
       if label-position == "before" {
         [#label-content #names-content]
+      } else if label-has-prefix {
+        // Label has prefix - no extra delimiter needed
+        [#names-content#label-content]
       } else {
+        // No prefix on label - use names delimiter
         [#names-content#attrs.at("delimiter", default: ", ")#label-content]
       }
     } else { names-content }
