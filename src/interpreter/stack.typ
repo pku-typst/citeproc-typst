@@ -23,7 +23,7 @@
 //   - Variables rendered through <substitute> are added to done-vars
 //   - Subsequent references to those variables produce no output
 
-#import "../core/mod.typ": finalize, is-empty
+#import "../core/mod.typ": apply-text-case, finalize, is-empty
 #import "../data/conditions.typ": eval-condition
 #import "../data/variables.typ": get-variable
 #import "../parsing/mod.typ": lookup-term
@@ -104,17 +104,21 @@
           format-page-range(val, format: page-format, ctx: ctx)
         } else { val }
 
-        // Apply quotes if requested
+        // Apply text-case FIRST while content is still a string
+        // CSL spec: text-case transformation happens before quotes are added
+        let cased = apply-text-case(result, attrs)
+
+        // Apply quotes if requested (after text-case)
         // Track quote nesting level in context for proper flip-flopping
         let quote-level = ctx.at("quote-level", default: 0)
         let quoted = if attrs.at("quotes", default: "false") == "true" {
           // Transform embedded quotes in content based on current level + 1
           // (since we're about to add outer quotes at current level)
-          let flipped = if type(result) == str {
-            transform-quotes-at-level(result, ctx, quote-level + 1)
-          } else { result }
+          let flipped = if type(cased) == str {
+            transform-quotes-at-level(cased, ctx, quote-level + 1)
+          } else { cased }
           apply-quotes(flipped, ctx, level: quote-level)
-        } else { result }
+        } else { cased }
 
         (finalize(quoted, attrs), "var", ()) // Variable has output
       } else {

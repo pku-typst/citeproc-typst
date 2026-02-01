@@ -11,7 +11,7 @@
   strip-periods-from-str, zero-pad,
 )
 
-#import "formatting.typ": apply-formatting, finalize
+#import "formatting.typ": apply-formatting, apply-text-case, finalize
 
 #import "context.typ": (
   create-context, with-author-substitute, with-citation-et-al,

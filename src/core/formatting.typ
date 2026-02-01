@@ -39,6 +39,20 @@
   "up",
   "via",
   "with",
+  // Name particles (should stay lowercase)
+  "von",
+  "van",
+  "de",
+  "du",
+  "la",
+  "le",
+  "der",
+  "den",
+  "und",  // German "and"
+  // Common foreign minor words
+  "y",    // Spanish "and"
+  "e",    // Italian/Portuguese "and"
+  "et",   // Latin/French "and"
 )
 
 // Characters that start a new "sentence" in title case
@@ -256,6 +270,40 @@
   }
   
   result.join("")
+}
+
+/// Apply text-case transformation only (for use before quotes are added)
+/// This is separate from apply-formatting because text-case only works on strings,
+/// and quotes convert strings to content.
+#let apply-text-case(content, attrs) = {
+  if content == [] or content == "" { return content }
+  if type(content) != str { return content }
+  
+  let text-case = attrs.at("text-case", default: none)
+  if text-case == none { return content }
+  
+  let result = content
+  if text-case == "lowercase" {
+    result = lower(result)
+  } else if text-case == "uppercase" {
+    result = upper(result)
+  } else if text-case == "capitalize-first" and result.len() > 0 {
+    result = capitalize-first-char(result)
+  } else if text-case == "capitalize-all" {
+    result = result
+      .split(" ")
+      .map(w => if w.len() > 0 { capitalize-first-char(w) } else { w })
+      .join(" ")
+  } else if text-case == "title" {
+    result = _apply-title-case(result)
+  } else if text-case == "sentence" {
+    let lowered = lower(result)
+    if lowered.len() > 0 {
+      let clusters = lowered.clusters()
+      result = upper(clusters.first()) + clusters.slice(1).join()
+    }
+  }
+  result
 }
 
 /// Apply CSL formatting attributes to content
