@@ -3,6 +3,7 @@
 // Parses CSL XML into a structured Typst object
 
 #import "locales/mod.typ": create-fallback-locale
+#import "../core/utils.typ": safe-int
 
 /// Find a child element by tag name
 #let find-child(node, tag) = {
@@ -339,10 +340,16 @@
     // CSL spec: check if year-suffix is explicitly rendered via <text variable="year-suffix"/>
     // If true, year-suffix is NOT auto-appended to dates; if false, it IS auto-appended
     has-explicit-year-suffix: _has-explicit-year-suffix(bib-node),
-    // Et-al settings
-    et-al-min: int(bib-node.attrs.at("et-al-min", default: "4")),
-    et-al-use-first: int(bib-node.attrs.at("et-al-use-first", default: "3")),
-    et-al-use-last: bib-node.attrs.at("et-al-use-last", default: "false")
+    // Et-al settings (use safe-int to handle malformed CSL with trailing spaces)
+    et-al-min: safe-int(
+      bib-node.attrs.at("et-al-min", default: none),
+      default: 4,
+    ),
+    et-al-use-first: safe-int(
+      bib-node.attrs.at("et-al-use-first", default: none),
+      default: 3,
+    ),
+    et-al-use-last: bib-node.attrs.at("et-al-use-last", default: "false").trim()
       == "true",
     // Layouts (may have locale-specific variants)
     // Note: suffix defaults to empty - CSL puts suffix on child elements, not layout

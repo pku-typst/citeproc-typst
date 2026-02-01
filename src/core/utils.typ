@@ -9,9 +9,25 @@
 // Pattern for stripping periods after letters (preserves periods in numbers)
 #let _period-after-letter-pattern = regex("([a-zA-Z\\u{00C0}-\\u{024F}])\\.")
 
+// Pattern for extracting leading integer (including negative)
+#let _leading-int-pattern = regex("^-?\\d+")
+
 // =============================================================================
 // String Utilities
 // =============================================================================
+
+/// Safely parse an integer from a string
+///
+/// - s: String to parse
+/// - default: Default value if parsing fails (default: none)
+/// Returns: Parsed integer or default value
+#let safe-int(s, default: none) = {
+  if s == none { return default }
+  let s = str(s).trim()
+  if s == "" { return default }
+  let m = s.match(_leading-int-pattern)
+  if m != none { int(m.text) } else { default }
+}
 
 /// Capitalize the first character of a string (Unicode-safe)
 #let capitalize-first-char(s) = {

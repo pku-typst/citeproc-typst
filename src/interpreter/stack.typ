@@ -20,7 +20,7 @@
 #import "../data/variables.typ": get-variable
 #import "../parsing/mod.typ": lookup-term
 #import "../text/ranges.typ": format-page-range
-#import "../text/quotes.typ": apply-quotes
+#import "../text/quotes.typ": apply-quotes, transform-quotes-at-level
 #import "names.typ": handle-names
 #import "date.typ": handle-date
 #import "number.typ": handle-label, handle-number
@@ -90,8 +90,15 @@
         } else { val }
 
         // Apply quotes if requested
+        // Track quote nesting level in context for proper flip-flopping
+        let quote-level = ctx.at("quote-level", default: 0)
         let quoted = if attrs.at("quotes", default: "false") == "true" {
-          apply-quotes(result, ctx, level: 0)
+          // Transform embedded quotes in content based on current level + 1
+          // (since we're about to add outer quotes at current level)
+          let flipped = if type(result) == str {
+            transform-quotes-at-level(result, ctx, quote-level + 1)
+          } else { result }
+          apply-quotes(flipped, ctx, level: quote-level)
         } else { result }
 
         (finalize(quoted, attrs), "var") // Variable has output
@@ -100,10 +107,14 @@
       }
     } else if "value" in attrs {
       let result = attrs.value
+      let quote-level = ctx.at("quote-level", default: 0)
       let quoted = if (
         attrs.at("quotes", default: "false") == "true" and not is-empty(result)
       ) {
-        apply-quotes(result, ctx, level: 0)
+        let flipped = if type(result) == str {
+          transform-quotes-at-level(result, ctx, quote-level + 1)
+        } else { result }
+        apply-quotes(flipped, ctx, level: quote-level)
       } else { result }
       (finalize(quoted, attrs), "none") // Literal value, no variable reference
     } else if "term" in attrs {

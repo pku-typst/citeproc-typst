@@ -7,8 +7,8 @@
 )
 
 #import "utils.typ": (
-  capitalize-first-char, is-empty, join-with-delimiter, strip-periods-from-str,
-  zero-pad,
+  capitalize-first-char, is-empty, join-with-delimiter, safe-int,
+  strip-periods-from-str, zero-pad,
 )
 
 #import "formatting.typ": apply-formatting, finalize

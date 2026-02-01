@@ -10,6 +10,6 @@
   format-date, format-date-part, format-date-with-form, parse-bibtex-date,
 )
 
-#import "quotes.typ": apply-quotes, flipflop-quotes
+#import "quotes.typ": apply-quotes, transform-quotes-at-level
 
 #import "ranges.typ": format-page-range, format-year-range
