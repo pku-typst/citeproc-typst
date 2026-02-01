@@ -6,60 +6,6 @@
 #import "constants.typ": POSITION
 
 // =============================================================================
-// Label Encoding/Decoding
-// =============================================================================
-// Uses a safe encoding scheme that handles any characters in keys/locators.
-// Format: "citeproc:" + base64-like encoding of JSON data
-// This avoids issues with separator characters appearing in user data.
-
-/// Encode citation data into a safe label string
-///
-/// - key: Citation key
-/// - locator: Optional locator
-/// - form: Optional form
-/// Returns: Encoded string safe for use as a label
-#let _encode-cite-label(key, locator, form) = {
-  // Use repr() for safe serialization, join with newlines (safe in labels)
-  // Format: "citeproc\n{key}\n{repr(locator)}\n{repr(form)}"
-  "citeproc\n" + key + "\n" + repr(locator) + "\n" + repr(form)
-}
-
-/// Decode citation data from a label string
-///
-/// - label-str: The label string to decode
-/// Returns: (key: str, locator: any, form: any) or none if invalid
-#let _decode-cite-label(label-str) = {
-  if not label-str.starts-with("citeproc\n") { return none }
-
-  let parts = label-str.split("\n")
-  if parts.len() < 4 { return none }
-
-  let key = parts.at(1)
-  let locator-repr = parts.at(2, default: "none")
-  let form-repr = parts.at(3, default: "none")
-
-  // Parse locator back from repr
-  let locator = if locator-repr == "none" {
-    none
-  } else if locator-repr.starts-with("\"") and locator-repr.ends-with("\"") {
-    locator-repr.slice(1, -1)
-  } else {
-    locator-repr
-  }
-
-  // Parse form back from repr
-  let form = if form-repr == "none" {
-    none
-  } else if form-repr.starts-with("\"") and form-repr.ends-with("\"") {
-    form-repr.slice(1, -1)
-  } else {
-    form-repr
-  }
-
-  (key: key, locator: locator, form: form)
-}
-
-// =============================================================================
 // Core State Variables
 // =============================================================================
 
@@ -96,21 +42,18 @@
 ///
 /// Design:
 /// - Global counter (_cite-global-idx) provides O(1) index into pre-rendered citations
-/// - Fixed metadata value "citeproc-cite" enables efficient metadata.where() query
-/// - Safe label encoding handles any characters in keys/locators
+/// - Citation data stored in metadata value (preserves content types like locator)
+/// - Fixed label enables efficient query(<citeproc-cite>)
 ///
 /// - key: Citation key
-/// - locator: Optional locator (page, chapter, etc.)
+/// - locator: Optional locator (page, chapter, etc.) - can be content
 /// - form: Optional citation form (prose, author, year, etc.)
 /// Returns: Content (invisible metadata)
 #let cite-marker(key, locator: none, form: none) = {
   // Step global counter FIRST for consistent indexing
   _cite-global-idx.step()
-  // Safe encoding that handles any characters in key/locator/form
-  let encoded = _encode-cite-label(key, locator, form)
-  let lbl = label(encoded)
-  // Fixed value for efficient metadata.where() query
-  [#metadata("citeproc-cite")#lbl]
+  // Store data in metadata value - preserves original types (content, etc.)
+  [#metadata((key: key, locator: locator, form: form))<citeproc-cite>]
 }
 
 /// Collect all citations from the document
@@ -123,8 +66,8 @@
 /// - count: total unique citations
 /// - first-note-numbers: key -> note number of first occurrence (for note styles)
 #let collect-citations() = {
-  // Efficient query using fixed metadata value
-  let cites = query(metadata.where(value: "citeproc-cite"))
+  // Query using fixed label - data is in metadata value
+  let cites = query(<citeproc-cite>)
 
   let result = (
     order: (:),
@@ -139,14 +82,11 @@
   let prev-key = none
 
   for c in cites {
-    // Decode label using safe encoding
-    let label-str = str(c.label)
-    let decoded = _decode-cite-label(label-str)
-    if decoded == none { continue }
-
-    let key = decoded.key
-    let locator = decoded.locator
-    let form = decoded.form
+    // Data is stored directly in metadata value - no decoding needed
+    let data = c.value
+    let key = data.key
+    let locator = data.locator
+    let form = data.form
 
     // Positions key for O(1) lookup (uses repr for consistency)
     let positions-key = key + "\n" + repr(locator)
