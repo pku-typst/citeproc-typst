@@ -919,9 +919,11 @@
 
   // Get the "and" term
   let and-term = if and-mode == "symbol" {
-    lookup-term(ctx, "and", form: "symbol")
+    let term = lookup-term(ctx, "and", form: "symbol")
+    if term != none { term } else { "&" }
   } else if and-mode == "text" {
-    lookup-term(ctx, "and", form: "long")
+    let term = lookup-term(ctx, "and", form: "long")
+    if term != none { term } else { "and" }
   } else {
     none
   }
@@ -1029,7 +1031,10 @@
       // CSL spec: "followed by the name delimiter, the ellipsis character, and the last name"
       [#result#delimiter … #last-name]
     } else {
-      let et-al-text = lookup-term(ctx, et-al-term, form: "long")
+      let et-al-text-raw = lookup-term(ctx, et-al-term, form: "long")
+      let et-al-text = if et-al-text-raw != none { et-al-text-raw } else {
+        "et al."
+      }
 
       // If et-al term is empty (e.g., "and others" defined as empty), skip et-al entirely
       if et-al-text == "" {
@@ -1259,8 +1264,10 @@
 
   // Add unaffiliated authors at the beginning with "with" term
   let result = if unaffiliated.len() > 0 and formatted-groups.len() > 0 {
-    let with-term = lookup-term(ctx, "with", form: "long")
-    if with-term == "" { with-term = "with" }
+    let with-term-raw = lookup-term(ctx, "with", form: "long")
+    let with-term = if with-term-raw != none and with-term-raw != "" {
+      with-term-raw
+    } else { "with" }
     let unaffiliated-formatted = format-names(
       unaffiliated,
       attrs,

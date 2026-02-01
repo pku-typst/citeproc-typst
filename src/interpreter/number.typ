@@ -80,7 +80,8 @@
   if last-two >= 10 {
     let key = "ordinal-" + zero-pad(last-two, 2)
     let suffix = lookup-term(ctx, key, form: "long", plural: false)
-    if suffix != "" and suffix != key {
+    // Check for valid suffix: not none (undefined) and not empty string
+    if suffix != none and suffix != "" and suffix != key {
       return suffix
     }
   }
@@ -88,12 +89,17 @@
   // Try ordinal-00 through ordinal-09 (last-digit matching by default)
   let single-key = "ordinal-" + zero-pad(last-one, 2)
   let single-suffix = lookup-term(ctx, single-key, form: "long", plural: false)
-  if single-suffix != "" and single-suffix != single-key {
+  if (
+    single-suffix != none
+      and single-suffix != ""
+      and single-suffix != single-key
+  ) {
     return single-suffix
   }
 
   // Fallback to generic ordinal term
-  lookup-term(ctx, "ordinal", form: "long", plural: false)
+  let generic = lookup-term(ctx, "ordinal", form: "long", plural: false)
+  if generic != none { generic } else { "" }
 }
 
 /// Handle <number> element
@@ -119,8 +125,12 @@
           form: "long",
           plural: false,
         )
-        // Fall back to ordinal if long-ordinal not defined
-        if long-ordinal == "" or long-ordinal.starts-with("long-ordinal-") {
+        // Fall back to ordinal if long-ordinal not defined or empty
+        if (
+          long-ordinal == none
+            or long-ordinal == ""
+            or long-ordinal.starts-with("long-ordinal-")
+        ) {
           str(num) + _get-ordinal-suffix(num, ctx)
         } else {
           long-ordinal
@@ -177,7 +187,7 @@
     let term-short-pl = lookup-term(ctx, term-name, form: "short", plural: true)
 
     for term in (term-long, term-long-pl, term-short, term-short-pl) {
-      if term != "" and lower-val.starts-with(lower(term)) {
+      if term != none and term != "" and lower-val.starts-with(lower(term)) {
         return true
       }
     }
@@ -225,6 +235,7 @@
     }
 
     let result = lookup-term(ctx, term-name, form: form, plural: plural)
-    finalize(result, attrs)
+    let term-str = if result != none { result } else { "" }
+    finalize(term-str, attrs)
   }
 }

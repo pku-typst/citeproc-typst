@@ -303,7 +303,7 @@
   // Replace "&" with localized "and" term (symbol form)
   if result.contains("&") {
     let and-term = lookup-term(ctx, "and", form: "symbol", plural: false)
-    if and-term != "" {
+    if and-term != none and and-term != "" {
       result = result.replace("&", and-term)
     }
   }

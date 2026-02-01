@@ -199,9 +199,11 @@
     }
   }
 
-  // If still none, return empty string
+  // If term is not found, return none (distinct from empty string term)
+  // CSL spec: "terms can be defined as empty strings (e.g. <term name="and"/>)"
+  // An empty term definition is different from an undefined term
   if term-value == none {
-    return ""
+    return none
   }
 
   // Handle singular/plural dictionary format

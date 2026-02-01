@@ -77,7 +77,8 @@
   //    "don't use combined rendering" even if short form exists from built-in
   let term-value = lookup-term(ctx, common-term, form: "long", plural: false)
 
-  if term-value == "" {
+  // If term is undefined (none) or empty, don't use combined rendering
+  if term-value == none or term-value == "" {
     return (common-term: none, names: none, used-var: none)
   }
 
@@ -315,12 +316,45 @@
           sub-child
         }
 
-        let rendered = interpret-children-stack((child-to-render,), ctx)
-        if not is-empty(rendered) {
-          sub-result = rendered
-          // CSL Substitute Quashing: mark rendered variables as "done"
-          sub-done-vars = child-var
-          break // Use first non-empty result only
+        // Special handling for <text term="..."/>: CSL spec says "Fallback stops once
+        // a localizable unit has been found. For terms, this even is the case when
+        // they are defined as empty strings"
+        let is-term-element = (
+          type(sub-child) == dictionary
+            and sub-child.at("tag", default: "") == "text"
+            and "term" in sub-child.at("attrs", default: (:))
+        )
+
+        if is-term-element {
+          // Check if term is defined (even if empty)
+          let term-name = sub-child
+            .at("attrs", default: (:))
+            .at("term", default: "")
+          let form = sub-child
+            .at("attrs", default: (:))
+            .at("form", default: "long")
+          let term-value = lookup-term(
+            ctx,
+            term-name,
+            form: form,
+            plural: false,
+          )
+          if term-value != none {
+            // Term is defined (even if empty) - use it and stop
+            let rendered = interpret-children-stack((child-to-render,), ctx)
+            sub-result = rendered
+            sub-done-vars = child-var
+            break
+          }
+          // Term is undefined - continue to next substitute child
+        } else {
+          let rendered = interpret-children-stack((child-to-render,), ctx)
+          if not is-empty(rendered) {
+            sub-result = rendered
+            // CSL Substitute Quashing: mark rendered variables as "done"
+            sub-done-vars = child-var
+            break // Use first non-empty result only
+          }
         }
       }
       // CSL spec: substitute output should still have parent <names> element's
@@ -442,8 +476,8 @@
       // Use common term (e.g., "editortranslator") if available, otherwise use variable name
       let term-name = if common-term != none { common-term } else { used-var }
       let term = lookup-term(ctx, term-name, form: form, plural: plural)
-      // Only apply formatting if term is non-empty (to avoid prefix/suffix on empty content)
-      if term == "" { [] } else { finalize(term, label-attrs) }
+      // Only apply formatting if term is defined and non-empty (to avoid prefix/suffix on empty content)
+      if term == none or term == "" { [] } else { finalize(term, label-attrs) }
     } else { [] }
 
     // Format names (with institution support if cs:institution is present)

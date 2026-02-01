@@ -136,7 +136,10 @@
       let form = attrs.at("form", default: "long")
       let plural = attrs.at("plural", default: "false") == "true"
       let result = lookup-term(ctx, attrs.term, form: form, plural: plural)
-      (finalize(result, attrs), "none", ()) // Term, no variable reference
+      // Term can be none (undefined) or "" (defined as empty)
+      // Both render as empty, but the distinction matters for substitute logic
+      let term-str = if result != none { result } else { "" }
+      (finalize(term-str, attrs), "none", ()) // Term, no variable reference
     } else {
       ([], "none", ())
     }
@@ -343,6 +346,9 @@
       // Merge done-vars from all children
       let merged-done-vars = ordered.map(r => r.at(2, default: ())).flatten()
 
+      // Accumulate done-vars for subsequent siblings in parent scope
+      accumulated-done-vars = accumulated-done-vars + merged-done-vars
+
       // Check var-states - apply group suppression to macros
       let states = ordered.map(r => r.at(1, default: "none"))
 
@@ -379,6 +385,9 @@
       // Merge done-vars from all children
       let merged-done-vars = ordered.map(r => r.at(2, default: ())).flatten()
 
+      // Accumulate done-vars for subsequent siblings in parent scope
+      accumulated-done-vars = accumulated-done-vars + merged-done-vars
+
       // Check var-states for group suppression
       let states = ordered.map(r => r.at(1, default: "none"))
 
@@ -400,9 +409,15 @@
         let prefix = meta.attrs.at("prefix", default: "")
         let suffix = meta.attrs.at("suffix", default: "")
         if not is-empty(joined) {
+          // CSL spec: "a non-empty nested cs:group is treated as a non-empty variable
+          // for the purposes of determining suppression of the outer cs:group"
+          // So a non-empty group should report "var" state even if it only contains terms/values
+          let final-state = if merged-state == "none" { "var" } else {
+            merged-state
+          }
           results.push((
             [#prefix#joined#suffix],
-            merged-state,
+            final-state,
             merged-done-vars,
           ))
         } else {
@@ -417,6 +432,9 @@
 
       // Merge done-vars from all children
       let merged-done-vars = ordered.map(r => r.at(2, default: ())).flatten()
+
+      // Accumulate done-vars for subsequent siblings in parent scope
+      accumulated-done-vars = accumulated-done-vars + merged-done-vars
 
       // Merge var-states
       let states = ordered.map(r => r.at(1, default: "none"))

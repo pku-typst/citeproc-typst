@@ -63,7 +63,7 @@
   if last-two >= 10 {
     let key = "ordinal-" + zero-pad(last-two, 2)
     let suffix = lookup-term(ctx, key, form: "long", plural: false)
-    if suffix != "" and suffix != key {
+    if suffix != none and suffix != "" and suffix != key {
       return suffix
     }
   }
@@ -71,13 +71,17 @@
   // Try ordinal-00 through ordinal-09
   let single-key = "ordinal-" + zero-pad(last-one, 2)
   let single-suffix = lookup-term(ctx, single-key, form: "long", plural: false)
-  if single-suffix != "" and single-suffix != single-key {
+  if (
+    single-suffix != none
+      and single-suffix != ""
+      and single-suffix != single-key
+  ) {
     return single-suffix
   }
 
   // Fallback to generic ordinal term
   let generic = lookup-term(ctx, "ordinal", form: "long", plural: false)
-  if generic != "" and generic != "ordinal" {
+  if generic != none and generic != "" and generic != "ordinal" {
     return generic
   }
 
@@ -250,11 +254,13 @@
     if year < 0 {
       // BC year
       let bc-term = lookup-term(ctx, "bc", form: "long", plural: false)
-      year-str + bc-term
+      let bc-str = if bc-term != none { bc-term } else { "BC" }
+      year-str + bc-str
     } else if year < 1000 {
       // AD year (before 1000)
       let ad-term = lookup-term(ctx, "ad", form: "long", plural: false)
-      year-str + ad-term
+      let ad-str = if ad-term != none { ad-term } else { "AD" }
+      year-str + ad-str
     } else {
       year-str
     }

@@ -116,6 +116,10 @@
     {
       "fixture": "name_ParticlesDemoteNonDroppingNever",
       "reason": "Test explicitly states it depends on citeproc-js specific formatting of particles and may not pass for other processors."
+    },
+    {
+      "fixture": "substitute_SuppressOrdinaryVariable",
+      "reason": "Expects macro-internal variable suppression (variables rendered by nested macro calls suppress subsequent sibling elements in the same macro). CSL spec only mandates 'substituted variables are suppressed in the rest of the output', not intra-macro sibling suppression. This appears to be citeproc-js specific behavior."
     }
   ]
 }
