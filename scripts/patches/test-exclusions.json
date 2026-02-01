@@ -120,6 +120,22 @@
     {
       "fixture": "substitute_SuppressOrdinaryVariable",
       "reason": "Expects macro-internal variable suppression (variables rendered by nested macro calls suppress subsequent sibling elements in the same macro). CSL spec only mandates 'substituted variables are suppressed in the rest of the output', not intra-macro sibling suppression. This appears to be citeproc-js specific behavior."
+    },
+    {
+      "fixture": "sort_CitationNumberPrimaryAscendingViaMacroCitation",
+      "reason": "Uses citeproc-js citation update format (>>[n] prefix) for testing dynamic citation updates. Not applicable to static Typst compilation."
+    },
+    {
+      "fixture": "sort_CitationNumberPrimaryAscendingViaVariableCitation",
+      "reason": "Uses citeproc-js citation update format (>>[n] prefix) for testing dynamic citation updates. Not applicable to static Typst compilation."
+    },
+    {
+      "fixture": "sort_AuthorDateWithYearSuffix",
+      "reason": "Uses citeproc-js citation update format (>>[n] prefix) for testing dynamic citation updates. Not applicable to static Typst compilation."
+    },
+    {
+      "fixture": "sort_GroupedByAuthorstring",
+      "reason": "Uses citeproc-js citation update format (>>[n] prefix) for testing dynamic citation updates. Not applicable to static Typst compilation."
     }
   ]
 }

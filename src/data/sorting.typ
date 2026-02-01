@@ -209,6 +209,34 @@
   0
 }
 
+/// Invert a string for descending sort (complement each character)
+///
+/// For proper descending sort with string comparison, we need to invert
+/// the string so that "larger" values become "smaller" in the inverted form.
+#let invert-for-descending(s) = {
+  if s == "" { return "" }
+  // For each character, compute its "complement" to reverse sort order
+  // We use a simple approach: prefix with "~" and negate digits
+  // Map: 0->9, 1->8, 2->7, 3->6, 4->5, 5->4, 6->3, 7->2, 8->1, 9->0
+  // For letters: a->z, b->y, etc.
+  s.codepoints().map(c => {
+    let code = c.to-unicode()
+    if code >= 0x30 and code <= 0x39 {
+      // Digit: 0-9 -> 9-0
+      str.from-unicode(0x39 - (code - 0x30))
+    } else if code >= 0x61 and code <= 0x7a {
+      // Lowercase: a-z -> z-a
+      str.from-unicode(0x7a - (code - 0x61))
+    } else if code >= 0x41 and code <= 0x5a {
+      // Uppercase: A-Z -> Z-A
+      str.from-unicode(0x5a - (code - 0x41))
+    } else {
+      // Keep other characters (like -)
+      c
+    }
+  }).join()
+}
+
 /// Sort entries by extracted sort keys
 ///
 /// - entries: Array of entry IRs with sort-keys populated
@@ -222,9 +250,12 @@
     e
       .sort-keys
       .map(k => {
-        // Prefix with order indicator for proper comparison
-        let prefix = if k.order == "descending" { "1" } else { "0" }
-        prefix + k.value
+        // For descending order, invert the value so string comparison works
+        if k.order == "descending" {
+          "1" + invert-for-descending(k.value)
+        } else {
+          "0" + k.value
+        }
       })
       .join("\x00") // Use null byte as separator (won't appear in text)
   })
