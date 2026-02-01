@@ -64,8 +64,13 @@
   // Fall back to bibliography setting
   let bib = ctx.style.at("bibliography", default: none)
   if bib != none {
-    return bib.at(bib-key, default: default-val)
+    let bib-val = bib.at(bib-key, default: none)
+    if bib-val != none { return bib-val }
   }
+
+  // Fall back to style-level setting
+  let style-val = ctx.style.at(bib-key, default: none)
+  if style-val != none { return style-val }
 
   default-val
 }
@@ -612,6 +617,7 @@
 
   // CSL spec: delimiter-precedes-et-al controls delimiter before "et al."
   // Default is "contextual" (delimiter only if list has 2+ names)
+  // Inheritance: name attrs -> citation/bib level -> style level -> default
   let delimiter-precedes-et-al = attrs.at(
     "delimiter-precedes-et-al",
     default: none,
@@ -619,6 +625,12 @@
   if delimiter-precedes-et-al == none {
     delimiter-precedes-et-al = ctx.at(
       "citation-delimiter-precedes-et-al",
+      default: none,
+    )
+  }
+  if delimiter-precedes-et-al == none {
+    delimiter-precedes-et-al = ctx.style.at(
+      "delimiter-precedes-et-al",
       default: none,
     )
   }
@@ -669,7 +681,9 @@
   if use-et-al {
     // CSL spec: et-al-use-last shows ellipsis and last name instead of "et al."
     // Condition: original name list has at least 2 more names than truncated list
-    let can-use-last = et-al-use-last and (names.len() - show-count >= 2)
+    let can-use-last = (
+      et-al-use-last == true and (names.len() - show-count >= 2)
+    )
 
     if can-use-last {
       // Format the last name

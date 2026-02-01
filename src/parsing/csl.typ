@@ -351,16 +351,19 @@
     // If true, year-suffix is NOT auto-appended to dates; if false, it IS auto-appended
     has-explicit-year-suffix: _has-explicit-year-suffix(bib-node),
     // Et-al settings (use safe-int to handle malformed CSL with trailing spaces)
+    // Keep none if not explicitly set - allows fallback to style-level settings
     et-al-min: safe-int(
       bib-node.attrs.at("et-al-min", default: none),
-      default: 4,
+      default: none,
     ),
     et-al-use-first: safe-int(
       bib-node.attrs.at("et-al-use-first", default: none),
-      default: 3,
+      default: none,
     ),
-    et-al-use-last: bib-node.attrs.at("et-al-use-last", default: "false").trim()
-      == "true",
+    et-al-use-last: if bib-node.attrs.at("et-al-use-last", default: none)
+      != none {
+      bib-node.attrs.at("et-al-use-last").trim() == "true"
+    } else { none },
     // Name formatting options (inheritable)
     "and": bib-node.attrs.at("and", default: none),
     "delimiter-precedes-et-al": bib-node.attrs.at(
@@ -528,6 +531,16 @@
     name-delimiter: attrs.at("name-delimiter", default: ", "),
     names-delimiter: attrs.at("names-delimiter", default: ", "),
     and-term: attrs.at("and", default: none), // "text" or "symbol"
+    // Et-al settings (CSL spec: inheritable from style level)
+    et-al-min: safe-int(attrs.at("et-al-min", default: none), default: none),
+    et-al-use-first: safe-int(
+      attrs.at("et-al-use-first", default: none),
+      default: none,
+    ),
+    delimiter-precedes-et-al: attrs.at(
+      "delimiter-precedes-et-al",
+      default: none,
+    ),
     // Parsed components
     title: title,
     locale: merged-locale,
