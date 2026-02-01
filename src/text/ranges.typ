@@ -286,6 +286,31 @@
 // Main API
 // =============================================================================
 
+/// Replace ampersand and comma with localized terms
+///
+/// CSL spec: "&" in locators should use the "and" term (symbol form)
+/// - s: String to process
+/// - ctx: Context for locale lookup
+/// Returns: String with replacements
+#let localize-separators(s, ctx) = {
+  if ctx == none { return s }
+
+  // Import lookup-term to get localized terms
+  import "../parsing/mod.typ": lookup-term
+
+  let result = s
+
+  // Replace "&" with localized "and" term (symbol form)
+  if result.contains("&") {
+    let and-term = lookup-term(ctx, "and", form: "symbol", plural: false)
+    if and-term != "" {
+      result = result.replace("&", and-term)
+    }
+  }
+
+  result
+}
+
 /// Format a page range according to CSL page-range-format
 ///
 /// - page-str: Page string (may be a range like "123-456")
@@ -299,8 +324,8 @@
   let range = parse-range(page-str)
 
   if range == none {
-    // Not a range, return as-is
-    return str(page-str)
+    // Not a range, apply separator localization and return
+    return localize-separators(str(page-str), ctx)
   }
 
   let start = range.start

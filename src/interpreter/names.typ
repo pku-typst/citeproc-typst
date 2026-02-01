@@ -45,9 +45,49 @@
       type(c) == dictionary and c.at("tag", default: "") == "substitute"
     ))
     if substitute != none {
+      // CSL spec: "cs:names elements in cs:substitute inherit any name and label
+      // elements from the parent cs:names element."
+      // Extract parent's name and label elements for inheritance
+      let parent-name-node = children.find(c => (
+        type(c) == dictionary and c.at("tag", default: "") == "name"
+      ))
+      let parent-label-node = children.find(c => (
+        type(c) == dictionary and c.at("tag", default: "") == "label"
+      ))
+
       let sub-result = []
       for sub-child in substitute.at("children", default: ()) {
-        let rendered = interpret-children-stack((sub-child,), ctx)
+        // For names elements, inject parent's name/label if not present
+        let child-to-render = if (
+          type(sub-child) == dictionary
+            and sub-child.at("tag", default: "") == "names"
+        ) {
+          let sub-children = sub-child.at("children", default: ())
+          let has-name = sub-children.any(c => (
+            type(c) == dictionary and c.at("tag", default: "") == "name"
+          ))
+          let has-label = sub-children.any(c => (
+            type(c) == dictionary and c.at("tag", default: "") == "label"
+          ))
+
+          // Build new children list with inherited elements
+          let new-children = sub-children
+          if not has-name and parent-name-node != none {
+            new-children = (parent-name-node,) + new-children
+          }
+          if not has-label and parent-label-node != none {
+            new-children = new-children + (parent-label-node,)
+          }
+
+          // Create modified node with inherited children
+          let modified = sub-child
+          modified.insert("children", new-children)
+          modified
+        } else {
+          sub-child
+        }
+
+        let rendered = interpret-children-stack((child-to-render,), ctx)
         if not is-empty(rendered) {
           sub-result = rendered
           break // Use first non-empty result only

@@ -61,6 +61,10 @@
   // Inject locator into fields if provided
   // CSL spec: locator is rendered via <text variable="locator"/>
   // Supports both structured locator (via metadata) and plain content
+  // Also extract citation-item prefix/suffix if present
+  let cite-item-prefix = ""
+  let cite-item-suffix = ""
+
   if supplement != none {
     let parsed-label = locator-label
     let parsed-value = ""
@@ -79,6 +83,9 @@
           if type(dict) == dictionary {
             parsed-label = dict.at("label", default: "page")
             parsed-value = str(dict.at("value", default: ""))
+            // Extract citation-item level prefix/suffix
+            cite-item-prefix = dict.at("prefix", default: "")
+            cite-item-suffix = dict.at("suffix", default: "")
           }
         }
       } else {
@@ -164,7 +171,7 @@
   )
 
   // Handle form variations
-  if form == "author" {
+  let final-result = if form == "author" {
     // Extract author only - use standard name formatter
     let names = ctx.parsed-names.at("author", default: ())
     if names.len() > 0 {
@@ -230,5 +237,13 @@
       // Apply font formatting (font-weight, font-style)
       apply-formatting(with-valign, layout)
     }
+  }
+
+  // Apply citation-item level prefix/suffix (from locator metadata)
+  // CSL spec: these wrap the entire citation output
+  if cite-item-prefix != "" or cite-item-suffix != "" {
+    [#cite-item-prefix#final-result#cite-item-suffix]
+  } else {
+    final-result
   }
 }

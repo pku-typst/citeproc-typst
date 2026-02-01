@@ -376,6 +376,15 @@ class HTMLNormalizer(HTMLParser):
         return result
 
 
+def normalize_quotes(text: str) -> str:
+    """Normalize typographic quotes to ASCII for comparison."""
+    # Left/right double quotes to ASCII
+    text = text.replace('\u201c', '"').replace('\u201d', '"')
+    # Left/right single quotes to ASCII
+    text = text.replace('\u2018', "'").replace('\u2019', "'")
+    return text
+
+
 def normalize_html_for_comparison(text: str) -> str:
     """Normalize HTML for comparison between expected and actual output."""
     if not text:
@@ -384,11 +393,14 @@ def normalize_html_for_comparison(text: str) -> str:
     parser = HTMLNormalizer()
     try:
         parser.feed(text.strip())
-        return parser.get_result()
+        result = parser.get_result()
     except Exception:
         # Fallback: just strip tags and normalize whitespace
         stripped = re.sub(r'<[^>]+>', '', text)
-        return ' '.join(html.unescape(stripped).split())
+        result = ' '.join(html.unescape(stripped).split())
+
+    # Normalize quotes for comparison
+    return normalize_quotes(result)
 
 
 # =============================================================================
@@ -489,13 +501,23 @@ def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str,
                         # Handle locator (supplement in Typst)
                         locator_value = str(cite.get('locator', ''))
                         locator_label = cite.get('label', 'page')
-                        if locator_value:
-                            # Escape quotes in locator value
-                            locator_escaped = locator_value.replace('"', '\\"')
-                            # Use locator() function for structured locator
-                            cite_calls.append(f'#cite(<{key}>, form: "prose", supplement: locator("{locator_label}", "{locator_escaped}"))')
+                        # Handle prefix and suffix (citation-item level)
+                        cite_prefix = cite.get('prefix', '')
+                        cite_suffix = cite.get('suffix', '')
+
+                        # Escape special characters
+                        locator_escaped = locator_value.replace('"', '\\"')
+                        prefix_escaped = cite_prefix.replace('"', '\\"')
+                        suffix_escaped = cite_suffix.replace('"', '\\"')
+
+                        # Build locator call with optional prefix/suffix
+                        if locator_value or cite_prefix or cite_suffix:
+                            # Use locator() function with all parameters
+                            cite_call = f'#cite(<{key}>, form: "prose", supplement: locator("{locator_label}", "{locator_escaped}", prefix: "{prefix_escaped}", suffix: "{suffix_escaped}"))'
                         else:
-                            cite_calls.append(f'#cite(<{key}>, form: "prose")')
+                            cite_call = f'#cite(<{key}>, form: "prose")'
+
+                        cite_calls.append(cite_call)
                 elif len(cluster) > 1:
                     # Multiple citations - use #multicite
                     items = []

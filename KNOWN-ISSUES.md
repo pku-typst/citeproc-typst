@@ -216,14 +216,45 @@ Without the hack, this group would be suppressed when `year-suffix` is empty (pe
 
 ---
 
-## Label Category (8 remaining issues)
+## Label Category (3 remaining issues)
 
-Issues include:
+**Status:** 16/19 pass (1 excluded, 2 mismatch)
 
-- Page number plural detection with collapsed ranges
-- Missing name labels after names
-- `&` symbol not using localized term (`and` form="symbol")
-- Extra delimiters in name/label output
+### Fixed Issues
+
+- Substitute label inheritance: `<names>` in substitute now inherits parent's `<label>` element
+- Locator `&` replacement: `&` in locators is now replaced with localized "and" term (symbol form)
+- Citation-item prefix/suffix: `locator()` function now supports `prefix` and `suffix` parameters
+
+### Remaining Issues
+
+#### 1. Escaped Hyphen in Locator (Excluded)
+
+**Test:** `label_CollapsedPageNumberPluralDetection`
+
+citeproc-js uses `\-` escape sequence to prevent hyphen-to-en-dash conversion. This is not part of CSL spec.
+
+**Status:** Excluded from comparison
+
+---
+
+#### 2. Complex Russian Bibliography Style
+
+**Test:** `label_EditorTranslator1`
+
+Complex GOST-style Russian bibliography with editor/translator handling. Multiple formatting differences.
+
+**Status:** Under investigation
+
+---
+
+#### 3. Bibliography Mode Label Through Substitute
+
+**Test:** `label_NameLabelThroughSubstitute`
+
+Bibliography mode test with name labels through substitute. Differences in name formatting and extra output.
+
+**Status:** Under investigation
 
 ---
 
