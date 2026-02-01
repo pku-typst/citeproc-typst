@@ -8,6 +8,10 @@
     {
       "fixture": "collapse_ChicagoAfterCollapse",
       "reason": "citeproc-js uses after-collapse-delimiter for all author groups when collapse is enabled. CSL spec states it should only be used 'after a collapsed cite group'. Our implementation follows the spec literally."
+    },
+    {
+      "fixture": "group_LegalWithAuthorDate",
+      "reason": "Uses citeproc-js citation update format (>>[n] prefix) for testing dynamic citation updates. Not applicable to static Typst compilation."
     }
   ]
 }

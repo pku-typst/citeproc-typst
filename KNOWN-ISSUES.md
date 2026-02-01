@@ -149,6 +149,26 @@ citeproc-js supports dynamic citation update formats with `..[n]` and `>>[n]` pr
 
 ---
 
+## Group Category (2 remaining issues)
+
+### CSL Processing Gaps
+
+**Tests:** `group_ComplexNesting`, `group_SuppressWithEmptyNestedDateNode`
+
+**Issues in `group_ComplexNesting`:**
+- Missing `(n.d.)` for entries without publication date (no-date term)
+- Month shows as `6` instead of `June` (date-part form="long" not applied)
+- Missing URL output from `accessed` variable
+- Group suppress not working for nested empty date nodes
+
+**Issues in `group_SuppressWithEmptyNestedDateNode`:**
+- Name delimiter shows `and` instead of `&` (`&#38;`)
+- Missing italic formatting on journal title
+
+**Status:** CSL processing gaps (not test infrastructure)
+
+---
+
 ## Label Category (8 remaining issues)
 
 Issues include:
