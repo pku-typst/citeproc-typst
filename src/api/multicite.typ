@@ -239,6 +239,7 @@
           let disambig = disambig-states.at(item.key, default: (
             names-expanded: 0,
             givenname-level: 0,
+            needs-disambiguate: false,
           ))
 
           // Get author string for grouping comparison
@@ -353,6 +354,10 @@
                       "givenname-level",
                       default: 0,
                     ),
+                    needs-disambiguate: item.disambig.at(
+                      "needs-disambiguate",
+                      default: false,
+                    ),
                   ))
                   suffix-parts.push(rendered)
                   is-first-in-author = false
@@ -385,6 +390,10 @@
                         givenname-level: item.disambig.at(
                           "givenname-level",
                           default: 0,
+                        ),
+                        needs-disambiguate: item.disambig.at(
+                          "needs-disambiguate",
+                          default: false,
                         ),
                       ))
                       suffix-parts.push(rendered)
@@ -419,6 +428,10 @@
                         givenname-level: start-item.disambig.at(
                           "givenname-level",
                           default: 0,
+                        ),
+                        needs-disambiguate: start-item.disambig.at(
+                          "needs-disambiguate",
+                          default: false,
                         ),
                       ))
                       // For end, just use the suffix letter
@@ -479,6 +492,10 @@
                     "givenname-level",
                     default: 0,
                   ),
+                  needs-disambiguate: item.disambig.at(
+                    "needs-disambiguate",
+                    default: false,
+                  ),
                 ))
                 suffix-parts.push(rendered)
                 is-first-in-author = false
@@ -515,6 +532,10 @@
                 givenname-level: item.disambig.at(
                   "givenname-level",
                   default: 0,
+                ),
+                needs-disambiguate: item.disambig.at(
+                  "needs-disambiguate",
+                  default: false,
                 ),
               ))
 
@@ -582,6 +603,7 @@
             cite-number: citations.order.at(item.key, default: 0),
             names-expanded: item.disambig.at("names-expanded", default: 0),
             givenname-level: item.disambig.at("givenname-level", default: 0),
+            needs-disambiguate: item.disambig.at("needs-disambiguate", default: false),
           ))
         })
         parts.join(delimiter)
@@ -610,6 +632,7 @@
           names-expanded: 0,
           givenname-level: 0,
           year-suffix: none,
+          needs-disambiguate: false,
         ))
         collapse-punctuation(render-citation(
           entry,
@@ -621,6 +644,7 @@
           year-suffix: disambig.at("year-suffix", default: none),
           names-expanded: disambig.at("names-expanded", default: 0),
           givenname-level: disambig.at("givenname-level", default: 0),
+          needs-disambiguate: disambig.at("needs-disambiguate", default: false),
         ))
       })
 

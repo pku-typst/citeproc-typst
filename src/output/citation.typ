@@ -25,6 +25,7 @@
 /// - position: Citation position ("first", "subsequent", "ibid", "ibid-with-locator")
 /// - suppress-affixes: If true, don't apply prefix/suffix (for multi-cite contexts)
 /// - first-note-number: Note number where this citation first appeared (for ibid/subsequent)
+/// - needs-disambiguate: If true, disambiguate condition returns true (CSL method 3)
 /// Returns: Typst content
 #let render-citation(
   entry,
@@ -42,12 +43,14 @@
   abbreviations: (:),
   names-expanded: 0,
   givenname-level: 0,
+  needs-disambiguate: false,
 ) = {
   let ctx = create-context(
     style,
     entry,
     cite-number: cite-number,
     abbreviations: abbreviations,
+    disambiguate: needs-disambiguate,
   )
 
   // Set suppress flags in context for CSL interpreter
