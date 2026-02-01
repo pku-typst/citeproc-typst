@@ -81,6 +81,8 @@
     "verse-short": (single: "v.", multiple: "vv."),
     "volume": (single: "volume", multiple: "volumes"),
     "volume-short": (single: "vol.", multiple: "vols."),
+    "collection-number": (single: "number", multiple: "numbers"),
+    "collection-number-short": (single: "no.", multiple: "nos."),
     // Range delimiters
     "ad": "AD",
     "and others": "and others",

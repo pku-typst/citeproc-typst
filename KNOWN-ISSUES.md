@@ -248,19 +248,15 @@ citeproc-js uses `\-` escape sequence to prevent hyphen-to-en-dash conversion. T
 
 #### 2. Russian GOST-style Bibliography
 
-**Test:** `label_EditorTranslator1`
+**Test:** `label_EditorTranslator1` - **NOW PASSING**
 
-Complex Russian GOST-style with remaining differences:
-1. **Missing `collection-title`**: The variable `"вид издания"` is not appearing in output - needs investigation
-2. **Missing `collection-number` label**: Built-in en-US locale lacks `collection-number` term (`no.`/`No.`)
-
-Fixed issues in this test:
+This complex Russian GOST-style test is now passing. Fixed issues:
 - **`strip-periods`**: Now correctly strips periods from term but preserves suffix periods (`ed & trans.`)
 - **`<et-al term="...">`**: Now supports custom et-al term via `term` attribute
 - **Empty et-al term**: When term is empty (like `and others` in this style), no et-al text is output
 - **XML whitespace trimming**: `get-text-content()` now trims whitespace to handle XML formatting
-
-**Status:** Excluded from comparison (remaining issues need investigation)
+- **CSL-JSON variable mapping**: `collection-title`, `event-title`, `number-of-volumes` now correctly mapped
+- **en-US locale terms**: Added `collection-number` term (`no.`/`nos.`)
 
 ---
 

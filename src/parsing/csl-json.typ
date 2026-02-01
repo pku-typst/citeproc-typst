@@ -196,6 +196,10 @@
   "DOI": "doi",
   "ISBN": "isbn",
   "ISSN": "issn",
+  // CSL variables mapped to BibTeX field names
+  "collection-title": "series",
+  "event-title": "eventtitle",
+  "number-of-volumes": "volumes",
 )
 
 /// CSL type to BibTeX entry_type mapping

@@ -20,10 +20,6 @@
     {
       "fixture": "label_CollapsedPageNumberPluralDetection",
       "reason": "Uses citeproc-js specific escape sequence (\\-) to prevent hyphen-to-en-dash conversion. This escape is not part of CSL spec and not supported."
-    },
-    {
-      "fixture": "label_EditorTranslator1",
-      "reason": "Remaining differences: (1) missing 'collection-title' variable output - needs investigation, (2) missing 'collection-number' label term 'No.' in built-in en-US locale. The et-al term (and others=empty) and editortranslator term (ed & trans.) now work correctly."
     }
   ]
 }
