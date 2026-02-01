@@ -14,7 +14,7 @@
 #import "../parsing/mod.typ": detect-language
 #import "../data/mod.typ": (
   apply-collapse, collapse-numeric-ranges, collapse-suffix-ranges,
-  num-to-suffix, process-ranges,
+  extract-sort-keys, num-to-suffix, process-ranges, sort-entries,
 )
 #import "../init/core.typ": _get-precomputed
 
@@ -181,6 +181,27 @@
     let prefix = layout.at("prefix", default: "")
     let suffix = layout.at("suffix", default: "")
     let delimiter = layout.at("delimiter", default: ", ")
+
+    // Apply citation sort if specified (CSL <citation><sort>...</sort></citation>)
+    let citation-sort = style.citation.at("sort", default: ())
+    let normalized = if citation-sort.len() > 0 {
+      // Sort citations according to CSL sort specification
+      let with-entries = normalized.map(item => {
+        let entry = bib.at(item.key, default: none)
+        if entry == none { return (..item, entry: none, sort-keys: ()) }
+        let keys = extract-sort-keys(entry, citation-sort, style)
+        (..item, entry: entry, sort-keys: keys)
+      })
+      // Use sort-entries to apply the sort
+      let sorted = sort-entries(with-entries)
+      // Return just the normalized items (without sort-keys)
+      sorted.map(item => (key: item.key, supplement: item.supplement))
+    } else {
+      normalized
+    }
+
+    // Update first-key after potential sorting
+    let first-key = normalized.first().key
 
     // Check if we should use collapse logic (takes precedence over note-style)
     if is-author-date {

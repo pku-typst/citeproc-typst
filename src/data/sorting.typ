@@ -68,6 +68,86 @@
           })
           .join(" ")
       } else { "" }
+    } else if (
+      var-name in ("issued", "accessed", "original-date", "event-date")
+    ) {
+      // Date variables need special handling for proper numeric sorting
+      // Construct a sortable date string with year offset for proper ordering
+      let fields = ctx.fields
+
+      // Helper to build sortable date string
+      let build-sortable-date(year-str, month-str, day-str) = {
+        if year-str == "" { return "" }
+        let month = if month-str == "" { "01" } else { month-str }
+        let day = if day-str == "" { "01" } else { day-str }
+
+        // Pad month and day to 2 digits
+        let month-padded = if month.len() == 1 { "0" + month } else { month }
+        let day-padded = if day.len() == 1 { "0" + day } else { day }
+
+        // Convert year to sortable format (handle negative years)
+        // Offset by large number to ensure all values are positive
+        // Use 100000000 so that even very old dates (e.g., -5000 BC) are positive
+        // Pad to fixed length (9 digits) for proper string comparison
+        let year-int = int(year-str)
+        let year-offset = 100000000 + year-int
+        // Pad to 9 digits: e.g., 99999900 for -100, 100002024 for 2024
+        let year-str-padded = str(year-offset)
+        // Ensure 9 digit length by padding with leading zeros if needed
+        let year-sortable = if year-str-padded.len() < 9 {
+          "0" * (9 - year-str-padded.len()) + year-str-padded
+        } else {
+          year-str-padded
+        }
+
+        year-sortable + "-" + month-padded + "-" + day-padded
+      }
+
+      if var-name == "issued" {
+        let year-str = fields.at("year", default: "")
+        if year-str != "" {
+          build-sortable-date(
+            year-str,
+            fields.at("month", default: ""),
+            fields.at("day", default: ""),
+          )
+        } else {
+          // Try 'date' field as fallback
+          let date-str = fields.at("date", default: "")
+          if date-str != "" {
+            let parts = date-str.split("-")
+            let year = if parts.len() >= 1 { parts.at(0) } else { "" }
+            let month = if parts.len() >= 2 { parts.at(1) } else { "" }
+            let day = if parts.len() >= 3 { parts.at(2) } else { "" }
+            build-sortable-date(year, month, day)
+          } else { "" }
+        }
+      } else if var-name == "accessed" {
+        build-sortable-date(
+          fields.at("accessed-year", default: ""),
+          fields.at("accessed-month", default: ""),
+          fields.at("accessed-day", default: ""),
+        )
+      } else if var-name == "original-date" {
+        let origdate = fields.at("origdate", default: "")
+        if origdate != "" {
+          let parts = origdate.split("-")
+          let year = if parts.len() >= 1 { parts.at(0) } else { "" }
+          let month = if parts.len() >= 2 { parts.at(1) } else { "" }
+          let day = if parts.len() >= 3 { parts.at(2) } else { "" }
+          build-sortable-date(year, month, day)
+        } else { "" }
+      } else {
+        // event-date
+        let eventdate = fields.at("eventdate", default: "")
+        if eventdate != "" {
+          let parts = eventdate.split("-")
+          let year = if parts.len() >= 1 { parts.at(0) } else { "" }
+          let month = if parts.len() >= 2 { parts.at(1) } else { "" }
+          let day = if parts.len() >= 3 { parts.at(2) } else { "" }
+          build-sortable-date(year, month, day)
+        } else { "" }
+      }
     } else {
       // Get regular variable value directly
       get-variable(ctx, var-name)
