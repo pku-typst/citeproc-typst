@@ -134,15 +134,31 @@
     if subsequent-val != none { return subsequent-val }
   }
 
-  // Try citation-level setting
-  let citation-val = ctx.at(citation-ctx-key, default: none)
-  if citation-val != none { return citation-val }
+  // Check render-context to determine which element to inherit from
+  let render-context = ctx.at("render-context", default: none)
 
-  // Fall back to bibliography setting
-  let bib = ctx.style.at("bibliography", default: none)
-  if bib != none {
-    let bib-val = bib.at(bib-key, default: none)
-    if bib-val != none { return bib-val }
+  if render-context == RENDER-CONTEXT.citation {
+    // For citation rendering: try citation-level setting
+    let citation-val = ctx.at(citation-ctx-key, default: none)
+    if citation-val != none { return citation-val }
+
+    // Then citation element setting from style
+    let citation = ctx.style.at("citation", default: (:))
+    if type(citation) == dictionary {
+      let cit-val = citation.at(bib-key, default: none)
+      if cit-val != none { return cit-val }
+    }
+  } else if render-context == RENDER-CONTEXT.bibliography {
+    // For bibliography rendering: try bibliography-level setting
+    let bib = ctx.style.at("bibliography", default: none)
+    if bib != none and type(bib) == dictionary {
+      let bib-val = bib.at(bib-key, default: none)
+      if bib-val != none { return bib-val }
+    }
+  } else {
+    // No render-context specified - try citation context key first (for compatibility)
+    let citation-val = ctx.at(citation-ctx-key, default: none)
+    if citation-val != none { return citation-val }
   }
 
   // Fall back to style-level setting
