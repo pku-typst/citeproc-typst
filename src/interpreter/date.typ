@@ -130,10 +130,41 @@
       ctx.fields
     }
 
-    let result = if date-part-nodes.len() > 0 {
-      // Use inline date-part specifications
+    // Build inline date-part overrides dictionary
+    let inline-overrides = (:)
+    for dp in date-part-nodes {
+      let dp-attrs = dp.at("attrs", default: (:))
+      let dp-name = dp-attrs.at("name", default: "")
+      if dp-name != "" {
+        inline-overrides.insert(dp-name, dp-attrs)
+      }
+    }
+
+    // Determine if we have a localized date format (form attribute)
+    let form = attrs.at("form", default: none)
+
+    let result = if form != none {
+      // Use localized date format with inline overrides
+      let date-parts-attr = attrs.at("date-parts", default: "year-month-day")
+      let date-result = format-date-with-form(
+        dt,
+        form,
+        date-parts-attr,
+        ctx,
+        fields: date-fields,
+        overrides: inline-overrides,
+      )
+      // For localized dates, append year-suffix at the end
+      if year-suffix != "" {
+        [#date-result#year-suffix]
+      } else {
+        date-result
+      }
+    } else if date-part-nodes.len() > 0 {
+      // Non-localized date with explicit date-part children
       let parts = ()
       let year-rendered = false
+      let date-delimiter = attrs.at("delimiter", default: "")
       for dp in date-part-nodes {
         let dp-attrs = dp.at("attrs", default: (:))
         let dp-name = dp-attrs.at("name", default: "")
@@ -159,7 +190,7 @@
           }
         }
       }
-      parts.join()
+      parts.join(date-delimiter)
     } else {
       // Use form attribute or default
       let form = attrs.at("form", default: "numeric")

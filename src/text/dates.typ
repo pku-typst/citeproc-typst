@@ -270,9 +270,34 @@
     } else if form == "numeric-leading-zeros" {
       dt.display("[month]")
     } else if form == "short" {
-      dt.display("[month repr:short]")
+      // Use locale month term with -short suffix
+      let month-num = dt.month()
+      let month-key = (
+        "month-"
+          + if month-num < 10 { "0" } else { "" }
+          + str(month-num)
+          + "-short"
+      )
+      let month-term = lookup-term(ctx, month-key, form: "long", plural: false)
+      if month-term != none and month-term != "" {
+        month-term
+      } else {
+        // Fallback to Typst short month
+        dt.display("[month repr:short]")
+      }
     } else if form == "long" {
-      dt.display("[month repr:long]")
+      // Use locale month term
+      let month-num = dt.month()
+      let month-key = (
+        "month-" + if month-num < 10 { "0" } else { "" } + str(month-num)
+      )
+      let month-term = lookup-term(ctx, month-key, form: "long", plural: false)
+      if month-term != none and month-term != "" {
+        month-term
+      } else {
+        // Fallback to Typst long month
+        dt.display("[month repr:long]")
+      }
     } else {
       dt.display("[month]")
     }
@@ -314,7 +339,15 @@
 /// - date-parts: "year", "year-month", or "year-month-day"
 /// - ctx: Context for locale
 /// - fields: Optional date source fields for checking which components actually exist
-#let format-date-with-form(dt, form, date-parts, ctx, fields: none) = {
+/// - overrides: Optional dict of inline date-part overrides from CSL (name -> attrs)
+#let format-date-with-form(
+  dt,
+  form,
+  date-parts,
+  ctx,
+  fields: none,
+  overrides: none,
+) = {
   if dt == none { return [] }
 
   // Determine which parts to show based on date-parts attribute
@@ -334,6 +367,7 @@
     // Use locale-defined date format
     let format-parts = date-format.at("parts", default: ())
     let result-parts = ()
+    let override-dict = if overrides != none { overrides } else { (:) }
 
     for part in format-parts {
       let part-name = part.at("name", default: "")
@@ -348,17 +382,31 @@
         continue
       }
 
+      // Check for inline overrides from CSL
+      let override-attrs = override-dict.at(part-name, default: (:))
+
       // CSL spec: month defaults to "long" for text form, day/year default to "numeric"
       let default-form = if part-name == "month" {
         if form == "text" { "long" } else { "numeric" }
       } else {
         "numeric"
       }
-      let part-form = part.at("form", default: "")
+
+      // Priority: override > locale > default
+      let part-form = override-attrs.at("form", default: part.at(
+        "form",
+        default: "",
+      ))
       if part-form == "" { part-form = default-form }
 
-      let part-prefix = part.at("prefix", default: "")
-      let part-suffix = part.at("suffix", default: "")
+      let part-prefix = override-attrs.at("prefix", default: part.at(
+        "prefix",
+        default: "",
+      ))
+      let part-suffix = override-attrs.at("suffix", default: part.at(
+        "suffix",
+        default: "",
+      ))
 
       let formatted = format-date-part(dt, part-name, part-form, ctx)
       if formatted != "" {
