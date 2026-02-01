@@ -817,6 +817,7 @@ def main():
     parser = argparse.ArgumentParser(description='Run CSL test-suite against citrus')
     parser.add_argument('--limit', type=int, default=0, help='Limit number of tests')
     parser.add_argument('--category', type=str, help='Test only specific category')
+    parser.add_argument('--fixture', type=str, help='Test a single fixture by name (e.g., name_CeltsAndToffs)')
     parser.add_argument('--verbose', '-v', action='store_true', help='Verbose output')
     parser.add_argument('--compare', '-c', action='store_true', help='Compare output with expected')
     parser.add_argument('--source', type=str, default='test-suite',
@@ -838,7 +839,13 @@ def main():
     # Find all fixture files
     fixture_files = sorted(fixtures_dir.glob('*.txt'))
 
-    if args.category:
+    # Filter by single fixture name if specified
+    if args.fixture:
+        fixture_files = [f for f in fixture_files if f.stem == args.fixture or args.fixture in f.stem]
+        if not fixture_files:
+            print(f'Error: No fixture found matching "{args.fixture}"')
+            sys.exit(1)
+    elif args.category:
         fixture_files = [f for f in fixture_files if f.stem.startswith(args.category)]
 
     if args.limit > 0:

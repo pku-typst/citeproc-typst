@@ -101,6 +101,17 @@
       "has-explicit-year-suffix",
       default: false,
     ),
+    // Name formatting options (inheritable from bibliography level)
+    // Use same keys as citation for unified lookup in names.typ
+    citation-and: bib-settings.at("and", default: none),
+    citation-delimiter-precedes-et-al: bib-settings.at(
+      "delimiter-precedes-et-al",
+      default: none,
+    ),
+    citation-delimiter-precedes-last: bib-settings.at(
+      "delimiter-precedes-last",
+      default: none,
+    ),
   )
 
   let entry-lang = detect-language(entry.at("fields", default: (:)))

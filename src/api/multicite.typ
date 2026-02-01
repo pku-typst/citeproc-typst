@@ -266,9 +266,13 @@
         }
 
         // Get year-suffix-delimiter
+        // CSL spec: year-suffix-delimiter falls back to cite-group-delimiter, then layout delimiter
         let year-suffix-delim = _get-with-fallback(
           style.citation.at("year-suffix-delimiter", default: none),
-          layout.at("delimiter", default: ", "),
+          _get-with-fallback(
+            style.citation.at("cite-group-delimiter", default: none),
+            layout.at("delimiter", default: ", "),
+          ),
         )
 
         // Render each author group, tracking if collapse occurred
