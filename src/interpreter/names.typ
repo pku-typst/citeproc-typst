@@ -473,6 +473,14 @@
       )
     }
 
+    // CSL spec: <name> element's prefix/suffix wrap the formatted name list
+    // This is SEPARATE from <names> element's prefix/suffix (applied via finalize later)
+    let name-prefix = name-attrs.at("prefix", default: "")
+    let name-suffix = name-attrs.at("suffix", default: "")
+    if (name-prefix != "" or name-suffix != "") and not is-empty(names-content) {
+      names-content = [#name-prefix#names-content#name-suffix]
+    }
+
     // Combine with label
     let result = if label-content != [] {
       let label-position = if label-node != none {
