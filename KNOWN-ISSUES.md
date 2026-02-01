@@ -246,15 +246,17 @@ citeproc-js uses `\-` escape sequence to prevent hyphen-to-en-dash conversion. T
 
 ---
 
-#### 2. Russian GOST-style editortranslator Term
+#### 2. Russian GOST-style Bibliography
 
 **Test:** `label_EditorTranslator1`
 
-The test's inline locale defines `<term name="editortranslator" form="short">` as `ed. & trans.` (with periods), but the expected output shows `ed & trans.` (period only after trans). This inconsistency between the defined term and expected output indicates citeproc-js specific behavior.
+Complex Russian GOST-style with multiple remaining differences:
+1. **et-al rendering**: We output `[et al.]` after first author, expected has none
+2. **Issue number label**: We output `10.` expected has `No. 10.`
 
-Our implementation correctly uses the inline locale term as defined.
+The `editortranslator` term (`ed & trans.`) now renders correctly after fixing `strip-periods` to not affect suffix.
 
-**Status:** Excluded from comparison (test expectation inconsistent with inline locale)
+**Status:** Excluded from comparison (other GOST-specific differences remain)
 
 ---
 

@@ -23,7 +23,7 @@
     },
     {
       "fixture": "label_EditorTranslator1",
-      "reason": "Test expectation inconsistent with inline locale terms. The inline locale defines 'ed. & trans.' but expected output shows 'ed & trans.' (different punctuation). This appears to be a citeproc-js specific rendering quirk."
+      "reason": "Complex Russian GOST-style with multiple differences: (1) et-al rendering '[et al.]' vs none, (2) issue number label 'No. 10' vs '10'. The editortranslator term 'ed & trans.' now matches correctly."
     }
   ]
 }

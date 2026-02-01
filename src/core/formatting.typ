@@ -38,12 +38,9 @@
   let font-variant = attrs.at("font-variant", default: none)
   let vertical-align = attrs.at("vertical-align", default: none)
   let text-case = attrs.at("text-case", default: none)
-  let strip-periods = attrs.at("strip-periods", default: "false") == "true"
 
-  // Strip periods if requested (CSL strip-periods="true")
-  if strip-periods {
-    result = strip-periods-from-str(result)
-  }
+  // Note: strip-periods is handled in finalize() BEFORE adding prefix/suffix
+  // Do NOT strip periods here as it would remove periods from suffix like ". "
 
   // Apply formatting in order
   if font-style == "italic" or font-style == "oblique" {
