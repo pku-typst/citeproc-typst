@@ -9,6 +9,23 @@
 // Module-level constants (avoid recreating on each call)
 // =============================================================================
 
+// CSL name variables (stored in ctx.names, not ctx.fields)
+#let NAME-VARS = (
+  "author",
+  "editor",
+  "translator",
+  "container-author",
+  "collection-editor",
+  "composer",
+  "director",
+  "illustrator",
+  "interviewer",
+  "original-author",
+  "original-editor",
+  "recipient",
+  "reviewed-author",
+)
+
 // Direct field mappings (including CSL-M legal variables)
 #let _field-map = (
   // Standard CSL variables
@@ -236,7 +253,16 @@
 }
 
 /// Check if variable exists and has value
+/// Handles both regular variables (fields) and name variables (names dict)
 #let has-variable(ctx, name) = {
+  // Name variables are stored in ctx.names, not ctx.fields
+  if name in NAME-VARS {
+    let names = ctx.at("names", default: (:))
+    let name-list = names.at(name, default: ())
+    return name-list.len() > 0
+  }
+
+  // Regular variables
   let val = get-variable(ctx, name)
   val != none and val != ""
 }

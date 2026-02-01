@@ -308,12 +308,16 @@ class HTMLNormalizer(HTMLParser):
 
     PRESERVE_TAGS = {'i', 'b', 'sup', 'sub'}
     SKIP_TAGS = {'span', 'div', 'p', 'a'}
+    NEWLINE_TAGS = {'br'}  # Convert to newline
 
     def __init__(self):
         super().__init__()
         self.result = []
 
     def handle_starttag(self, tag, attrs):
+        if tag in self.NEWLINE_TAGS:
+            self.result.append('\n')
+            return
         normalized_tag = self.TAG_MAP.get(tag, tag)
         if normalized_tag in self.PRESERVE_TAGS:
             self.result.append(f'<{normalized_tag}>')
@@ -334,8 +338,12 @@ class HTMLNormalizer(HTMLParser):
 
     def get_result(self) -> str:
         text = ''.join(self.result)
-        # Normalize whitespace
-        return ' '.join(text.split())
+        # Normalize whitespace within lines, but preserve newlines
+        lines = text.split('\n')
+        normalized_lines = [' '.join(line.split()) for line in lines]
+        # Filter out empty lines and strip result
+        result = '\n'.join(line for line in normalized_lines if line)
+        return result
 
 
 def normalize_html_for_comparison(text: str) -> str:

@@ -120,9 +120,24 @@
 }
 
 /// Check if variable exists
-#let check-variable(ctx, var-list) = {
-  let vars = var-list.split(" ")
-  vars.any(v => has-variable(ctx, v))
+/// - ctx: Context
+/// - var-list: Space-separated list of variable names
+/// - match-mode: "all", "any", or "none"
+///
+/// Note: For "none" mode, this function checks if ANY variable exists.
+/// The negation is handled by eval-condition's final match logic.
+#let check-variable(ctx, var-list, match-mode: "all") = {
+  let vars = var-list.split(" ").filter(v => v != "")
+  if vars.len() == 0 { return false }
+
+  if match-mode == "all" {
+    // All variables must exist
+    vars.all(v => has-variable(ctx, v))
+  } else {
+    // "any" and "none" modes: check if any variable exists
+    // For "none", eval-condition will negate the final result
+    vars.any(v => has-variable(ctx, v))
+  }
 }
 
 /// Check if value is numeric
@@ -163,8 +178,9 @@
   }
 
   // Variable condition
+  // CSL spec: match attribute applies to the variable list
   if "variable" in attrs {
-    let result = check-variable(ctx, attrs.variable)
+    let result = check-variable(ctx, attrs.variable, match-mode: match-mode)
     if is-all-mode and not result { return false }
     conditions.push(result)
   }

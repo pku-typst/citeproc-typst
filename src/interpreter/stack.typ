@@ -29,7 +29,16 @@
   if tag == "text" {
     let result = if "variable" in attrs {
       let var-name = attrs.variable
-      let val = get-variable(ctx, var-name)
+      let form = attrs.at("form", default: "long")
+
+      // CSL form="short": try variable-short first, fallback to variable
+      let val = if form == "short" {
+        let short-name = var-name + "-short"
+        let short-val = get-variable(ctx, short-name)
+        if short-val != "" { short-val } else { get-variable(ctx, var-name) }
+      } else {
+        get-variable(ctx, var-name)
+      }
 
       if val != "" {
         if (

@@ -5,7 +5,7 @@
 #import "../core/mod.typ": finalize
 #import "../data/collapsing.typ": num-to-suffix
 #import "../text/dates.typ": (
-  format-date-part, format-date-with-form, parse-bibtex-date,
+  date-has-component, format-date-part, format-date-with-form, parse-bibtex-date,
 )
 
 /// Convert year-suffix to letter string
@@ -95,6 +95,22 @@
       _suffix-to-string(ctx.at("year-suffix", default: none))
     } else { "" }
 
+    // Get date source fields for component checking
+    let date-fields = if variable == "issued" {
+      ctx.fields
+    } else if variable == "accessed" {
+      let urldate = ctx.fields.at("urldate", default: "")
+      if urldate != "" { (year: urldate, date: urldate) } else { (:) }
+    } else if variable == "original-date" {
+      let origdate = ctx.fields.at("origdate", default: "")
+      if origdate != "" { (year: origdate, date: origdate) } else { (:) }
+    } else if variable == "event-date" {
+      let eventdate = ctx.fields.at("eventdate", default: "")
+      if eventdate != "" { (year: eventdate, date: eventdate) } else { (:) }
+    } else {
+      ctx.fields
+    }
+
     let result = if date-part-nodes.len() > 0 {
       // Use inline date-part specifications
       let parts = ()
@@ -105,6 +121,11 @@
         let dp-form = dp-attrs.at("form", default: "numeric")
         let dp-prefix = dp-attrs.at("prefix", default: "")
         let dp-suffix = dp-attrs.at("suffix", default: "")
+
+        // Check if the date actually has this component
+        if not date-has-component(date-fields, dp-name) {
+          continue
+        }
 
         let formatted = format-date-part(dt, dp-name, dp-form, ctx)
         if formatted != "" {

@@ -3,6 +3,8 @@
 // Handles direct CSL-JSON input as an alternative to BibTeX.
 // CSL-JSON properties map directly to CSL variables, avoiding translation losses.
 
+#import "../data/variables.typ": NAME-VARS
+
 // =============================================================================
 // CSL-JSON State
 // =============================================================================
@@ -332,23 +334,7 @@
   // CSL-JSON names are already structured: [{family, given, suffix, ...}]
   let parsed-names = (:)
 
-  let name-vars = (
-    "author",
-    "editor",
-    "translator",
-    "container-author",
-    "collection-editor",
-    "composer",
-    "director",
-    "illustrator",
-    "interviewer",
-    "original-author",
-    "original-editor",
-    "recipient",
-    "reviewed-author",
-  )
-
-  for var in name-vars {
+  for var in NAME-VARS {
     if var in csl-entry {
       let names = csl-entry.at(var)
       if type(names) == array and names.len() > 0 {
