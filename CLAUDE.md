@@ -1,5 +1,9 @@
 # Development Guide
 
+## Long-Term Memory
+
+- Maintain a memory file at `./build/memory.md` which serves as your long-term memory.
+
 ## Key Documents
 
 - `KNOWN-ISSUES.md` - Tracks CSL test-suite alignment progress and documents spec interpretation differences from citeproc-js.

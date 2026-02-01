@@ -11,7 +11,11 @@
 // Module-level regex patterns (avoid recompilation)
 // =============================================================================
 
+// Pattern to split given names for initialization
+// Matches: spaces, hyphens, or periods (for already-initialized names like "K.S.")
 #let _name-split-pattern = regex("[ -]+")
+// Pattern to detect already-initialized names (single letter followed by period)
+#let _initialized-name-pattern = regex("^[A-Z]\\.[A-Z]")
 
 // =============================================================================
 // Et-al Setting Resolution
@@ -311,9 +315,28 @@
       and not is-chinese
       and givenname-level != 2
   ) {
-    // Split given names and take initials
-    let parts = given.split(_name-split-pattern).filter(p => p != "")
     let initialize-hyphen = ctx.style.initialize-with-hyphen
+
+    // Check if given name is already initialized (e.g., "K.S." or "J. P.")
+    // Pattern: contains periods and mostly single-letter parts
+    let is-already-initialized = (
+      given.contains(".")
+        and (
+          given.matches(_initialized-name-pattern).len() > 0
+            or given
+              .split(".")
+              .filter(p => p.trim() != "")
+              .all(p => p.trim().len() <= 2)
+        )
+    )
+
+    let parts = if is-already-initialized {
+      // Split by period for already-initialized names
+      given.split(".").map(p => p.trim()).filter(p => p != "")
+    } else {
+      // Split by space/hyphen for full names
+      given.split(_name-split-pattern).filter(p => p != "")
+    }
 
     // Build initials with initialize-with after each
     let initials = parts.map(p => {

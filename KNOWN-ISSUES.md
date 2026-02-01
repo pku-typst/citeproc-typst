@@ -216,7 +216,7 @@ Without the hack, this group would be suppressed when `year-suffix` is empty (pe
 
 ---
 
-## Label Category (3 remaining issues)
+## Label Category (2 remaining issues)
 
 **Status:** 16/19 pass (1 excluded, 2 mismatch)
 
@@ -225,6 +225,9 @@ Without the hack, this group would be suppressed when `year-suffix` is empty (pe
 - Substitute label inheritance: `<names>` in substitute now inherits parent's `<label>` element
 - Locator `&` replacement: `&` in locators is now replaced with localized "and" term (symbol form)
 - Citation-item prefix/suffix: `locator()` function now supports `prefix` and `suffix` parameters
+- Date component detection: Fixed `.matches() != none` bug that caused incorrect day component detection
+- Already-initialized name handling: Names like `K.S.` are now correctly formatted as `K. S.` with `initialize-with=". "`
+- Multiple space collapsing: Consecutive spaces from delimiter + prefix combinations are now collapsed to single space
 
 ### Remaining Issues
 
@@ -248,13 +251,15 @@ Complex GOST-style Russian bibliography with editor/translator handling. Multipl
 
 ---
 
-#### 3. Bibliography Mode Label Through Substitute
+#### 3. Note Field Variable Parsing
 
 **Test:** `label_NameLabelThroughSubstitute`
 
-Bibliography mode test with name labels through substitute. Differences in name formatting and extra output.
+citeproc-js parses the `note` field to extract additional CSL variables like `reviewed-title`, `genre`, and `reviewed-author`. This allows rendering of content like `[Peer commentary, <i>Decrease of Deaf potential...</i>]`.
 
-**Status:** Under investigation
+**Our Status:** Not implemented. The `note` field is treated as a simple text field.
+
+**Impact:** Tests using note-embedded variables will show missing content.
 
 ---
 

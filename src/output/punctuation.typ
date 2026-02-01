@@ -20,6 +20,10 @@
 ///
 /// This wrapper limits the show rules to CSL output only.
 #let collapse-punctuation(content) = {
+  // Rule 0: Multiple spaces collapse to single space
+  // This handles cases like delimiter ". " + prefix " (" → ". (" not ".  ("
+  show regex(" {2,}"): " "
+
   // Rule 1: Duplicate punctuation collapses (keeps first character)
   show regex("[.。]{2,}"): it => it.text.first()
   show regex("[,，、]{2,}"): it => it.text.first()

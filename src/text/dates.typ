@@ -213,9 +213,11 @@
         or fields.at("date", default: "").contains("-")
     )
   } else if component == "day" {
+    // Note: .matches() returns empty array () when no match, not none
+    // So we check .len() > 0 instead of != none
     (
       fields.at("day", default: "") != ""
-        or fields.at("date", default: "").matches(_full-iso-pattern) != none
+        or fields.at("date", default: "").matches(_full-iso-pattern).len() > 0
     )
   } else {
     false
