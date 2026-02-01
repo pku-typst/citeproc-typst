@@ -28,15 +28,19 @@
 }
 
 /// Get text content from a node (handles nested text)
+/// Trims whitespace to handle XML formatting (e.g., newlines between tags)
 #let get-text-content(node) = {
-  if type(node) == str { return node }
+  if type(node) == str { return node.trim() }
   if type(node) != dictionary { return "" }
-  node
-    .at("children", default: ())
+  let children = node.at("children", default: ())
+  if children.len() == 0 { return "" }
+  let text = children
     .map(c => {
       if type(c) == str { c } else { "" }
     })
     .join("")
+  if text == none { return "" }
+  text.trim()
 }
 
 /// Recursively check if a node tree contains <text variable="year-suffix"/>

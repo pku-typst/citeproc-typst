@@ -250,13 +250,17 @@ citeproc-js uses `\-` escape sequence to prevent hyphen-to-en-dash conversion. T
 
 **Test:** `label_EditorTranslator1`
 
-Complex Russian GOST-style with multiple remaining differences:
-1. **et-al rendering**: We output `[et al.]` after first author, expected has none
-2. **Issue number label**: We output `10.` expected has `No. 10.`
+Complex Russian GOST-style with remaining differences:
+1. **Missing `collection-title`**: The variable `"вид издания"` is not appearing in output - needs investigation
+2. **Missing `collection-number` label**: Built-in en-US locale lacks `collection-number` term (`no.`/`No.`)
 
-The `editortranslator` term (`ed & trans.`) now renders correctly after fixing `strip-periods` to not affect suffix.
+Fixed issues in this test:
+- **`strip-periods`**: Now correctly strips periods from term but preserves suffix periods (`ed & trans.`)
+- **`<et-al term="...">`**: Now supports custom et-al term via `term` attribute
+- **Empty et-al term**: When term is empty (like `and others` in this style), no et-al text is output
+- **XML whitespace trimming**: `get-text-content()` now trims whitespace to handle XML formatting
 
-**Status:** Excluded from comparison (other GOST-specific differences remain)
+**Status:** Excluded from comparison (remaining issues need investigation)
 
 ---
 

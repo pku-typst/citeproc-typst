@@ -23,7 +23,7 @@
     },
     {
       "fixture": "label_EditorTranslator1",
-      "reason": "Complex Russian GOST-style with multiple differences: (1) et-al rendering '[et al.]' vs none, (2) issue number label 'No. 10' vs '10'. The editortranslator term 'ed & trans.' now matches correctly."
+      "reason": "Remaining differences: (1) missing 'collection-title' variable output - needs investigation, (2) missing 'collection-number' label term 'No.' in built-in en-US locale. The et-al term (and others=empty) and editortranslator term (ed & trans.) now work correctly."
     }
   ]
 }

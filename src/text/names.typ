@@ -436,6 +436,7 @@
   name-parts: (:),
   substitute-string: none,
   substitute-count: 0,
+  et-al-term: "et-al",
 ) = {
   if names.len() == 0 { return [] }
 
@@ -577,25 +578,30 @@
       // CSL spec: "followed by the name delimiter, the ellipsis character, and the last name"
       [#result#delimiter … #last-name]
     } else {
-      let et-al = lookup-term(ctx, "et-al", form: "long")
+      let et-al = lookup-term(ctx, et-al-term, form: "long")
 
-      // CSL spec: delimiter-precedes-et-al determines when to add delimiter before "et al."
-      // "contextual" (default): delimiter only if 2+ names shown
-      // "always": always add delimiter
-      // "never": never add delimiter (just space)
-      // "after-inverted-name": delimiter only after inverted name
-      let use-delimiter-before-et-al = (
-        (delimiter-precedes-et-al == "always")
-          or (
-            delimiter-precedes-et-al == "contextual" and formatted.len() >= 2
-          )
-      )
-
-      if use-delimiter-before-et-al {
-        [#result#delimiter#et-al]
+      // If et-al term is empty (e.g., "and others" defined as empty), skip et-al entirely
+      if et-al == "" {
+        result
       } else {
-        // Use explicit space (not content space which can be collapsed)
-        [#result#" "#et-al]
+        // CSL spec: delimiter-precedes-et-al determines when to add delimiter before "et al."
+        // "contextual" (default): delimiter only if 2+ names shown
+        // "always": always add delimiter
+        // "never": never add delimiter (just space)
+        // "after-inverted-name": delimiter only after inverted name
+        let use-delimiter-before-et-al = (
+          (delimiter-precedes-et-al == "always")
+            or (
+              delimiter-precedes-et-al == "contextual" and formatted.len() >= 2
+            )
+        )
+
+        if use-delimiter-before-et-al {
+          [#result#delimiter#et-al]
+        } else {
+          // Use explicit space (not content space which can be collapsed)
+          [#result#" "#et-al]
+        }
       }
     }
   } else {
@@ -680,6 +686,7 @@
   name-parts: (:),
   substitute-string: none,
   substitute-count: 0,
+  et-al-term: "et-al",
 ) = {
   if names.len() == 0 { return [] }
 
@@ -713,6 +720,7 @@
       name-parts: name-parts,
       substitute-string: substitute-string,
       substitute-count: substitute-count,
+      et-al-term: et-al-term,
     )
   }
 
@@ -732,6 +740,7 @@
         attrs,
         ctx,
         name-parts: name-parts,
+        et-al-term: et-al-term,
       ))
     }
 
@@ -759,12 +768,13 @@
       attrs,
       ctx,
       name-parts: name-parts,
+      et-al-term: et-al-term,
     )
     [#unaffiliated-formatted #with-term #formatted-groups.join(group-delimiter)]
   } else if formatted-groups.len() > 0 {
     formatted-groups.join(group-delimiter)
   } else {
-    format-names(names, attrs, ctx, name-parts: name-parts)
+    format-names(names, attrs, ctx, name-parts: name-parts, et-al-term: et-al-term)
   }
 
   result

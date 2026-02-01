@@ -275,6 +275,14 @@
       institution-node.at("attrs", default: (:))
     } else { none }
 
+    // Find et-al element if present (CSL spec: can override term with term="...")
+    let et-al-node = children.find(c => (
+      type(c) == dictionary and c.at("tag", default: "") == "et-al"
+    ))
+    let et-al-term = if et-al-node != none {
+      et-al-node.at("attrs", default: (:)).at("term", default: "et-al")
+    } else { "et-al" }
+
     // Find label if present
     let label-node = children.find(c => (
       type(c) == dictionary and c.at("tag", default: "") == "label"
@@ -301,6 +309,7 @@
         name-parts: name-parts,
         substitute-string: substitute-string-to-use,
         substitute-count: substitute-count-to-use,
+        et-al-term: et-al-term,
       )
     } else {
       format-names(
@@ -310,6 +319,7 @@
         name-parts: name-parts,
         substitute-string: substitute-string-to-use,
         substitute-count: substitute-count-to-use,
+        et-al-term: et-al-term,
       )
     }
 
