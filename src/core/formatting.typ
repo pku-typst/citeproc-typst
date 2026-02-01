@@ -5,23 +5,222 @@
 #import "utils.typ": capitalize-first-char, is-empty, strip-periods-from-str
 
 // Minor words for title case (defined once, not per call)
+// These are lowercased unless at start of title or after major punctuation
+// Based on common title case style guides (Chicago, APA, etc.)
 #let _minor-words = (
+  // Articles
   "a",
   "an",
   "the",
+  // Coordinating conjunctions
   "and",
   "but",
   "or",
   "for",
   "nor",
-  "on",
+  "yet",
+  "so",
+  // Short prepositions (typically 4 letters or fewer)
+  "as",
   "at",
-  "to",
-  "from",
   "by",
-  "of",
+  "for",
+  "from",
   "in",
+  "into",
+  "of",
+  "off",
+  "on",
+  "onto",
+  "out",
+  "over",
+  "per",
+  "to",
+  "up",
+  "via",
+  "with",
 )
+
+// Characters that start a new "sentence" in title case
+// Word after these should be capitalized even if it's a minor word
+#let _major-punctuation = (":", ";", "—", "–", "?", "!", ".")
+
+/// Check if a word is all uppercase (likely an acronym)
+#let _is-all-uppercase(word) = {
+  if word == "" { return false }
+  // Filter out non-letter characters for the check
+  let letters = word.clusters().filter(c => c.match(regex("[a-zA-Z\u{00C0}-\u{024F}]")) != none)
+  if letters.len() == 0 { return false }
+  letters.all(c => c == upper(c))
+}
+
+/// Check if a word starts with a lowercase letter (intentional, like "iPad")
+#let _starts-with-lowercase(word) = {
+  if word == "" { return false }
+  let first = word.clusters().first()
+  // Check if it's a letter and lowercase
+  if first.match(regex("[a-z\u{00E0}-\u{00FF}]")) != none {
+    return true
+  }
+  false
+}
+
+/// Capitalize a word for title case
+/// - If word is all uppercase (acronym), preserve it
+/// - If word starts with lowercase intentionally (iPad), preserve it
+/// - Otherwise, capitalize first letter, preserve rest
+#let _capitalize-word(word) = {
+  if word == "" { return "" }
+  
+  // Preserve all-uppercase words (acronyms like UK, A.N.)
+  if _is-all-uppercase(word) {
+    return word
+  }
+  
+  // Preserve words that intentionally start with lowercase (like iPad)
+  // But only if they have uppercase later (indicating intentional casing)
+  if _starts-with-lowercase(word) {
+    let clusters = word.clusters()
+    let has-later-upper = clusters.slice(1).any(c => c.match(regex("[A-Z\u{00C0}-\u{00DF}]")) != none)
+    if has-later-upper {
+      return word
+    }
+  }
+  
+  let clusters = word.clusters()
+  if clusters.len() > 0 {
+    // Only capitalize first letter, preserve rest (don't lowercase)
+    upper(clusters.first()) + clusters.slice(1).join()
+  } else {
+    word
+  }
+}
+
+/// Process a hyphenated compound word for title case
+/// - parts: array of word parts split by hyphen
+/// - capitalize-first: whether the first part should be capitalized
+/// Returns: processed string joined by hyphens
+#let _process-hyphenated(parts, capitalize-first) = {
+  let processed = ()
+  let first = true
+  
+  for part in parts {
+    if part == "" {
+      processed.push("")
+      continue
+    }
+    
+    let lower-part = lower(part)
+    
+    if first {
+      // First part follows the capitalize-first rule
+      if capitalize-first or lower-part not in _minor-words {
+        processed.push(_capitalize-word(part))
+      } else {
+        // Minor word at non-capitalizing position: preserve original
+        processed.push(part)
+      }
+      first = false
+    } else {
+      // Non-first parts: capitalize unless minor word
+      if lower-part not in _minor-words {
+        processed.push(_capitalize-word(part))
+      } else {
+        // Minor word: preserve original (don't force lowercase)
+        processed.push(part)
+      }
+    }
+  }
+  
+  processed.join("-")
+}
+
+/// Apply title case to a string
+/// Rules:
+/// 1. First word is always capitalized
+/// 2. Words after major punctuation (: ; — – ? ! .) are capitalized
+/// 3. Minor words (a, an, the, and, etc.) are lowercased unless rule 1 or 2 applies
+/// 4. Hyphenated compounds: capitalize each part unless it's a minor word
+///    (e.g., "Self-Esteem" but "Out-of-Fashion")
+/// 5. Em-dash and en-dash act as word separators - word after them is capitalized
+#let _apply-title-case(s) = {
+  if s == "" { return s }
+  
+  // First, split by em-dash and en-dash (these create new "sentences")
+  // We need to process each segment separately
+  let segments = ()
+  let current = ""
+  let chars = s.clusters()
+  
+  for c in chars {
+    if c == "—" or c == "–" {
+      if current != "" {
+        segments.push(("text", current))
+        current = ""
+      }
+      segments.push(("dash", c))
+    } else {
+      current += c
+    }
+  }
+  if current != "" {
+    segments.push(("text", current))
+  }
+  
+  // Process each text segment
+  let result = ()
+  let is-first-word-of-string = true  // Only true for the very first word
+  
+  for (seg-type, seg-content) in segments {
+    if seg-type == "dash" {
+      result.push(seg-content)
+      continue
+    }
+    
+    // This is a text segment - apply title case
+    let words = seg-content.split(" ")
+    let processed-words = ()
+    // capitalize-next is true only for the very first word of the entire string
+    let capitalize-next = is-first-word-of-string
+    
+    for word in words {
+      if word == "" {
+        processed-words.push("")
+        continue
+      }
+      
+      // Check if this word contains hyphens (compound word)
+      if "-" in word {
+        let parts = word.split("-")
+        processed-words.push(_process-hyphenated(parts, capitalize-next or lower(parts.first()) not in _minor-words))
+      } else {
+        // Regular word
+        let lower-word = lower(word)
+        
+        if capitalize-next or lower-word not in _minor-words {
+          processed-words.push(_capitalize-word(word))
+        } else {
+          // Minor word: preserve original (don't force lowercase)
+          processed-words.push(word)
+        }
+      }
+      
+      // After processing first real word, no longer at start of string
+      is-first-word-of-string = false
+      
+      // Check if this word ends with major punctuation (excluding dashes, handled above)
+      capitalize-next = false
+      let last-char = word.clusters().last()
+      if last-char in (":", ";", "?", "!", ".") {
+        capitalize-next = true
+      }
+    }
+    
+    result.push(processed-words.join(" "))
+  }
+  
+  result.join("")
+}
 
 /// Apply CSL formatting attributes to content
 /// Optimized: extract all attrs at once, avoid repeated dictionary lookups
@@ -81,16 +280,14 @@
         .map(w => if w.len() > 0 { capitalize-first-char(w) } else { w })
         .join(" ")
     } else if text-case == "title" {
-      result = result
-        .split(" ")
-        .enumerate()
-        .map(((i, w)) => {
-          let lower-w = lower(w)
-          if i == 0 or lower-w not in _minor-words {
-            if w.len() > 0 { capitalize-first-char(w) } else { w }
-          } else { lower-w }
-        })
-        .join(" ")
+      result = _apply-title-case(result)
+    } else if text-case == "sentence" {
+      // Sentence case: lowercase everything, then capitalize first letter
+      let lowered = lower(result)
+      if lowered.len() > 0 {
+        let clusters = lowered.clusters()
+        result = upper(clusters.first()) + clusters.slice(1).join()
+      }
     }
   }
 
