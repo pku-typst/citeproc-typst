@@ -2,6 +2,17 @@
 //
 // Implements CSL punctuation collapsing rules based on citeproc-js LtoR_MAP.
 
+/// Get the punctuation-in-quote setting from a parsed CSL style
+///
+/// - style: Parsed CSL style
+/// Returns: Boolean indicating whether punctuation should be moved inside quotes
+#let get-punctuation-in-quote(style) = {
+  // Check style.locale.options first (merged locale)
+  let locale = style.at("locale", default: (:))
+  let options = locale.at("options", default: (:))
+  options.at("punctuation-in-quote", default: false)
+}
+
 /// Apply CSL punctuation collapsing to content
 ///
 /// Based on citeproc-js LtoR_MAP logic. The map defines what happens when
@@ -18,8 +29,13 @@
 ///
 /// All other combinations keep both characters.
 ///
+/// punctuation-in-quote option (CSL locale setting):
+/// When true, periods and commas are moved inside closing quotation marks.
+/// - "Title". → "Title."
+/// - "Title", → "Title,"
+///
 /// This wrapper limits the show rules to CSL output only.
-#let collapse-punctuation(content) = {
+#let collapse-punctuation(content, punctuation-in-quote: false) = {
   // Rule 0: Multiple spaces collapse to single space
   // This handles cases like delimiter ". " + prefix " (" → ". (" not ".  ("
   show regex(" {2,}"): " "
@@ -65,5 +81,17 @@
   // "," absorbs "."
   show regex("[,，、][.。]"): it => it.text.first()
 
-  content
+  // punctuation-in-quote: move periods and commas inside closing quotes
+  // Only applies when the locale has punctuation-in-quote="true" (e.g., en-US)
+  // Pattern: closing quote followed by period or comma → swap them
+  // Handles: " (right double quote)
+  // Note: We handle this conditionally by wrapping in another layer
+  if punctuation-in-quote {
+    // Right double quote + period/comma → swap them
+    show "\u{201D}.": ".\u{201D}"
+    show "\u{201D},": ",\u{201D}"
+    content
+  } else {
+    content
+  }
 }

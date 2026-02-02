@@ -14,7 +14,8 @@
 #let _use-footnote = sys.inputs.at("use-footnote", default: "true") == "true"
 #import "../parsing/mod.typ": parse-csl, parse-locale-file
 #import "../output/mod.typ": (
-  collapse-punctuation, get-rendered-entries, process-entries, render-citation,
+  collapse-punctuation, get-punctuation-in-quote, get-rendered-entries,
+  process-entries, render-citation,
 )
 #import "../parsing/mod.typ": detect-language
 #import "../core/mod.typ": (
@@ -216,19 +217,22 @@
           default: none,
         )
 
-        let result = collapse-punctuation(render-citation(
-          entry,
-          style,
-          form: form,
-          supplement: locator,
-          cite-number: cite-number,
-          year-suffix: year-suffix,
-          position: position,
-          first-note-number: first-note-number,
-          abbreviations: abbrevs,
-          names-expanded: disambig.at("names-expanded", default: 0),
-          givenname-level: disambig.at("givenname-level", default: 0),
-        ))
+        let result = collapse-punctuation(
+          render-citation(
+            entry,
+            style,
+            form: form,
+            supplement: locator,
+            cite-number: cite-number,
+            year-suffix: year-suffix,
+            position: position,
+            first-note-number: first-note-number,
+            abbreviations: abbrevs,
+            names-expanded: disambig.at("names-expanded", default: 0),
+            givenname-level: disambig.at("givenname-level", default: 0),
+          ),
+          punctuation-in-quote: get-punctuation-in-quote(style),
+        )
 
         (key: key, content: result, form: form)
       }

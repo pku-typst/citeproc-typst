@@ -8,8 +8,8 @@
 )
 #import "../core/formatting.typ": apply-formatting
 #import "../output/mod.typ": (
-  collapse-punctuation, render-citation, render-names-for-citation-display,
-  render-names-for-grouping, select-layout,
+  collapse-punctuation, get-punctuation-in-quote, render-citation,
+  render-names-for-citation-display, render-names-for-grouping, select-layout,
 )
 #import "../parsing/mod.typ": detect-language
 #import "../data/mod.typ": (
@@ -125,6 +125,13 @@
   context {
     let bib = _bib-data.get()
     let style = _csl-style.get()
+    let piq = get-punctuation-in-quote(style)
+
+    // Helper: render citation with punctuation collapsing
+    let render-cite(..args) = collapse-punctuation(
+      render-citation(..args),
+      punctuation-in-quote: piq,
+    )
 
     // Use precomputed data (O(1) lookup)
     let precomputed = _get-precomputed()
@@ -337,7 +344,7 @@
               // render items directly without range processing
               if suffix-ranges.len() == 0 {
                 for item in year-items {
-                  let rendered = collapse-punctuation(render-citation(
+                  let rendered = render-cite(
                     item.entry,
                     style,
                     supplement: item.supplement,
@@ -358,7 +365,7 @@
                       "needs-disambiguate",
                       default: false,
                     ),
-                  ))
+                  )
                   suffix-parts.push(rendered)
                   is-first-in-author = false
                   is-first-in-year = false
@@ -374,7 +381,7 @@
                       suffixes.at(it.key, default: none) == r.start
                     ))
                     if item != none {
-                      let rendered = collapse-punctuation(render-citation(
+                      let rendered = render-cite(
                         item.entry,
                         style,
                         supplement: item.supplement,
@@ -395,7 +402,7 @@
                           "needs-disambiguate",
                           default: false,
                         ),
-                      ))
+                      )
                       suffix-parts.push(rendered)
                       is-first-in-author = false
                       is-first-in-year = false
@@ -410,7 +417,7 @@
                     ))
                     if start-item != none and end-item != none {
                       // Render start with full year+suffix
-                      let start-rendered = collapse-punctuation(render-citation(
+                      let start-rendered = render-cite(
                         start-item.entry,
                         style,
                         year-suffix: r.start,
@@ -433,7 +440,7 @@
                           "needs-disambiguate",
                           default: false,
                         ),
-                      ))
+                      )
                       // For end, just use the suffix letter
                       let end-suffix = num-to-suffix(r.end)
                       suffix-parts.push([#start-rendered–#end-suffix])
@@ -475,7 +482,7 @@
               let is-first-in-year = true
 
               for item in year-items {
-                let rendered = collapse-punctuation(render-citation(
+                let rendered = render-cite(
                   item.entry,
                   style,
                   supplement: item.supplement,
@@ -496,7 +503,7 @@
                     "needs-disambiguate",
                     default: false,
                   ),
-                ))
+                )
                 suffix-parts.push(rendered)
                 is-first-in-author = false
                 is-first-in-year = false
@@ -519,7 +526,7 @@
             for (i, item) in items.enumerate() {
               let do-suppress-author = i > 0
 
-              let rendered = collapse-punctuation(render-citation(
+              let rendered = render-cite(
                 item.entry,
                 style,
                 supplement: item.supplement,
@@ -537,7 +544,7 @@
                   "needs-disambiguate",
                   default: false,
                 ),
-              ))
+              )
 
               // Skip items that would render empty (e.g., no date when author is suppressed)
               // Check BEFORE rendering: if author is suppressed and no date, skip
@@ -594,7 +601,7 @@
       } else {
         // No collapse - render each citation fully
         let parts = cite-items.map(item => {
-          collapse-punctuation(render-citation(
+          render-cite(
             item.entry,
             style,
             supplement: item.supplement,
@@ -607,7 +614,7 @@
               "needs-disambiguate",
               default: false,
             ),
-          ))
+          )
         })
         parts.join(delimiter)
       }
@@ -637,7 +644,7 @@
           year-suffix: none,
           needs-disambiguate: false,
         ))
-        collapse-punctuation(render-citation(
+        render-cite(
           entry,
           style,
           supplement: item.supplement,
@@ -648,7 +655,7 @@
           names-expanded: disambig.at("names-expanded", default: 0),
           givenname-level: disambig.at("givenname-level", default: 0),
           needs-disambiguate: disambig.at("needs-disambiguate", default: false),
-        ))
+        )
       })
 
       let joined = cite-parts.filter(p => p != []).join(delimiter)
@@ -719,13 +726,13 @@
           if seg.has-locator {
             // Single item with locator - render as-is, no collapse
             let item = seg.items.first()
-            all-parts.push(collapse-punctuation(render-citation(
+            all-parts.push(render-cite(
               item.entry,
               style,
               supplement: item.supplement,
               cite-number: item.order,
               suppress-affixes: true,
-            )))
+            ))
           } else {
             // Segment without locators - can collapse
             let numbers = seg.items.map(it => it.order)
@@ -734,24 +741,24 @@
             let parts = process-ranges(
               ranges,
               seg.items,
-              it => collapse-punctuation(render-citation(
+              it => render-cite(
                 it.entry,
                 style,
                 cite-number: it.order,
                 suppress-affixes: true,
-              )),
-              it => collapse-punctuation(render-citation(
+              ),
+              it => render-cite(
                 it.entry,
                 style,
                 cite-number: it.order,
                 suppress-affixes: true,
-              )),
-              it => collapse-punctuation(render-citation(
+              ),
+              it => render-cite(
                 it.entry,
                 style,
                 cite-number: it.order,
                 suppress-affixes: true,
-              )),
+              ),
             )
             all-parts += parts
           }
@@ -760,13 +767,13 @@
       } else {
         // No collapse - render each citation fully
         let parts = cite-items.map(item => {
-          collapse-punctuation(render-citation(
+          render-cite(
             item.entry,
             style,
             supplement: item.supplement,
             cite-number: item.order,
             suppress-affixes: normalized.len() > 1,
-          ))
+          )
         })
         parts.join(delimiter)
       }

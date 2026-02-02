@@ -2,7 +2,7 @@
 //
 // Re-exports all output/rendering functionality.
 
-#import "punctuation.typ": collapse-punctuation
+#import "punctuation.typ": collapse-punctuation, get-punctuation-in-quote
 #import "layout.typ": select-layout
 #import "helpers.typ": (
   content-to-string, find-first-names-macro, find-first-names-node,

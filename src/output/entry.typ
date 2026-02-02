@@ -7,7 +7,7 @@
 #import "../interpreter/stack.typ": interpret-children-stack
 #import "../parsing/mod.typ": detect-language
 #import "layout.typ": select-layout
-#import "punctuation.typ": collapse-punctuation
+#import "punctuation.typ": collapse-punctuation, get-punctuation-in-quote
 #import "helpers.typ": node-uses-citation-number
 
 // =============================================================================
@@ -165,7 +165,10 @@
   let layout-suffix = layout.at("suffix", default: ".")
 
   // Apply punctuation collapsing to CSL output only
-  collapse-punctuation([#result#layout-suffix])
+  collapse-punctuation(
+    [#result#layout-suffix],
+    punctuation-in-quote: get-punctuation-in-quote(style),
+  )
 }
 
 /// Render a bibliography entry from an entry IR
