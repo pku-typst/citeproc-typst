@@ -95,18 +95,24 @@
   if end.len() >= start.len() {
     return end
   }
-  
+
   // Simple case: both are pure digits
   // This handles common cases like "100-4" -> "100-104"
-  let s-is-digits = start.match(_digit-pattern) != none and start.clusters().all(c => c.match(_digit-pattern) != none)
-  let e-is-digits = end.match(_digit-pattern) != none and end.clusters().all(c => c.match(_digit-pattern) != none)
-  
+  let s-is-digits = (
+    start.match(_digit-pattern) != none
+      and start.clusters().all(c => c.match(_digit-pattern) != none)
+  )
+  let e-is-digits = (
+    end.match(_digit-pattern) != none
+      and end.clusters().all(c => c.match(_digit-pattern) != none)
+  )
+
   if s-is-digits and e-is-digits {
     // Simple expansion: prepend prefix digits from start
     let prefix-len = start.len() - end.len()
     return start.slice(0, prefix-len) + end
   }
-  
+
   // For more complex cases with prefixes/suffixes, return as-is for now
   // (will be handled by parse-page-parts after it's defined)
   end
@@ -279,10 +285,20 @@
   // BUT: only if end is also in single-digit range (x01-x09)
   let s-last-two = calc.rem(s-int, 100)
   let e-last-two = calc.rem(e-int, 100)
-  if s-last-two >= 1 and s-last-two <= 9 and e-last-two >= 1 and e-last-two <= 9 {
+  if (
+    s-last-two >= 1 and s-last-two <= 9 and e-last-two >= 1 and e-last-two <= 9
+  ) {
     // Both start and end are in x01-x09 range, just show the changed digit
     let minimized-end = str(calc.rem(e-int, 10))
-    return s-prefix + s-num + s-suffix + delimiter + e-prefix + minimized-end + e-suffix
+    return (
+      s-prefix
+        + s-num
+        + s-suffix
+        + delimiter
+        + e-prefix
+        + minimized-end
+        + e-suffix
+    )
   }
 
   // Rule 4: x10-x99 - use two digits minimum, more if needed

@@ -49,11 +49,11 @@
   "le",
   "der",
   "den",
-  "und",  // German "and"
+  "und", // German "and"
   // Common foreign minor words
-  "y",    // Spanish "and"
-  "e",    // Italian/Portuguese "and"
-  "et",   // Latin/French "and"
+  "y", // Spanish "and"
+  "e", // Italian/Portuguese "and"
+  "et", // Latin/French "and"
 )
 
 // Characters that start a new "sentence" in title case
@@ -64,7 +64,9 @@
 #let _is-all-uppercase(word) = {
   if word == "" { return false }
   // Filter out non-letter characters for the check
-  let letters = word.clusters().filter(c => c.match(regex("[a-zA-Z\u{00C0}-\u{024F}]")) != none)
+  let letters = word
+    .clusters()
+    .filter(c => c.match(regex("[a-zA-Z\u{00C0}-\u{024F}]")) != none)
   if letters.len() == 0 { return false }
   letters.all(c => c == upper(c))
 }
@@ -87,30 +89,32 @@
 /// - Skip leading non-letter characters (quotes, punctuation)
 #let _capitalize-word(word) = {
   if word == "" { return "" }
-  
+
   // Preserve all-uppercase words (acronyms like UK, A.N.)
   if _is-all-uppercase(word) {
     return word
   }
-  
+
   // Preserve words that intentionally start with lowercase (like iPad)
   // But only if they have uppercase later (indicating intentional casing)
   if _starts-with-lowercase(word) {
     let clusters = word.clusters()
-    let has-later-upper = clusters.slice(1).any(c => c.match(regex("[A-Z\u{00C0}-\u{00DF}]")) != none)
+    let has-later-upper = clusters
+      .slice(1)
+      .any(c => c.match(regex("[A-Z\u{00C0}-\u{00DF}]")) != none)
     if has-later-upper {
       return word
     }
   }
-  
+
   let clusters = word.clusters()
   if clusters.len() == 0 { return word }
-  
+
   // Find the first letter to capitalize (skip leading non-letters like quotes)
   let letter-pattern = regex("[a-zA-Z\u{00C0}-\u{024F}]")
   let prefix = ""
   let rest = clusters
-  
+
   for (i, c) in clusters.enumerate() {
     if c.match(letter-pattern) != none {
       // Found first letter - capitalize it and return
@@ -120,7 +124,7 @@
       return prefix + upper(letter) + suffix
     }
   }
-  
+
   // No letters found, return as-is
   word
 }
@@ -132,15 +136,15 @@
 #let _process-hyphenated(parts, capitalize-first) = {
   let processed = ()
   let first = true
-  
+
   for part in parts {
     if part == "" {
       processed.push("")
       continue
     }
-    
+
     let lower-part = lower(part)
-    
+
     if first {
       // First part follows the capitalize-first rule
       if capitalize-first or lower-part not in _minor-words {
@@ -160,7 +164,7 @@
       }
     }
   }
-  
+
   processed.join("-")
 }
 
@@ -175,13 +179,13 @@
 /// 6. Em-dash and en-dash act as word separators - word after them is capitalized
 #let _apply-title-case(s) = {
   if s == "" { return s }
-  
+
   // First, split by em-dash and en-dash (these create new "sentences")
   // We need to process each segment separately
   let segments = ()
   let current = ""
   let chars = s.clusters()
-  
+
   for c in chars {
     if c == "—" or c == "–" {
       if current != "" {
@@ -196,7 +200,7 @@
   if current != "" {
     segments.push(("text", current))
   }
-  
+
   // First pass: collect all words to identify the last word
   let all-words = ()
   for (seg-type, seg-content) in segments {
@@ -206,20 +210,22 @@
       all-words += words
     }
   }
-  let last-word-lower = if all-words.len() > 0 { lower(all-words.last()) } else { "" }
-  
+  let last-word-lower = if all-words.len() > 0 {
+    lower(all-words.last())
+  } else { "" }
+
   // Process each text segment
   let result = ()
-  let is-first-word-of-string = true  // Only true for the very first word
+  let is-first-word-of-string = true // Only true for the very first word
   let words-processed = 0
   let total-words = all-words.len()
-  
+
   for (seg-type, seg-content) in segments {
     if seg-type == "dash" {
       result.push(seg-content)
       continue
     }
-    
+
     // This is a text segment - apply title case
     // Split by regular space and non-breaking space (U+00A0)
     // First replace non-breaking spaces with regular spaces for splitting
@@ -228,46 +234,56 @@
     let processed-words = ()
     // capitalize-next is true only for the very first word of the entire string
     let capitalize-next = is-first-word-of-string
-    
+
     for word in words {
       if word == "" {
         processed-words.push("")
         continue
       }
-      
+
       // Track word position
       words-processed += 1
       let is-last-word = words-processed == total-words
-      
+
       // Check if this word contains hyphens or slashes (compound word)
       if "-" in word {
         let parts = word.split("-")
         // Last word of title should be capitalized even if minor
-        let should-cap = capitalize-next or is-last-word or lower(parts.first()) not in _minor-words
+        let should-cap = (
+          capitalize-next
+            or is-last-word
+            or lower(parts.first()) not in _minor-words
+        )
         processed-words.push(_process-hyphenated(parts, should-cap))
       } else if "/" in word {
         // Slash-separated words: capitalize each part
         let parts = word.split("/")
-        let processed-parts = parts.enumerate().map(((i, part)) => {
-          if part == "" { return "" }
-          let lower-part = lower(part)
-          // First part follows normal rules, others always capitalize (slash acts as separator)
-          if i == 0 {
-            if capitalize-next or is-last-word or lower-part not in _minor-words {
-              _capitalize-word(part)
+        let processed-parts = parts
+          .enumerate()
+          .map(((i, part)) => {
+            if part == "" { return "" }
+            let lower-part = lower(part)
+            // First part follows normal rules, others always capitalize (slash acts as separator)
+            if i == 0 {
+              if (
+                capitalize-next
+                  or is-last-word
+                  or lower-part not in _minor-words
+              ) {
+                _capitalize-word(part)
+              } else {
+                part
+              }
             } else {
-              part
+              // After slash: always capitalize (like after colon)
+              _capitalize-word(part)
             }
-          } else {
-            // After slash: always capitalize (like after colon)
-            _capitalize-word(part)
-          }
-        })
+          })
         processed-words.push(processed-parts.join("/"))
       } else {
         // Regular word
         let lower-word = lower(word)
-        
+
         // Capitalize if: first word, last word, after punctuation, or not a minor word
         if capitalize-next or is-last-word or lower-word not in _minor-words {
           processed-words.push(_capitalize-word(word))
@@ -276,10 +292,10 @@
           processed-words.push(word)
         }
       }
-      
+
       // After processing first real word, no longer at start of string
       is-first-word-of-string = false
-      
+
       // Check if this word ends with major punctuation (excluding dashes, handled above)
       capitalize-next = false
       let last-char = word.clusters().last()
@@ -287,10 +303,10 @@
         capitalize-next = true
       }
     }
-    
+
     result.push(processed-words.join(" "))
   }
-  
+
   result.join("")
 }
 
@@ -307,10 +323,10 @@
 #let apply-text-case(content, attrs, ctx: none) = {
   if content == [] or content == "" { return content }
   if type(content) != str { return content }
-  
+
   let text-case = attrs.at("text-case", default: none)
   if text-case == none { return content }
-  
+
   // CSL spec: title case only applies to English
   // Check entry language if ctx is provided
   if text-case == "title" and ctx != none {
@@ -323,7 +339,7 @@
       return content
     }
   }
-  
+
   let result = content
   if text-case == "lowercase" {
     result = lower(result)

@@ -92,8 +92,12 @@
   // Determine target quotes based on level mod 2
   // Level 0: outer quotes (double), Level 1: inner quotes (single), etc.
   let use-inner = calc.rem(level, 2) == 1
-  let target-open = if use-inner { chars.open-inner-quote } else { chars.open-quote }
-  let target-close = if use-inner { chars.close-inner-quote } else { chars.close-quote }
+  let target-open = if use-inner { chars.open-inner-quote } else {
+    chars.open-quote
+  }
+  let target-close = if use-inner { chars.close-inner-quote } else {
+    chars.close-quote
+  }
 
   let clusters = text.clusters()
   let result = ""

@@ -86,6 +86,7 @@
 ) = {
   // Parse CSL style with external locales
   let csl-style = load-csl(style, locales: locales)
+  let is-note-style = csl-style.class == STYLE-CLASS.note
   _csl-style.update(csl-style)
 
   // Set display config
@@ -124,7 +125,6 @@
 
         // Add footnote/link wrapper
         // Note: footnote can be disabled via --input use-footnote=false for HTML export
-        let is-note-style = style.class == STYLE-CLASS.note
         let is-inline-form = (
           form in (CITE-FORM.prose, CITE-FORM.author, CITE-FORM.year)
         )
