@@ -201,6 +201,9 @@
   // Determine if we only target primary (first) name
   let primary-only = givenname-rule.starts-with("primary-name")
 
+  // Check if this is an "all-names" rule (expand ambiguous names even in unambiguous cites)
+  let is-all-names-rule = givenname-rule.starts-with("all-names")
+
   // Build initial representations for all entries
   let disambig-state = (:)
   for e in entries {
@@ -214,7 +217,72 @@
     ))
   }
 
-  // Iteratively disambiguate
+  // ==========================================================================
+  // For "all-names" rule: Disambiguate names that share the same family name
+  // across the entire bibliography, even if the citations themselves are not
+  // ambiguous (e.g., different years).
+  // ==========================================================================
+  if add-givenname and is-all-names-rule {
+    // Group entries by family name of each rendered author position
+    // (considering et-al truncation)
+    let family-name-groups = (:)
+
+    for (entry-key, state) in disambig-state.pairs() {
+      let authors = state.authors
+      let show-count = calc.min(authors.len(), et-al-use-first)
+
+      for i in range(show-count) {
+        let name = authors.at(i)
+        let family = lower(name.at("family", default: name.at(
+          "literal",
+          default: "",
+        )))
+        let given = name.at("given", default: "")
+
+        if family == "" { continue }
+
+        // Group by (family, position) to track which names at which positions conflict
+        let group-key = family + "|" + str(i)
+        if group-key not in family-name-groups {
+          family-name-groups.insert(group-key, ())
+        }
+        family-name-groups
+          .at(group-key)
+          .push((
+            entry-key: entry-key,
+            position: i,
+            given: given,
+          ))
+      }
+    }
+
+    // For each family name group, check if there are different given names
+    // If so, all entries in that group need givenname expansion
+    for (group-key, group-entries) in family-name-groups.pairs() {
+      if group-entries.len() <= 1 { continue }
+
+      // Check if there are different given names in this group
+      let given-names = group-entries.map(e => e.given).dedup()
+      if given-names.len() <= 1 { continue }
+
+      // Different given names exist for this family name - expand all entries
+      for entry-info in group-entries {
+        let entry-key = entry-info.entry-key
+        let state = disambig-state.at(entry-key)
+
+        // Progressively expand until disambiguation is achieved
+        let target-level = max-givenname-level
+        if state.givenname-level < target-level {
+          disambig-state.insert(entry-key, (
+            ..state,
+            givenname-level: target-level,
+          ))
+        }
+      }
+    }
+  }
+
+  // Iteratively disambiguate (for by-cite rule and add-names)
   // Strategy: Start with minimal representation, expand as needed
   let max-iterations = 10
   let iteration = 0
@@ -252,7 +320,12 @@
           let resolved = false
 
           // Try expanding givenname first (respecting max level from rule)
-          if add-givenname and state.givenname-level < max-givenname-level {
+          // Skip for all-names rule as it was already handled above
+          if (
+            add-givenname
+              and not is-all-names-rule
+              and state.givenname-level < max-givenname-level
+          ) {
             let new-level = state.givenname-level + 1
             let new-key = build-author-key(
               state.authors,
@@ -581,10 +654,18 @@
   } else { 2 }
   let primary-only = givenname-rule.starts-with("primary-name")
 
+  // Check if this is an "all-names" rule (expand ambiguous names even in unambiguous cites)
+  let is-all-names-rule = givenname-rule.starts-with("all-names")
+
   // Get et-al settings for names expansion limit
   let et-al-min = citation.at("et-al-min", default: none)
   if et-al-min == none { et-al-min = 4 }
   if type(et-al-min) == str { et-al-min = int(et-al-min) }
+
+  // Get et-al-use-first early (needed for all-names rule)
+  let et-al-use-first = citation.at("et-al-use-first", default: none)
+  if et-al-use-first == none { et-al-use-first = 1 }
+  if type(et-al-use-first) == str { et-al-use-first = int(et-al-use-first) }
 
   // Initialize disambiguation state for each entry
   let states = (:)
@@ -600,14 +681,87 @@
     entry-map.insert(e.key, e)
   }
 
+  // ==========================================================================
+  // Pre-Method 1: "all-names" rule processing
+  // ==========================================================================
+  // For "all-names" rule: Disambiguate names that share the same family name
+  // across the entire bibliography, even if the citations themselves are not
+  // ambiguous (e.g., different years).
+  //
+  // CSL Spec: "all-names" expands to full given name (level 2)
+  // "all-names-with-initials" limits expansion to initials (level 1)
+  if add-givenname and is-all-names-rule {
+    // Group entries by family name of each rendered author position
+    // (considering et-al truncation)
+    let family-name-groups = (:)
+
+    for e in entries {
+      let authors = get-all-authors(e.entry)
+      let state = states.at(e.key)
+      let show-count = calc.min(
+        authors.len(),
+        et-al-use-first + state.names-expanded,
+      )
+
+      for i in range(show-count) {
+        let name = authors.at(i)
+        let family = lower(name.at("family", default: name.at(
+          "literal",
+          default: "",
+        )))
+        let given = name.at("given", default: "")
+
+        if family == "" { continue }
+
+        // Group by (family, position) to track which names at which positions conflict
+        let group-key = family + "|" + str(i)
+        if group-key not in family-name-groups {
+          family-name-groups.insert(group-key, ())
+        }
+        family-name-groups
+          .at(group-key)
+          .push((
+            entry-key: e.key,
+            position: i,
+            given: given,
+          ))
+      }
+    }
+
+    // For each family name group, check if there are different given names
+    // If so, all entries in that group need givenname expansion
+    for (group-key, group-entries) in family-name-groups.pairs() {
+      if group-entries.len() <= 1 { continue }
+
+      // Check if there are different given names in this group
+      let given-names = group-entries.map(e => e.given).dedup()
+      if given-names.len() <= 1 { continue }
+
+      // Different given names exist for this family name
+      // Expand all entries to max level for this rule
+      for entry-info in group-entries {
+        let entry-key = entry-info.entry-key
+        let state = states.at(entry-key)
+
+        if state.givenname-level < max-givenname-level {
+          states.insert(entry-key, (
+            ..state,
+            givenname-level: max-givenname-level,
+          ))
+        }
+      }
+    }
+  }
+
   // Initial grouping
   let groups = group-by-citation-key(entries, states, style)
   let ambiguous = get-ambiguous-groups(groups)
 
   // ==========================================================================
-  // Method 1: disambiguate-add-givenname
+  // Method 1: disambiguate-add-givenname (for by-cite rule)
   // ==========================================================================
-  if add-givenname and ambiguous.len() > 0 {
+  // Skip if all-names rule already handled givenname expansion
+  if add-givenname and not is-all-names-rule and ambiguous.len() > 0 {
     // Try expanding givenname for ambiguous entries
     for level in range(1, max-givenname-level + 1) {
       let ambiguous-keys = ambiguous.map(((k, v)) => v).flatten()
@@ -635,10 +789,7 @@
   // Method 2: disambiguate-add-names
   // ==========================================================================
   if add-names and not primary-only and ambiguous.len() > 0 {
-    // Get et-al-use-first setting
-    let et-al-use-first = citation.at("et-al-use-first", default: none)
-    if et-al-use-first == none { et-al-use-first = 1 }
-    if type(et-al-use-first) == str { et-al-use-first = int(et-al-use-first) }
+    // et-al-use-first was already retrieved above
 
     // Try adding more names for still-ambiguous entries
     // Key insight: Only keep expansion if it actually helps disambiguate

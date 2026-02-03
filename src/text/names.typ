@@ -1133,6 +1133,45 @@
   }
 }
 
+/// Apply name-level formatting (font-weight, font-style, etc.) to formatted names
+///
+/// CSL spec: The <name> element can have formatting attributes like font-weight="bold"
+/// which should apply to all rendered names.
+///
+/// - content: The formatted names content
+/// - attrs: Attributes from the <name> element
+/// Returns: Formatted content with name-level formatting applied
+#let apply-name-formatting(content, attrs) = {
+  if content == [] or content == "" { return content }
+
+  let result = content
+
+  // Apply font formatting
+  let font-style = attrs.at("font-style", default: none)
+  if font-style == "italic" or font-style == "oblique" {
+    result = emph(result)
+  }
+
+  let font-weight = attrs.at("font-weight", default: none)
+  if font-weight == "bold" {
+    result = strong(result)
+  } else if font-weight == "light" {
+    result = text(weight: "light", result)
+  }
+
+  let text-decoration = attrs.at("text-decoration", default: none)
+  if text-decoration == "underline" {
+    result = underline(result)
+  }
+
+  let font-variant = attrs.at("font-variant", default: none)
+  if font-variant == "small-caps" {
+    result = smallcaps(result)
+  }
+
+  result
+}
+
 // =============================================================================
 // CSL-M Institution Support
 // =============================================================================

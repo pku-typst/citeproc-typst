@@ -3,7 +3,9 @@
 // Handles <names> CSL element.
 
 #import "../core/mod.typ": finalize, is-empty
-#import "../text/names.typ": format-names, format-names-with-institutions
+#import "../text/names.typ": (
+  apply-name-formatting, format-names, format-names-with-institutions,
+)
 #import "../parsing/mod.typ": lookup-term
 
 // =============================================================================
@@ -506,6 +508,10 @@
         et-al-attrs: et-al-attrs,
       )
     }
+
+    // Apply name-level formatting (font-weight, font-style, etc.)
+    // CSL spec: <name> element can have formatting attributes that apply to all rendered names
+    names-content = apply-name-formatting(names-content, name-attrs)
 
     // CSL spec: <name> element's prefix/suffix wrap the formatted name list
     // This is SEPARATE from <names> element's prefix/suffix (applied via finalize later)
