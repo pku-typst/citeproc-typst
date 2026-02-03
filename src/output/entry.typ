@@ -157,9 +157,37 @@
     layout.children.filter(node => not node-uses-citation-number(node))
   }
 
-  // Use stack-based interpreter with built-in memoization
-  // This reduces O(calls * depth) to O(unique macros) for macro expansion
-  let result = interpret-children-stack(children, ctx)
+  // Render bibliography layout
+  // Use compiled function if available and not filtering, otherwise fall back to interpreter
+  let result = {
+    let compiled = style.at("compiled", default: none)
+    let use-compiler = false  // Temporarily disabled to debug regression
+    // Only use compiled version when include-number=true (no filtering needed)
+    if compiled != none and include-number and use-compiler {
+      // Get the compiled layout for this locale
+      let bib-layouts = compiled.at("bibliography-layouts", default: (:))
+      let layout-key = if layout-locale != none { layout-locale } else { "_default" }
+      let compiled-layout = bib-layouts.at(layout-key, default: none)
+      
+      // Fallback to default if locale-specific not found
+      if compiled-layout == none {
+        compiled-layout = bib-layouts.at("_default", default: none)
+      }
+      
+      if compiled-layout != none {
+        // Add compiled macros to context for macro calls
+        let ctx = (..ctx, compiled-macros: compiled.macros, done-vars: ())
+        let (content, _state, _done) = (compiled-layout)(ctx)
+        content
+      } else {
+        // Fall back to interpreter if no compiled layout found
+        interpret-children-stack(children, ctx)
+      }
+    } else {
+      // Fall back to stack-based interpreter (handles filtering case)
+      interpret-children-stack(children, ctx)
+    }
+  }
 
   // Apply layout suffix (usually ".")
   let layout-suffix = layout.at("suffix", default: ".")

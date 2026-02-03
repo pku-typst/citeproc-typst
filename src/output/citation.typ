@@ -175,14 +175,21 @@
     }
   }
 
-  // Interpret citation layout using stack-based interpreter with memoization
-  // NOTE: layout.delimiter is for separating multiple cites within a citation,
-  // NOT for separating elements within the layout. Don't pass it here.
-  let result = interpret-children-stack(
-    layout.children,
-    ctx,
-    delimiter: "",
-  )
+  // Render citation layout
+  // Use compiled function if available, otherwise fall back to interpreter
+  let result = {
+    let compiled = style.at("compiled", default: none)
+    let use-compiler = true
+    if compiled != none and use-compiler {
+      // Add compiled macros to context for macro calls
+      let ctx = (..ctx, compiled-macros: compiled.macros, done-vars: ())
+      let (content, _state, _done) = (compiled.citation)(ctx)
+      content
+    } else {
+      // Fall back to stack-based interpreter
+      interpret-children-stack(layout.children, ctx, delimiter: "")
+    }
+  }
 
   // Apply citation-item level prefix/suffix (from locator metadata)
   // CSL spec: these go INSIDE the layout prefix/suffix
