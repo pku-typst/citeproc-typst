@@ -35,7 +35,42 @@
 /// - "Title", → "Title,"
 ///
 /// This wrapper limits the show rules to CSL output only.
+#import "helpers.typ": content-to-string
+
+#let _is-plain-text(content) = {
+  if content == none or content == [] { return true }
+  if type(content) == str { return true }
+  let func = content.func()
+  let fields = content.fields()
+
+  if func == text {
+    let body = fields.at("body", default: fields.at("text", default: ""))
+    return _is-plain-text(body)
+  }
+
+  if "children" in fields {
+    return fields.children.all(_is-plain-text)
+  }
+
+  false
+}
+
 #let collapse-punctuation(content, punctuation-in-quote: false) = {
+  // Apply punctuation rules inside links by recursing into the body
+  if type(content) != str and content.func() == link {
+    let fields = content.fields()
+    let dest = fields.at("dest", default: none)
+    let body = fields.at("body", default: [])
+    return link(dest, collapse-punctuation(body, punctuation-in-quote: punctuation-in-quote))
+  }
+
+  // Flatten plain text to allow punctuation rules across boundaries
+  let normalized = if _is-plain-text(content) {
+    content-to-string(content)
+  } else {
+    content
+  }
+
   // Rule 0: Multiple spaces collapse to single space
   // This handles cases like delimiter ". " + prefix " (" → ". (" not ".  ("
   show regex(" {2,}"): " "
@@ -47,6 +82,14 @@
   show regex("[:：]{2,}"): it => it.text.first()
   show regex("[!！]{2,}"): it => it.text.first()
   show regex("[?？]{2,}"): it => it.text.first()
+
+  // Rule 1b: Duplicate punctuation across closing quotes (keep first)
+  show regex("[.。][\u{201D}\"][.。]"): it => it.text.clusters().slice(0, 2).join()
+  show regex("[,，、][\u{201D}\"][,，、]"): it => it.text.clusters().slice(0, 2).join()
+  show regex("[;；][\u{201D}\"][;；]"): it => it.text.clusters().slice(0, 2).join()
+  show regex("[:：][\u{201D}\"][:：]"): it => it.text.clusters().slice(0, 2).join()
+  show regex("[!！][\u{201D}\"][!！]"): it => it.text.clusters().slice(0, 2).join()
+  show regex("[?？][\u{201D}\"][?？]"): it => it.text.clusters().slice(0, 2).join()
 
   // Rule 2: Absorption rules from citeproc-js LtoR_MAP
   // Helper to get the "stronger" punctuation
@@ -78,8 +121,10 @@
   show regex("[;；][!！]"): it => it.text.clusters().last()
   show regex("[;；][?？]"): it => it.text.clusters().last()
 
-  // "," absorbs "."
-  show regex("[,，、][.。]"): it => it.text.first()
+  // Absorption across closing quotes
+  show regex("[!！][\u{201D}\"][:：]"): it => it.text.clusters().slice(0, 2).join()
+  show regex("[?？][\u{201D}\"][:：]"): it => it.text.clusters().slice(0, 2).join()
+  show regex("[;；][\u{201D}\"][:：]"): it => it.text.clusters().slice(0, 2).join()
 
   // punctuation-in-quote: move periods and commas inside closing quotes
   // Only applies when the locale has punctuation-in-quote="true" (e.g., en-US)
@@ -88,13 +133,16 @@
   // Note: We handle this conditionally by wrapping in another layer
   if punctuation-in-quote {
     // Right double quote + period/comma → swap them
+    // Collapse duplicate period/comma before swapping
+    show regex("[.。][\u{201D}\"][.。]"): it => it.text.clusters().slice(0, 2).join()
+    show regex("[,，、][\u{201D}\"][,，、]"): it => it.text.clusters().slice(0, 2).join()
     show "\u{201D}.": ".\u{201D}"
     show "\u{201D},": ",\u{201D}"
     // Straight double quote + period/comma → swap them
     show "\".": ".\""
     show "\",": ",\""
-    content
+    normalized
   } else {
-    content
+    normalized
   }
 }

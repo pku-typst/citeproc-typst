@@ -28,7 +28,11 @@
   let open = if is-inner { chars.open-inner-quote } else { chars.open-quote }
   let close = if is-inner { chars.close-inner-quote } else { chars.close-quote }
 
-  [#open#text#close]
+  if type(text) == str {
+    open + text + close
+  } else {
+    [#open#text#close]
+  }
 }
 
 /// Count quote nesting level in a string

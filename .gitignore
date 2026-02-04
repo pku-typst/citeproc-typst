@@ -34,3 +34,6 @@ Thumbs.db
 tests/*/out/
 tests/*/diff/
 references/csl-locales/
+
+# Python cache
+__pycache__/

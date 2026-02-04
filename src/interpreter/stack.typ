@@ -421,8 +421,11 @@
         let merged-state = merge-var-state(states)
         let group-delimiter = meta.attrs.at("delimiter", default: "")
         let parts = ordered.map(r => r.at(0)).filter(x => not is-empty(x))
+        let all-strings = parts.all(p => type(p) == str)
         let joined = if group-delimiter != "" and parts.len() > 1 {
           parts.join(group-delimiter)
+        } else if all-strings {
+          parts.join("")
         } else {
           parts.join()
         }

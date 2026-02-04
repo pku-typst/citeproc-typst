@@ -270,6 +270,7 @@
         + "    let contents = results.map(r => r.at(0)).filter(x => x != [] and x != none and x != \"\")\n"
     )
 
+    code += indent + "    let all-strings = contents.all(c => type(c) == str)\n"
     if delimiter != "" {
       code += (
         indent
@@ -278,7 +279,7 @@
           + "\")\n"
       )
     } else {
-      code += indent + "    let joined = contents.join()\n"
+      code += indent + "    let joined = if all-strings { contents.join(\"\") } else { contents.join() }\n"
     }
 
     code += (

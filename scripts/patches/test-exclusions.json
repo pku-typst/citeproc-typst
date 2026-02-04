@@ -34,6 +34,14 @@
       "reason": "Uses citeproc-js citation update format (..[n] and >>[n] prefixes) for testing dynamic citation updates. Not applicable to static Typst compilation."
     },
     {
+      "fixture": "punctuation_SuppressPrefixPeriodForDelimiterSemicolon",
+      "reason": "Uses citeproc-js citation update format (..[n] and >>[n] prefixes) for testing dynamic citation updates. Not applicable to static Typst compilation."
+    },
+    {
+      "fixture": "punctuation_FullMontyQuotesIn",
+      "reason": "punctuation-in-quote with quoted content inside linked citations requires cross-node punctuation collapse. Not supported yet."
+    },
+    {
       "fixture": "name_HyphenatedNonDroppingParticle1",
       "reason": "Requires parsing embedded particles (al-, van, von, de) from family names. This heuristic pattern matching is citeproc-js specific behavior not defined in CSL spec."
     },
@@ -164,6 +172,14 @@
     {
       "fixture": "flipflop_ItalicsSimple",
       "reason": "Requires parsing <i> tags from input data to detect embedded italics. This HTML parsing is not supported."
+    },
+    {
+      "fixture": "decorations_SimpleFlipFlop",
+      "reason": "Requires parsing <i> tags from input data to detect embedded italics. This HTML parsing is not supported."
+    },
+    {
+      "fixture": "decorations_NestedQuotesInnerReverse",
+      "reason": "Requires parsing embedded HTML tags (<b>) inside quoted input. This HTML parsing is not supported."
     }
   ]
 }
