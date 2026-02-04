@@ -441,6 +441,18 @@ def normalize_csl_json(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 # Typst Test Generation
 # =============================================================================
 
+def _format_cite_key(key: str) -> str:
+    """Format a citation key as a Typst label expression."""
+    # Typst <label> cannot contain characters like ":" or "/".
+    # Use label("...") for unsafe keys.
+    import re
+    key_str = str(key)
+    if re.match(r'^[A-Za-z0-9._-]+$', key_str):
+        return f'<{key_str}>'
+    escaped = key_str.replace('\\', '\\\\').replace('"', '\\"')
+    return f'label("{escaped}")'
+
+
 def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str,
                         csl_content: str = None, abbrevs_path: str = None) -> str:
     """Generate a Typst test file for a fixture.
@@ -465,7 +477,8 @@ def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str,
         hidden_cites = []
         for item in fixture.input_data:
             key = item.get('id', 'ITEM-1')
-            hidden_cites.append(f'#box(width: 0pt, height: 0pt, clip: true)[#cite(<{key}>)]')
+            key_expr = _format_cite_key(key)
+            hidden_cites.append(f'#box(width: 0pt, height: 0pt, clip: true)[#cite({key_expr})]')
         hidden_cites_str = '\n'.join(hidden_cites)
         body = f'''// Bibliography mode - hidden citations to populate bibliography
 {hidden_cites_str}
@@ -489,13 +502,14 @@ def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str,
                     cite = citation_items[0]
                     if isinstance(cite, dict) and 'id' in cite:
                         key = cite['id']
+                        key_expr = _format_cite_key(key)
                         locator_value = str(cite.get('locator', ''))
                         locator_label = cite.get('label', 'page')
                         if locator_value:
                             locator_escaped = locator_value.replace('"', '\\"')
-                            cite_calls.append(f'#cite(<{key}>, form: "prose", supplement: locator("{locator_label}", "{locator_escaped}"))')
+                            cite_calls.append(f'#cite({key_expr}, form: "prose", supplement: locator("{locator_label}", "{locator_escaped}"))')
                         else:
-                            cite_calls.append(f'#cite(<{key}>, form: "prose")')
+                            cite_calls.append(f'#cite({key_expr}, form: "prose")')
                 elif len(citation_items) > 1:
                     items = []
                     for cite in citation_items:
@@ -517,6 +531,7 @@ def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str,
                     cite = cluster[0]
                     if isinstance(cite, dict) and 'id' in cite:
                         key = cite['id']
+                        key_expr = _format_cite_key(key)
                         # Handle locator (supplement in Typst)
                         locator_value = str(cite.get('locator', ''))
                         locator_label = cite.get('label', 'page')
@@ -532,9 +547,9 @@ def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str,
                         # Build locator call with optional prefix/suffix
                         if locator_value or cite_prefix or cite_suffix:
                             # Use locator() function with all parameters
-                            cite_call = f'#cite(<{key}>, form: "prose", supplement: locator("{locator_label}", "{locator_escaped}", prefix: "{prefix_escaped}", suffix: "{suffix_escaped}"))'
+                            cite_call = f'#cite({key_expr}, form: "prose", supplement: locator("{locator_label}", "{locator_escaped}", prefix: "{prefix_escaped}", suffix: "{suffix_escaped}"))'
                         else:
-                            cite_call = f'#cite(<{key}>, form: "prose")'
+                            cite_call = f'#cite({key_expr}, form: "prose")'
 
                         cite_calls.append(cite_call)
                 elif len(cluster) > 1:
@@ -557,7 +572,8 @@ def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str,
             # This is important for collapse tests
             if len(fixture.input_data) == 1:
                 key = fixture.input_data[0].get('id', 'ITEM-1')
-                cite_calls.append(f'#cite(<{key}>, form: "prose")')
+                key_expr = _format_cite_key(key)
+                cite_calls.append(f'#cite({key_expr}, form: "prose")')
             else:
                 keys = [f'"{item.get("id", "ITEM-1")}"' for item in fixture.input_data]
                 cite_calls.append(f'#multicite({", ".join(keys)})')
@@ -785,6 +801,11 @@ def generate_report(results: List[Dict[str, Any]], output_path: Path, compare: b
             if len(mismatch_tests) > 20:
                 report.append(f'... and {len(mismatch_tests) - 20} more')
 
+        # Write full mismatch list for debugging
+        mismatch_list_path = output_path.with_name('test-suite-mismatches.txt')
+        mismatch_list = [r['name'] for r in mismatch_tests]
+        mismatch_list_path.write_text('\n'.join(mismatch_list), encoding='utf-8')
+
     # Show errors
     error_tests = [r for r in results if r['status'] == 'error']
     if error_tests:
@@ -800,6 +821,11 @@ def generate_report(results: List[Dict[str, Any]], output_path: Path, compare: b
             report.append('')
         if len(error_tests) > 20:
             report.append(f'... and {len(error_tests) - 20} more')
+
+        # Write full error list for debugging
+        error_list_path = output_path.with_name('test-suite-errors.txt')
+        error_list = [r['name'] for r in error_tests]
+        error_list_path.write_text('\n'.join(error_list), encoding='utf-8')
 
     # Show excluded tests
     excluded_tests = [r for r in results if r['status'] == 'excluded']

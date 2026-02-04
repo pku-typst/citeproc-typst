@@ -13,7 +13,7 @@
   format-number-roman-compiled,
 )
 #import "label.typ": format-label-compiled
-#import "text.typ": get-text-variable
+#import "text.typ": format-text-content, format-text-value, get-text-variable
 #import "term.typ": get-term-compiled
 #import "conditions.typ": has-variable
 
@@ -35,6 +35,8 @@
   format-number-roman: format-number-roman-compiled,
   format-label: format-label-compiled,
   get-text-variable: get-text-variable,
+  format-text-content: format-text-content,
+  format-text-value: format-text-value,
   get-term: get-term-compiled,
   has-variable: has-variable,
   get-variable: get-variable,

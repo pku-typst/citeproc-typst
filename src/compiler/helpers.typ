@@ -13,5 +13,6 @@
 )
 #import "rt/label.typ": format-label-compiled
 #import "rt/text.typ": get-text-variable
+#import "rt/text.typ": format-text-content, format-text-value
 #import "rt/term.typ": get-term-compiled
 #import "rt/conditions.typ": has-variable

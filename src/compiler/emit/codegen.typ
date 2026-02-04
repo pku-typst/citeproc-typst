@@ -108,7 +108,13 @@
 }
 
 /// Emit a macro call with optional cache usage
-#let compile-macro-call(macro-name, indent, prefix: "", suffix: "") = {
+#let compile-macro-call(
+  macro-name,
+  indent,
+  attrs-str,
+  prefix: "",
+  suffix: "",
+) = {
   let macro-key = escape-string(macro-name)
   let cache-setup = (
     indent
@@ -147,35 +153,24 @@
       + "  }\n"
   )
 
-  if prefix == "" and suffix == "" {
-    let code = indent + "{\n"
-    code += cache-setup
-    code += cache-fetch
-    code += indent + "  result\n"
-    code += indent + "}"
-    code
-  } else {
-    let code = indent + "{\n"
-    code += cache-setup
-    code += cache-fetch
-    code += indent + "  let (content, state, done) = result\n"
-    code += (
-      indent + "  if content != [] and content != none and content != \"\" {\n"
-    )
-    code += (
-      indent
-        + "    (["
-        + escape-content(prefix)
-        + "#content"
-        + escape-content(suffix)
-        + "], state, done)\n"
-    )
-    code += indent + "  } else {\n"
-    code += indent + "    ([], state, done)\n"
-    code += indent + "  }\n"
-    code += indent + "}"
-    code
-  }
+  let code = indent + "{\n"
+  code += cache-setup
+  code += cache-fetch
+  code += indent + "  let (content, state, done) = result\n"
+  code += (
+    indent + "  if content != [] and content != none and content != \"\" {\n"
+  )
+  code += (
+    indent
+      + "    (format-text-content(ctx, content, "
+      + attrs-str
+      + "), state, done)\n"
+  )
+  code += indent + "  } else {\n"
+  code += indent + "    ([], state, done)\n"
+  code += indent + "  }\n"
+  code += indent + "}"
+  code
 }
 
 /// Main recursive compiler function
@@ -211,16 +206,9 @@
       let attrs-str = serialize-dict(attrs)
       return indent + "get-text-variable(ctx, " + attrs-str + ")"
     } else if "value" in attrs {
-      // Literal value - inline for simplicity
+      // Literal value - handle quotes/text-case via helper
       let attrs-str = serialize-dict(attrs)
-      return (
-        indent
-          + "(finalize(["
-          + escape-content(attrs.value)
-          + "], "
-          + attrs-str
-          + "), \"none\", ())"
-      )
+      return indent + "format-text-value(ctx, " + attrs-str + ")"
     } else if "term" in attrs {
       // Call helper for term lookup
       let attrs-str = serialize-dict(attrs)
@@ -230,9 +218,11 @@
       let prefix = attrs.at("prefix", default: "")
       let suffix = attrs.at("suffix", default: "")
 
+      let attrs-str = serialize-dict(attrs)
       return compile-macro-call(
         macro-name,
         indent,
+        attrs-str,
         prefix: prefix,
         suffix: suffix,
       )
@@ -291,30 +281,29 @@
       code += indent + "    let joined = contents.join()\n"
     }
 
-    if prefix != "" or suffix != "" {
-      code += (
-        indent + "    if joined != [] and joined != none and joined != \"\" {\n"
-      )
-      code += (
-        indent
-          + "      (["
-          + escape-content(prefix)
-          + "#joined"
-          + escape-content(suffix)
-          + "], if has-var { \"var\" } else { \"none\" }, results.map(r => r.at(2)).flatten())\n"
-      )
-      code += indent + "    } else {\n"
-      code += (
-        indent
-          + "      ([], if has-var { \"var\" } else { \"none\" }, results.map(r => r.at(2)).flatten())\n"
-      )
-      code += indent + "    }\n"
-    } else {
-      code += (
-        indent
-          + "    (joined, if has-var { \"var\" } else { \"none\" }, results.map(r => r.at(2)).flatten())\n"
-      )
-    }
+    code += (
+      indent
+        + "    let formatted = finalize(joined, "
+        + serialize-dict(attrs)
+        + ")\n"
+    )
+    code += indent + "    let done = results.map(r => r.at(2)).flatten()\n"
+    code += (
+      indent
+        + "    if formatted != [] and formatted != none and formatted != \"\" {\n"
+    )
+    code += (
+      indent
+        + "      let final-state = if has-var { \"var\" } else if has-no-var { \"no-var\" } else { \"var\" }\n"
+    )
+    code += indent + "      (formatted, final-state, done)\n"
+    code += indent + "    } else {\n"
+    code += (
+      indent
+        + "      let final-state = if has-var { \"var\" } else if has-no-var { \"no-var\" } else { \"none\" }\n"
+    )
+    code += indent + "      ([], final-state, done)\n"
+    code += indent + "    }\n"
 
     code += indent + "  }\n"
     code += indent + "}"
@@ -634,7 +623,16 @@
 
   if valid-children.len() == 1 {
     let code = "(ctx) => {\n"
-    code += compile-ast(valid-children.first(), macros, depth: 1) + "\n"
+    code += (
+      "  let (content, state, done) = "
+        + compile-ast(valid-children.first(), macros, depth: 1)
+        + "\n"
+    )
+    code += "  if state == \"no-var\" {\n"
+    code += "    ([], \"no-var\", done)\n"
+    code += "  } else {\n"
+    code += "    (content, state, done)\n"
+    code += "  }\n"
     code += "}"
     return code
   }
@@ -644,8 +642,15 @@
   code += compile-children-seq(valid-children, macros, 1, compile-ast)
   code += "  let contents = results.map(r => r.at(0)).filter(x => x != [] and x != none and x != \"\")\n"
   code += "  let states = results.map(r => r.at(1))\n"
-  code += "  let merged = if states.any(s => s == \"var\") { \"var\" } else if states.any(s => s == \"no-var\") { \"no-var\" } else { \"none\" }\n"
-  code += "  (contents.join(), merged, results.map(r => r.at(2)).flatten())\n"
+  code += "  let has-var = states.any(s => s == \"var\")\n"
+  code += "  let has-no-var = states.any(s => s == \"no-var\")\n"
+  code += "  let merged-done = results.map(r => r.at(2)).flatten()\n"
+  code += "  if (has-var or has-no-var) and not has-var {\n"
+  code += "    ([], \"no-var\", merged-done)\n"
+  code += "  } else {\n"
+  code += "    let merged = if has-var { \"var\" } else if has-no-var { \"no-var\" } else { \"none\" }\n"
+  code += "    (contents.join(), merged, merged-done)\n"
+  code += "  }\n"
   code += "}"
   code
 }

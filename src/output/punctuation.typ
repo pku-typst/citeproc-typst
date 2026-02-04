@@ -90,6 +90,9 @@
     // Right double quote + period/comma → swap them
     show "\u{201D}.": ".\u{201D}"
     show "\u{201D},": ",\u{201D}"
+    // Straight double quote + period/comma → swap them
+    show "\".": ".\""
+    show "\",": ",\""
     content
   } else {
     content
