@@ -10,7 +10,7 @@
 // The compiled functions take a context dict and return (content, var-state, done-vars).
 
 #import "emit/codegen.typ": compile-ast, compile-children, compile-macro
-#import "rt/helpers.typ": compiler-helpers
+#import "rt/mod.typ": compiler-helpers
 
 /// Default helpers scope for eval()
 /// These are the functions that compiled code can call

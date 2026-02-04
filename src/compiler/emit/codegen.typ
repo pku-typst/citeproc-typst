@@ -64,6 +64,38 @@
 /// Serialize an array to Typst code string
 #let serialize-array(arr) = serialize-value(arr)
 
+/// Emit sequential evaluation for children with done-vars propagation
+#let compile-children-seq(
+  children,
+  macros,
+  depth,
+  compile-fn,
+  results-name: "results",
+  done-name: "done",
+) = {
+  let indent = "  " * depth
+  let code = ""
+  code += indent + "let " + results-name + " = ()\n"
+  code += (
+    indent + "let " + done-name + " = ctx.at(\"done-vars\", default: ())\n"
+  )
+
+  for child in children {
+    code += indent + "{\n"
+    code += indent + "  let child-ctx = (..ctx, done-vars: " + done-name + ")\n"
+    code += indent + "  let (content, state, child-done) = {\n"
+    code += indent + "    let ctx = child-ctx\n"
+    code += compile-fn(child, macros, depth: depth + 3) + "\n"
+    code += indent + "  }\n"
+    code += indent + "  " + done-name + " = " + done-name + " + child-done\n"
+    code += (
+      indent + "  " + results-name + ".push((content, state, child-done))\n"
+    )
+    code += indent + "}\n"
+  }
+  code
+}
+
 /// Compile condition expression
 /// Instead of regenerating all condition logic, just call the interpreter's eval-condition
 #let compile-condition(attrs) = {
@@ -184,15 +216,14 @@
     }
 
     let code = indent + "{\n"
-    code += indent + "  let results = (\n"
-
-    for (i, child) in valid-children.enumerate() {
-      code += compile-ast(child, macros, depth: depth + 2)
-      code += "," // Always add comma - required for single-element arrays in Typst
-      code += "\n"
-    }
-
-    code += indent + "  )\n"
+    code += compile-children-seq(
+      valid-children,
+      macros,
+      depth + 1,
+      compile-ast,
+      results-name: "results",
+      done-name: "done",
+    )
     code += indent + "  let states = results.map(r => r.at(1))\n"
     code += indent + "  let has-var = states.any(s => s == \"var\")\n"
     code += indent + "  let has-no-var = states.any(s => s == \"no-var\")\n"
@@ -283,13 +314,14 @@
           )
         } else if valid-branch-children.len() > 1 {
           code += indent + "    {\n"
-          code += indent + "      let results = (\n"
-          for (i, child) in valid-branch-children.enumerate() {
-            code += compile-ast(child, macros, depth: depth + 4)
-            code += "," // Always add comma for single-element array safety
-            code += "\n"
-          }
-          code += indent + "      )\n"
+          code += compile-children-seq(
+            valid-branch-children,
+            macros,
+            depth + 3,
+            compile-ast,
+            results-name: "results",
+            done-name: "done",
+          )
           code += (
             indent
               + "      let contents = results.map(r => r.at(0)).filter(x => x != [] and x != none and x != \"\")\n"
@@ -317,13 +349,14 @@
           )
         } else if valid-branch-children.len() > 1 {
           code += indent + "    {\n"
-          code += indent + "      let results = (\n"
-          for (i, child) in valid-branch-children.enumerate() {
-            code += compile-ast(child, macros, depth: depth + 4)
-            code += "," // Always add comma for single-element array safety
-            code += "\n"
-          }
-          code += indent + "      )\n"
+          code += compile-children-seq(
+            valid-branch-children,
+            macros,
+            depth + 3,
+            compile-ast,
+            results-name: "results",
+            done-name: "done",
+          )
           code += (
             indent
               + "      let contents = results.map(r => r.at(0)).filter(x => x != [] and x != none and x != \"\")\n"
@@ -372,6 +405,7 @@
 
     let var-str = attrs.at("variable", default: "author")
     let single-var = not var-str.contains(" ")
+    let var-list = var-str.split(" ")
 
     let has-substitute = children.any(c => (
       type(c) == dictionary and c.at("tag", default: "") == "substitute"
@@ -383,80 +417,121 @@
           in ("name", "label", "et-al", "institution")
     ))
 
-    if single-var and not has-substitute and allowed-children {
-      let name-node = children.find(c => (
-        type(c) == dictionary and c.at("tag", default: "") == "name"
-      ))
-      let name-attrs = if name-node != none {
-        name-node.at("attrs", default: (:))
-      } else { (:) }
+    let name-node = children.find(c => (
+      type(c) == dictionary and c.at("tag", default: "") == "name"
+    ))
+    let label-node = children.find(c => (
+      type(c) == dictionary and c.at("tag", default: "") == "label"
+    ))
+    let substitute-node = children.find(c => (
+      type(c) == dictionary and c.at("tag", default: "") == "substitute"
+    ))
 
-      let name-parts = (:)
-      if name-node != none {
-        let name-children = name-node.at("children", default: ())
-        for child in name-children {
-          if (
-            type(child) == dictionary
-              and child.at("tag", default: "") == "name-part"
-          ) {
-            let part-attrs = child.at("attrs", default: (:))
-            let part-name = part-attrs.at("name", default: "")
-            if part-name in ("family", "given") {
-              name-parts.insert(part-name, part-attrs)
-            }
+    let name-attrs = if name-node != none {
+      name-node.at("attrs", default: (:))
+    } else { (:) }
+
+    let name-parts = (:)
+    if name-node != none {
+      let name-children = name-node.at("children", default: ())
+      for child in name-children {
+        if (
+          type(child) == dictionary
+            and child.at("tag", default: "") == "name-part"
+        ) {
+          let part-attrs = child.at("attrs", default: (:))
+          let part-name = part-attrs.at("name", default: "")
+          if part-name in ("family", "given") {
+            name-parts.insert(part-name, part-attrs)
           }
         }
       }
+    }
 
-      let et-al-node = children.find(c => (
-        type(c) == dictionary and c.at("tag", default: "") == "et-al"
-      ))
-      let et-al-attrs = if et-al-node != none {
-        et-al-node.at("attrs", default: (:))
-      } else { (:) }
-      let et-al-term = et-al-attrs.at("term", default: "et-al")
+    let et-al-node = children.find(c => (
+      type(c) == dictionary and c.at("tag", default: "") == "et-al"
+    ))
+    let et-al-attrs = if et-al-node != none {
+      et-al-node.at("attrs", default: (:))
+    } else { (:) }
+    let et-al-term = et-al-attrs.at("term", default: "et-al")
 
-      let label-node = children.find(c => (
+    let label-attrs = if label-node != none {
+      label-node.at("attrs", default: (:))
+    } else { (:) }
+    let has-label = label-node != none
+    let label-position = if label-node != none and name-node != none {
+      let label-idx = children.position(c => (
         type(c) == dictionary and c.at("tag", default: "") == "label"
       ))
-      let label-attrs = if label-node != none {
-        label-node.at("attrs", default: (:))
-      } else { (:) }
-      let has-label = label-node != none
-      let label-position = if label-node != none and name-node != none {
-        let label-idx = children.position(c => (
-          type(c) == dictionary and c.at("tag", default: "") == "label"
-        ))
-        let name-idx = children.position(c => (
-          type(c) == dictionary and c.at("tag", default: "") == "name"
-        ))
-        if label-idx != none and name-idx != none and label-idx < name-idx {
-          "before"
-        } else { "after" }
-      } else { "after" }
-
-      let institution-node = children.find(c => (
-        type(c) == dictionary and c.at("tag", default: "") == "institution"
+      let name-idx = children.position(c => (
+        type(c) == dictionary and c.at("tag", default: "") == "name"
       ))
-      let institution-attrs = if institution-node != none {
-        institution-node.at("attrs", default: (:))
-      } else { none }
+      if label-idx != none and name-idx != none and label-idx < name-idx {
+        "before"
+      } else { "after" }
+    } else { "after" }
 
-      let plan = (
-        var: var-str,
-        name-attrs: name-attrs,
-        name-parts: name-parts,
-        et-al-attrs: et-al-attrs,
-        et-al-term: et-al-term,
-        label-attrs: label-attrs,
-        label-position: label-position,
-        has-label: has-label,
-        institution-attrs: institution-attrs,
-      )
-      let plan-str = serialize-dict(plan)
+    let institution-node = children.find(c => (
+      type(c) == dictionary and c.at("tag", default: "") == "institution"
+    ))
+    let institution-attrs = if institution-node != none {
+      institution-node.at("attrs", default: (:))
+    } else { none }
+
+    let substitute-children = if substitute-node != none {
+      substitute-node.at("children", default: ())
+    } else { () }
+
+    let plan = (
+      var: var-str,
+      vars: var-list,
+      names-delimiter: attrs.at("delimiter", default: none),
+      name-attrs: name-attrs,
+      name-parts: name-parts,
+      et-al-attrs: et-al-attrs,
+      et-al-term: et-al-term,
+      label-attrs: label-attrs,
+      label-position: label-position,
+      has-label: has-label,
+      institution-attrs: institution-attrs,
+      parent-name-node: name-node,
+      parent-label-node: label-node,
+      substitute-children: substitute-children,
+    )
+    let plan-str = serialize-dict(plan)
+
+    if has-substitute {
       return (
-        indent + "format-names-single(ctx, " + attrs-str + ", " + plan-str + ")"
+        indent
+          + "format-names-substitute(ctx, "
+          + attrs-str
+          + ", "
+          + plan-str
+          + ")"
       )
+    }
+
+    if not has-substitute and allowed-children {
+      if single-var {
+        return (
+          indent
+            + "format-names-single(ctx, "
+            + attrs-str
+            + ", "
+            + plan-str
+            + ")"
+        )
+      } else {
+        return (
+          indent
+            + "format-names-multi(ctx, "
+            + attrs-str
+            + ", "
+            + plan-str
+            + ")"
+        )
+      }
     }
 
     return indent + "format-names(ctx, " + attrs-str + ", " + children-str + ")"
@@ -523,13 +598,7 @@
 
   // Multiple children
   let code = "(ctx) => {\n"
-  code += "  let results = (\n"
-  for (i, child) in valid-children.enumerate() {
-    code += compile-ast(child, macros, depth: 2)
-    code += "," // Always add comma for single-element array safety
-    code += "\n"
-  }
-  code += "  )\n"
+  code += compile-children-seq(valid-children, macros, 1, compile-ast)
   code += "  let contents = results.map(r => r.at(0)).filter(x => x != [] and x != none and x != \"\")\n"
   code += "  let states = results.map(r => r.at(1))\n"
   code += "  let merged = if states.any(s => s == \"var\") { \"var\" } else if states.any(s => s == \"no-var\") { \"no-var\" } else { \"none\" }\n"
@@ -554,13 +623,7 @@
 
   // Multiple children
   let code = "{\n"
-  code += "  let results = (\n"
-  for (i, child) in valid-children.enumerate() {
-    code += compile-ast(child, macros, depth: 2)
-    code += "," // Always add comma for single-element array safety
-    code += "\n"
-  }
-  code += "  )\n"
+  code += compile-children-seq(valid-children, macros, 1, compile-ast)
   code += "  let contents = results.map(r => r.at(0)).filter(x => x != [] and x != none and x != \"\")\n"
   code += "  let states = results.map(r => r.at(1))\n"
   code += "  let merged = if states.any(s => s == \"var\") { \"var\" } else if states.any(s => s == \"no-var\") { \"no-var\" } else { \"none\" }\n"

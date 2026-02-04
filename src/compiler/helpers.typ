@@ -1,9 +1,17 @@
-// Deprecated: moved to rt/helpers.typ
+// Deprecated: moved to rt/*
 
-#import "rt/helpers.typ": (
-  compiler-helpers, format-date-compiled, format-label-compiled,
-  format-names-compiled, format-names-single-compiled, format-number-compiled,
-  format-number-long-ordinal-compiled, format-number-numeric-compiled,
-  format-number-ordinal-compiled, format-number-roman-compiled,
-  get-term-compiled, get-text-variable, has-variable,
+#import "rt/mod.typ": compiler-helpers
+#import "rt/names.typ": (
+  format-names-compiled, format-names-multi-compiled,
+  format-names-single-compiled, format-names-substitute-compiled,
 )
+#import "rt/date.typ": format-date-compiled
+#import "rt/number.typ": (
+  format-number-compiled, format-number-long-ordinal-compiled,
+  format-number-numeric-compiled, format-number-ordinal-compiled,
+  format-number-roman-compiled,
+)
+#import "rt/label.typ": format-label-compiled
+#import "rt/text.typ": get-text-variable
+#import "rt/term.typ": get-term-compiled
+#import "rt/conditions.typ": has-variable
