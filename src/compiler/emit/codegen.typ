@@ -107,6 +107,77 @@
   "eval-condition((" + parts.join(", ") + ",), ctx)"
 }
 
+/// Emit a macro call with optional cache usage
+#let compile-macro-call(macro-name, indent, prefix: "", suffix: "") = {
+  let macro-key = escape-string(macro-name)
+  let cache-setup = (
+    indent
+      + "  let macro-cache = if \"compiled-macro-cache\" in ctx {\n"
+      + indent
+      + "    ctx.compiled-macro-cache\n"
+      + indent
+      + "  } else {\n"
+      + indent
+      + "    (:)\n"
+      + indent
+      + "  }\n"
+  )
+  let cache-fetch = (
+    indent
+      + "  let result = if \""
+      + macro-key
+      + "\" in macro-cache {\n"
+      + indent
+      + "    macro-cache.at(\""
+      + macro-key
+      + "\")\n"
+      + indent
+      + "  } else {\n"
+      + indent
+      + "    let computed = ctx.compiled-macros.at(\""
+      + macro-key
+      + "\")(ctx)\n"
+      + indent
+      + "    macro-cache.insert(\""
+      + macro-key
+      + "\", computed)\n"
+      + indent
+      + "    computed\n"
+      + indent
+      + "  }\n"
+  )
+
+  if prefix == "" and suffix == "" {
+    let code = indent + "{\n"
+    code += cache-setup
+    code += cache-fetch
+    code += indent + "  result\n"
+    code += indent + "}"
+    code
+  } else {
+    let code = indent + "{\n"
+    code += cache-setup
+    code += cache-fetch
+    code += indent + "  let (content, state, done) = result\n"
+    code += (
+      indent + "  if content != [] and content != none and content != \"\" {\n"
+    )
+    code += (
+      indent
+        + "    (["
+        + escape-content(prefix)
+        + "#content"
+        + escape-content(suffix)
+        + "], state, done)\n"
+    )
+    code += indent + "  } else {\n"
+    code += indent + "    ([], state, done)\n"
+    code += indent + "  }\n"
+    code += indent + "}"
+    code
+  }
+}
+
 /// Main recursive compiler function
 /// Handles all CSL node types in a single function to avoid forward declaration issues
 #let compile-ast(node, macros, depth: 0) = {
@@ -159,40 +230,12 @@
       let prefix = attrs.at("prefix", default: "")
       let suffix = attrs.at("suffix", default: "")
 
-      if prefix == "" and suffix == "" {
-        return (
-          indent
-            + "ctx.compiled-macros.at(\""
-            + escape-string(macro-name)
-            + "\")(ctx)"
-        )
-      } else {
-        // Apply prefix/suffix to macro result
-        let code = indent + "{\n"
-        code += (
-          indent
-            + "  let (content, state, done) = ctx.compiled-macros.at(\""
-            + escape-string(macro-name)
-            + "\")(ctx)\n"
-        )
-        code += (
-          indent
-            + "  if content != [] and content != none and content != \"\" {\n"
-        )
-        code += (
-          indent
-            + "    (["
-            + escape-content(prefix)
-            + "#content"
-            + escape-content(suffix)
-            + "], state, done)\n"
-        )
-        code += indent + "  } else {\n"
-        code += indent + "    ([], state, done)\n"
-        code += indent + "  }\n"
-        code += indent + "}"
-        return code
-      }
+      return compile-macro-call(
+        macro-name,
+        indent,
+        prefix: prefix,
+        suffix: suffix,
+      )
     } else {
       return indent + "([], \"none\", ())"
     }

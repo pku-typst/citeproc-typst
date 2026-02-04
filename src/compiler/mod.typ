@@ -55,7 +55,14 @@
   let macros = style.at("macros", default: (:))
 
   let code = compile-children(children, macros)
-  let full-code = "(ctx) => {\n  " + code + "\n}"
+  let full-code = (
+    "(ctx) => {\n"
+      + "  let macro-cache = (:)\n"
+      + "  let ctx = (..ctx, compiled-macro-cache: macro-cache)\n"
+      + "  "
+      + code
+      + "\n}"
+  )
 
   eval(full-code, mode: "code", scope: helpers)
 }
@@ -82,7 +89,14 @@
     let children = layout.at("children", default: ())
 
     let code = compile-children(children, macros)
-    let full-code = "(ctx) => {\n  " + code + "\n}"
+    let full-code = (
+      "(ctx) => {\n"
+        + "  let macro-cache = (:)\n"
+        + "  let ctx = (..ctx, compiled-macro-cache: macro-cache)\n"
+        + "  "
+        + code
+        + "\n}"
+    )
 
     result.insert(key, eval(full-code, mode: "code", scope: helpers))
   }
