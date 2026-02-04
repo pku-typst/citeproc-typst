@@ -179,7 +179,7 @@
       if compiled-layout != none {
         // Add compiled macros to context for macro calls
         let ctx = (..ctx, compiled-macros: compiled.macros, done-vars: ())
-        let (content, _state, _done) = (compiled-layout)(ctx)
+        let (content, _state, _done, _ends) = (compiled-layout)(ctx)
         content
       } else {
         // Fall back to interpreter if no compiled layout found

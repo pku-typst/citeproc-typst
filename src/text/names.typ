@@ -349,6 +349,48 @@
   result
 }
 
+/// Determine if a single name ends with a period (forward-only)
+#let name-ends-with-period(name, name-attrs, name-parts, ctx) = {
+  let literal = name.at("literal", default: "")
+  if literal != "" {
+    let family-part = name-parts.at("family", default: (:))
+    let part-suffix = family-part.at("suffix", default: "")
+    return literal.trim().ends-with(".") or part-suffix.ends-with(".")
+  }
+
+  if name.at("isInstitution", default: false) {
+    let family = name.at("family", default: "")
+    if family.trim().ends-with(".") { return true }
+  }
+
+  let suffix = name.at("suffix", default: "")
+  if suffix.ends-with(".") { return true }
+
+  let family = name.at("family", default: "")
+  if family.trim().ends-with(".") { return true }
+
+  let given = name.at("given", default: "")
+  if given != "" {
+    let initialize-with = _resolve-name-attr("initialize-with", name-attrs, ctx)
+    if initialize-with != none and initialize-with.contains(".") { return true }
+  }
+
+  false
+}
+
+/// Determine if a names list ends with a period (forward-only)
+#let names-end-flag(names, name-attrs, name-parts, ctx, et-al-term, et-al) = {
+  if names.len() == 0 { return false }
+  let et-al-min = et-al.et-al-min
+  let et-al-use-first = et-al.et-al-use-first
+  let use-et-al = if et-al-min != none {
+    names.len() >= et-al-min and et-al-use-first < names.len()
+  } else { false }
+
+  if use-et-al { return et-al-term.trim().ends-with(".") }
+  name-ends-with-period(names.last(), name-attrs, name-parts, ctx)
+}
+
 /// Check if a name is an institutional name (CSL-M extension)
 ///
 /// In CSL-M, institutional names are stored with "literal" field or

@@ -83,13 +83,16 @@
   for child in children {
     code += indent + "{\n"
     code += indent + "  let child-ctx = (..ctx, done-vars: " + done-name + ")\n"
-    code += indent + "  let (content, state, child-done) = {\n"
+    code += indent + "  let (content, state, child-done, child-ends) = {\n"
     code += indent + "    let ctx = child-ctx\n"
     code += compile-fn(child, macros, depth: depth + 3) + "\n"
     code += indent + "  }\n"
     code += indent + "  " + done-name + " = " + done-name + " + child-done\n"
     code += (
-      indent + "  " + results-name + ".push((content, state, child-done))\n"
+      indent
+        + "  "
+        + results-name
+        + ".push((content, state, child-done, child-ends))\n"
     )
     code += indent + "}\n"
   }
@@ -156,18 +159,25 @@
   let code = indent + "{\n"
   code += cache-setup
   code += cache-fetch
-  code += indent + "  let (content, state, done) = result\n"
+  code += indent + "  let content = result.at(0)\n"
+  code += indent + "  let state = result.at(1, default: \"none\")\n"
+  code += indent + "  let done = result.at(2, default: ())\n"
+  code += indent + "  let ends = result.at(3, default: false)\n"
+  code += indent + "  let attrs = " + attrs-str + "\n"
+  code += indent + "  let attrs = (..attrs, \"_ends-with-period\": ends)\n"
   code += (
     indent + "  if content != [] and content != none and content != \"\" {\n"
   )
   code += (
-    indent
-      + "    (format-text-content(ctx, content, "
-      + attrs-str
-      + "), state, done)\n"
+    indent + "    let formatted = format-text-content(ctx, content, attrs)\n"
   )
+  code += (
+    indent
+      + "    let new-ends = if type(formatted) == str { formatted.ends-with(\".\") } else { ends }\n"
+  )
+  code += indent + "    (formatted, state, done, new-ends)\n"
   code += indent + "  } else {\n"
-  code += indent + "    ([], state, done)\n"
+  code += indent + "    ([], state, done, false)\n"
   code += indent + "  }\n"
   code += indent + "}"
   code
@@ -182,15 +192,22 @@
   if type(node) == str {
     let trimmed = node.trim()
     if trimmed == "" {
-      return indent + "([], \"none\", ())"
+      return indent + "([], \"none\", (), false)"
     } else {
-      return indent + "([" + escape-content(trimmed) + "], \"none\", ())"
+      return (
+        indent
+          + "(["
+          + escape-content(trimmed)
+          + "], \"none\", (), "
+          + if trimmed.ends-with(".") { "true" } else { "false" }
+          + ")"
+      )
     }
   }
 
   // Handle non-dict nodes
   if type(node) != dictionary {
-    return indent + "([], \"none\", ())"
+    return indent + "([], \"none\", (), false)"
   }
 
   let tag = node.at("tag", default: "")
@@ -227,7 +244,7 @@
         suffix: suffix,
       )
     } else {
-      return indent + "([], \"none\", ())"
+      return indent + "([], \"none\", (), false)"
     }
   }
 
@@ -245,7 +262,7 @@
     ))
 
     if valid-children.len() == 0 {
-      return indent + "([], \"none\", ())"
+      return indent + "([], \"none\", (), false)"
     }
 
     let code = indent + "{\n"
@@ -262,9 +279,20 @@
     code += indent + "  let has-no-var = states.any(s => s == \"no-var\")\n"
     code += indent + "  if (has-var or has-no-var) and not has-var {\n"
     code += (
-      indent + "    ([], \"no-var\", results.map(r => r.at(2)).flatten())\n"
+      indent
+        + "    ([], \"no-var\", results.map(r => r.at(2)).flatten(), false)\n"
     )
     code += indent + "  } else {\n"
+    code += indent + "    let end-flag = false\n"
+    code += indent + "    for r in results.rev() {\n"
+    code += indent + "      if not end-flag {\n"
+    code += indent + "        let c = r.at(0)\n"
+    code += (
+      indent
+        + "        if c != [] and c != none and c != \"\" { end-flag = r.at(3, default: false) }\n"
+    )
+    code += indent + "      }\n"
+    code += indent + "    }\n"
     code += (
       indent
         + "    let contents = results.map(r => r.at(0)).filter(x => x != [] and x != none and x != \"\")\n"
@@ -279,7 +307,10 @@
           + "\")\n"
       )
     } else {
-      code += indent + "    let joined = if all-strings { contents.join(\"\") } else { contents.join() }\n"
+      code += (
+        indent
+          + "    let joined = if all-strings { contents.join(\"\") } else { contents.join() }\n"
+      )
     }
 
     code += (
@@ -297,13 +328,13 @@
       indent
         + "      let final-state = if has-var { \"var\" } else if has-no-var { \"no-var\" } else { \"var\" }\n"
     )
-    code += indent + "      (formatted, final-state, done)\n"
+    code += indent + "      (formatted, final-state, done, end-flag)\n"
     code += indent + "    } else {\n"
     code += (
       indent
         + "      let final-state = if has-var { \"var\" } else if has-no-var { \"no-var\" } else { \"none\" }\n"
     )
-    code += indent + "      ([], final-state, done)\n"
+    code += indent + "      ([], final-state, done, false)\n"
     code += indent + "    }\n"
 
     code += indent + "  }\n"
@@ -364,13 +395,23 @@
             indent
               + "      let merged = if states.any(s => s == \"var\") { \"var\" } else if states.any(s => s == \"no-var\") { \"no-var\" } else { \"none\" }\n"
           )
+          code += indent + "      let end-flag = false\n"
+          code += indent + "      for r in results.rev() {\n"
+          code += indent + "        if not end-flag {\n"
+          code += indent + "          let c = r.at(0)\n"
           code += (
             indent
-              + "      (contents.join(), merged, results.map(r => r.at(2)).flatten())\n"
+              + "          if c != [] and c != none and c != \"\" { end-flag = r.at(3, default: false) }\n"
+          )
+          code += indent + "        }\n"
+          code += indent + "      }\n"
+          code += (
+            indent
+              + "      (contents.join(), merged, results.map(r => r.at(2)).flatten(), end-flag)\n"
           )
           code += indent + "    }\n"
         } else {
-          code += indent + "    ([], \"none\", ())\n"
+          code += indent + "    ([], \"none\", (), false)\n"
         }
       } else if branch-tag == "else" {
         code += indent + "  } else {\n"
@@ -399,13 +440,23 @@
             indent
               + "      let merged = if states.any(s => s == \"var\") { \"var\" } else if states.any(s => s == \"no-var\") { \"no-var\" } else { \"none\" }\n"
           )
+          code += indent + "      let end-flag = false\n"
+          code += indent + "      for r in results.rev() {\n"
+          code += indent + "        if not end-flag {\n"
+          code += indent + "          let c = r.at(0)\n"
           code += (
             indent
-              + "      (contents.join(), merged, results.map(r => r.at(2)).flatten())\n"
+              + "          if c != [] and c != none and c != \"\" { end-flag = r.at(3, default: false) }\n"
+          )
+          code += indent + "        }\n"
+          code += indent + "      }\n"
+          code += (
+            indent
+              + "      (contents.join(), merged, results.map(r => r.at(2)).flatten(), end-flag)\n"
           )
           code += indent + "    }\n"
         } else {
-          code += indent + "    ([], \"none\", ())\n"
+          code += indent + "    ([], \"none\", (), false)\n"
         }
       }
     }
@@ -418,11 +469,11 @@
       if not has-else {
         // Add default else branch to ensure we always return a tuple
         code += indent + "  } else {\n"
-        code += indent + "    ([], \"none\", ())\n"
+        code += indent + "    ([], \"none\", (), false)\n"
       }
       code += indent + "  }\n"
     } else {
-      code += indent + "  ([], \"none\", ())\n"
+      code += indent + "  ([], \"none\", (), false)\n"
     }
 
     code += indent + "}"
@@ -444,11 +495,11 @@
       type(c) == dictionary and c.at("tag", default: "") == "substitute"
     ))
 
-    let allowed-children = children.all(c => (
-      type(c) == dictionary
-        and c.at("tag", default: "")
-          in ("name", "label", "et-al", "institution")
-    ))
+    let allowed-children = children
+      .filter(c => type(c) == dictionary)
+      .all(c => (
+        c.at("tag", default: "") in ("name", "label", "et-al", "institution")
+      ))
 
     let name-node = children.find(c => (
       type(c) == dictionary and c.at("tag", default: "") == "name"
@@ -608,7 +659,7 @@
   }
 
   // Unknown tag
-  indent + "([], \"none\", ())"
+  indent + "([], \"none\", (), false)"
 }
 
 /// Compile a macro definition
@@ -619,20 +670,24 @@
   ))
 
   if valid-children.len() == 0 {
-    return "(ctx) => ([], \"none\", ())"
+    return "(ctx) => ([], \"none\", (), false)"
   }
 
   if valid-children.len() == 1 {
     let code = "(ctx) => {\n"
     code += (
-      "  let (content, state, done) = "
+      "  let result = "
         + compile-ast(valid-children.first(), macros, depth: 1)
         + "\n"
     )
+    code += "  let content = result.at(0)\n"
+    code += "  let state = result.at(1, default: \"none\")\n"
+    code += "  let done = result.at(2, default: ())\n"
+    code += "  let ends = result.at(3, default: false)\n"
     code += "  if state == \"no-var\" {\n"
-    code += "    ([], \"no-var\", done)\n"
+    code += "    ([], \"no-var\", done, false)\n"
     code += "  } else {\n"
-    code += "    (content, state, done)\n"
+    code += "    (content, state, done, ends)\n"
     code += "  }\n"
     code += "}"
     return code
@@ -646,11 +701,18 @@
   code += "  let has-var = states.any(s => s == \"var\")\n"
   code += "  let has-no-var = states.any(s => s == \"no-var\")\n"
   code += "  let merged-done = results.map(r => r.at(2)).flatten()\n"
+  code += "  let end-flag = false\n"
+  code += "  for r in results.rev() {\n"
+  code += "    if not end-flag {\n"
+  code += "      let c = r.at(0)\n"
+  code += "      if c != [] and c != none and c != \"\" { end-flag = r.at(3, default: false) }\n"
+  code += "    }\n"
+  code += "  }\n"
   code += "  if (has-var or has-no-var) and not has-var {\n"
-  code += "    ([], \"no-var\", merged-done)\n"
+  code += "    ([], \"no-var\", merged-done, false)\n"
   code += "  } else {\n"
   code += "    let merged = if has-var { \"var\" } else if has-no-var { \"no-var\" } else { \"none\" }\n"
-  code += "    (contents.join(), merged, merged-done)\n"
+  code += "    (contents.join(), merged, merged-done, end-flag)\n"
   code += "  }\n"
   code += "}"
   code
@@ -663,7 +725,7 @@
   ))
 
   if valid-children.len() == 0 {
-    return "([], \"none\", ())"
+    return "([], \"none\", (), false)"
   }
 
   if valid-children.len() == 1 {
@@ -676,7 +738,15 @@
   code += "  let contents = results.map(r => r.at(0)).filter(x => x != [] and x != none and x != \"\")\n"
   code += "  let states = results.map(r => r.at(1))\n"
   code += "  let merged = if states.any(s => s == \"var\") { \"var\" } else if states.any(s => s == \"no-var\") { \"no-var\" } else { \"none\" }\n"
-  code += "  (contents.join(), merged, results.map(r => r.at(2)).flatten())\n"
+  code += "  let merged-done = results.map(r => r.at(2)).flatten()\n"
+  code += "  let end-flag = false\n"
+  code += "  for r in results.rev() {\n"
+  code += "    if not end-flag {\n"
+  code += "      let c = r.at(0)\n"
+  code += "      if c != [] and c != none and c != \"\" { end-flag = r.at(3, default: false) }\n"
+  code += "    }\n"
+  code += "  }\n"
+  code += "  (contents.join(), merged, merged-done, end-flag)\n"
   code += "}"
   code
 }

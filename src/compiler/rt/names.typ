@@ -5,8 +5,8 @@
 #import "../../parsing/mod.typ": lookup-term
 #import "../../interpreter/stack.typ": interpret-children-stack
 #import "../../text/names.typ": (
-  _resolve-name-attr, apply-name-formatting, format-names,
-  format-names-with-institutions,
+  _resolve-et-al-settings, _resolve-name-attr, apply-name-formatting,
+  format-names, format-names-with-institutions, names-end-flag,
 )
 
 /// Compare two name arrays for equality
@@ -80,9 +80,11 @@
       )
       let substitute-count = ctx.at("author-substitute-count", default: 0)
       if substitute-rule == "complete-all" {
-        let content = finalize(author-substitute, attrs)
+        let end-flag = author-substitute.trim().ends-with(".")
+        let final-attrs = (..attrs, "_ends-with-period": end-flag)
+        let content = finalize(author-substitute, final-attrs)
         let var-state = if is-empty(content) { "no-var" } else { "var" }
-        return (content, var-state)
+        return (content, var-state, end-flag)
       } else if substitute-rule == "complete-each" {
         substitute-string-to-use = author-substitute
         substitute-count-to-use = substitute-count
@@ -102,6 +104,7 @@
   let name-parts = plan.at("name-parts", default: (:))
   let et-al-attrs = plan.at("et-al-attrs", default: (:))
   let et-al-term = plan.at("et-al-term", default: "et-al")
+  let et-al = _resolve-et-al-settings(name-attrs, ctx)
   let institution-attrs = plan.at("institution-attrs", default: none)
 
   let names-content = if institution-attrs != none {
@@ -129,6 +132,19 @@
     )
   }
 
+  let raw-name-ends = if type(names-content) == str {
+    names-content.trim().ends-with(".")
+  } else {
+    names-end-flag(
+      names,
+      name-attrs,
+      name-parts,
+      ctx,
+      et-al-term,
+      et-al,
+    )
+  }
+
   // Apply name-level formatting and affixes
   names-content = apply-name-formatting(names-content, name-attrs)
   let name-prefix = name-attrs.at("prefix", default: "")
@@ -141,16 +157,22 @@
 
   // Optional label
   let result = names-content
+  let label-attrs = (:)
+  let label-content = []
+  let term = ""
   if plan.at("has-label", default: false) {
-    let label-attrs = plan.at("label-attrs", default: (:))
+    label-attrs = plan.at("label-attrs", default: (:))
     let form = label-attrs.at("form", default: "long")
     let plural = names.len() > 1
     let term-name = if term-override != none { term-override } else { var-name }
-    let term = lookup-term(ctx, term-name, form: form, plural: plural)
-    let label-content = if term == none or term == "" {
-      []
-    } else {
-      finalize(term, label-attrs)
+    term = lookup-term(ctx, term-name, form: form, plural: plural)
+    if term != none and term != "" {
+      let term-ends = (
+        term.ends-with(".")
+          or label-attrs.at("suffix", default: "").ends-with(".")
+      )
+      let final-label-attrs = (..label-attrs, "_ends-with-period": term-ends)
+      label-content = finalize(term, final-label-attrs)
     }
 
     if label-content != [] {
@@ -163,9 +185,36 @@
     }
   }
 
-  let content = finalize(result, attrs)
+  let label-ends = false
+  if plan.at("has-label", default: false) and label-content != [] {
+    label-ends = (
+      term.ends-with(".")
+        or label-attrs.at("suffix", default: "").ends-with(".")
+    )
+  }
+
+  let name-ends = raw-name-ends
+  if name-suffix.ends-with(".") { name-ends = true }
+
+  let final-ends = if (
+    plan.at("has-label", default: false)
+      and label-content != []
+      and plan.at("label-position", default: "after") == "after"
+  ) {
+    label-ends
+  } else {
+    name-ends
+  }
+
+  let suffix = attrs.at("suffix", default: "")
+  let final-attrs = if final-ends and suffix.starts-with(".") {
+    (..attrs, suffix: suffix.slice(1), "_ends-with-period": final-ends)
+  } else {
+    (..attrs, "_ends-with-period": final-ends)
+  }
+  let content = finalize(result, final-attrs)
   let var-state = if is-empty(content) { "no-var" } else { "var" }
-  (content, var-state)
+  (content, var-state, final-ends)
 }
 
 /// Format names from a CSL <names> element
@@ -174,7 +223,7 @@
 /// - ctx: Context dictionary with parsed-names, fields, locale, etc.
 /// - attrs: Dictionary of CSL attributes (variable, form, delimiter, etc.)
 /// - children: Array of child nodes (name, label, et-al, substitute, etc.)
-/// Returns: (content, var-state, done-vars) tuple
+/// Returns: (content, var-state, done-vars, ends-with-period) tuple
 #let format-names-compiled(ctx, attrs, children) = {
   // Build a node structure that the interpreter expects
   let node = (
@@ -198,7 +247,50 @@
     "var"
   }
 
-  (content, var-state, done-vars)
+  let name-node = children.find(c => (
+    type(c) == dictionary and c.at("tag", default: "") == "name"
+  ))
+  let name-attrs = if name-node != none {
+    name-node.at("attrs", default: (:))
+  } else { (:) }
+
+  let name-parts = (:)
+  if name-node != none {
+    let name-children = name-node.at("children", default: ())
+    for child in name-children {
+      if (
+        type(child) == dictionary
+          and child.at("tag", default: "") == "name-part"
+      ) {
+        let part-attrs = child.at("attrs", default: (:))
+        let part-name = part-attrs.at("name", default: "")
+        if part-name in ("family", "given") {
+          name-parts.insert(part-name, part-attrs)
+        }
+      }
+    }
+  }
+
+  let et-al-node = children.find(c => (
+    type(c) == dictionary and c.at("tag", default: "") == "et-al"
+  ))
+  let et-al-attrs = if et-al-node != none {
+    et-al-node.at("attrs", default: (:))
+  } else { (:) }
+  let et-al-term = et-al-attrs.at("term", default: "et-al")
+  let et-al = _resolve-et-al-settings(name-attrs, ctx)
+
+  let var-names = attrs.at("variable", default: "author").split(" ")
+  let last-names = none
+  for var-name in var-names {
+    let candidate = ctx.parsed-names.at(var-name, default: ())
+    if candidate.len() > 0 { last-names = candidate }
+  }
+  let ends = if last-names != none {
+    names-end-flag(last-names, name-attrs, name-parts, ctx, et-al-term, et-al)
+  } else { false }
+
+  (content, var-state, done-vars, ends)
 }
 
 /// Fast path for <names> with a single variable and no <substitute>.
@@ -210,29 +302,57 @@
   if ctx.at("suppress-author", default: false) and var-name == "author" {
     let names = ctx.at("parsed-names", default: (:)).at(var-name, default: ())
     let var-state = if names.len() > 0 { "var" } else { "no-var" }
-    return ([], var-state, ())
+    return ([], var-state, (), false)
   }
 
   let names = ctx.at("parsed-names", default: (:)).at(var-name, default: ())
   if names.len() == 0 {
-    return ([], "no-var", ())
+    return ([], "no-var", (), false)
   }
 
-  let (content, var-state) = _render-names-plan(
+  let (content, var-state, ends) = _render-names-plan(
     ctx,
     attrs,
     plan,
     var-name,
     names,
   )
-  (content, var-state, ())
+  (content, var-state, (), ends)
 }
 
 /// Fast path for <names> with multiple variables and no <substitute>.
 #let format-names-multi-compiled(ctx, attrs, plan) = {
   let var-names = plan.at("vars", default: ())
   if var-names.len() == 0 {
-    return ([], "no-var", ())
+    return ([], "no-var", (), false)
+  }
+
+  let name-attrs = plan.at("name-attrs", default: (:))
+  let name-form = name-attrs.at("form", default: "long")
+
+  // CSL spec: form="count" returns total count across all variables.
+  if name-form == "count" {
+    let total-count = 0
+    for var-name in var-names {
+      let var-names-list = ctx.parsed-names.at(var-name, default: ())
+      if var-names-list.len() > 0 {
+        let et-al = _resolve-et-al-settings(name-attrs, ctx)
+        let use-et-al = (
+          var-names-list.len() >= et-al.et-al-min
+            and et-al.et-al-use-first < var-names-list.len()
+        )
+        let show-count = if use-et-al { et-al.et-al-use-first } else {
+          var-names-list.len()
+        }
+        total-count += show-count
+      }
+    }
+
+    if total-count > 0 {
+      let count-str = str(total-count)
+      let ends = count-str.trim().ends-with(".")
+      return (finalize(count-str, attrs), "var", (), ends)
+    }
   }
 
   // Check for merged editor-translator pattern
@@ -242,7 +362,7 @@
   let used-var = common-term-result.used-var
 
   if names != none and used-var != none {
-    let (content, var-state) = _render-names-plan(
+    let (content, var-state, ends) = _render-names-plan(
       ctx,
       attrs,
       plan,
@@ -250,7 +370,7 @@
       names,
       term-override: common-term,
     )
-    return (content, var-state, ())
+    return (content, var-state, (), ends)
   }
 
   // Collect all non-empty variables
@@ -263,19 +383,19 @@
   }
 
   if vars-with-names.len() == 0 {
-    return ([], "no-var", ())
+    return ([], "no-var", (), false)
   }
 
   if vars-with-names.len() == 1 {
     let single = vars-with-names.first()
-    let (content, var-state) = _render-names-plan(
+    let (content, var-state, ends) = _render-names-plan(
       ctx,
       attrs,
       plan,
       single.var,
       single.names,
     )
-    return (content, var-state, ())
+    return (content, var-state, (), ends)
   }
 
   let names-delimiter = plan.at("names-delimiter", default: none)
@@ -286,7 +406,7 @@
 
   let rendered-parts = ()
   for var-info in vars-with-names {
-    let (part, _state) = _render-names-plan(
+    let (part, _state, _ends) = _render-names-plan(
       ctx,
       attrs,
       plan,
@@ -299,9 +419,11 @@
   }
 
   if rendered-parts.len() == 0 {
-    ([], "no-var", ())
+    ([], "no-var", (), false)
   } else {
-    (rendered-parts.join(names-delimiter), "var", ())
+    let joined = rendered-parts.join(names-delimiter)
+    let ends = if type(joined) == str { joined.ends-with(".") } else { false }
+    (joined, "var", (), ends)
   }
 }
 
@@ -309,17 +431,17 @@
 #let format-names-substitute-compiled(ctx, attrs, plan) = {
   let var-names = plan.at("vars", default: ())
   if var-names.len() == 0 {
-    return ([], "no-var", ())
+    return ([], "no-var", (), false)
   }
 
-  let (content, var-state, _done) = if var-names.len() == 1 {
+  let (content, var-state, _done, ends) = if var-names.len() == 1 {
     format-names-single-compiled(ctx, attrs, plan)
   } else {
     format-names-multi-compiled(ctx, attrs, plan)
   }
 
   if var-state == "var" {
-    return (content, var-state, ())
+    return (content, var-state, (), ends)
   }
 
   let author-substitute = ctx.at("author-substitute", default: none)
@@ -334,19 +456,25 @@
     )
     let substitute-count = ctx.at("author-substitute-count", default: 0)
     if substitute-rule == "complete-all" {
-      return (finalize(author-substitute, attrs), "var", ())
+      let end-flag = author-substitute.trim().ends-with(".")
+      let final-attrs = (..attrs, "_ends-with-period": end-flag)
+      return (finalize(author-substitute, final-attrs), "var", (), end-flag)
     } else if substitute-rule == "partial-each" and substitute-count > 0 {
-      return (finalize(author-substitute, attrs), "var", ())
+      let end-flag = author-substitute.trim().ends-with(".")
+      let final-attrs = (..attrs, "_ends-with-period": end-flag)
+      return (finalize(author-substitute, final-attrs), "var", (), end-flag)
     } else if substitute-rule == "complete-each" {
       if substitute-count > 0 {
-        return (finalize(author-substitute, attrs), "var", ())
+        let end-flag = author-substitute.trim().ends-with(".")
+        let final-attrs = (..attrs, "_ends-with-period": end-flag)
+        return (finalize(author-substitute, final-attrs), "var", (), end-flag)
       }
     }
   }
 
   let substitute-children = plan.at("substitute-children", default: ())
   if substitute-children.len() == 0 {
-    return ([], "no-var", ())
+    return ([], "no-var", (), false)
   }
 
   let parent-name-node = plan.at("parent-name-node", default: none)
@@ -429,7 +557,7 @@
     }
   }
 
-  let content = finalize(sub-result, attrs)
+  let content = finalize(sub-result, (..attrs, "_ends-with-period": false))
   let var-state = if is-empty(content) { "no-var" } else { "var" }
-  (content, var-state, sub-done-vars)
+  (content, var-state, sub-done-vars, false)
 }

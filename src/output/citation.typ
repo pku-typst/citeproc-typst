@@ -183,7 +183,7 @@
     if compiled != none and use-compiler {
       // Add compiled macros to context for macro calls
       let ctx = (..ctx, compiled-macros: compiled.macros, done-vars: ())
-      let (content, _state, _done) = (compiled.citation)(ctx)
+      let (content, _state, _done, _ends) = (compiled.citation)(ctx)
       content
     } else {
       // Fall back to stack-based interpreter

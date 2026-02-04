@@ -29,6 +29,7 @@
 #import "../parsing/mod.typ": lookup-term
 #import "../text/ranges.typ": format-page-range
 #import "../text/quotes.typ": apply-quotes, transform-quotes-at-level
+#import "../text/names.typ": _resolve-et-al-settings, names-end-flag
 #import "names.typ": handle-names
 #import "date.typ": handle-date
 #import "number.typ": handle-label, handle-number
@@ -80,7 +81,7 @@
 
       // CSL Substitute Quashing: skip if variable already rendered via substitute
       if var-name in done-vars {
-        return ([], "none", ())
+        return ([], "none", (), false)
       }
 
       let form = attrs.at("form", default: "long")
@@ -132,9 +133,15 @@
           apply-quotes(normalized, ctx, level: quote-level)
         } else { normalized }
 
-        (finalize(quoted, attrs), "var", ()) // Variable has output
+        let final-attrs = if type(quoted) == str {
+          (..attrs, "_ends-with-period": quoted.ends-with("."))
+        } else { attrs }
+        let ends = if type(quoted) == str { quoted.ends-with(".") } else {
+          false
+        }
+        (finalize(quoted, final-attrs), "var", (), ends) // Variable has output
       } else {
-        ([], "no-var", ()) // Variable referenced but empty
+        ([], "no-var", (), false) // Variable referenced but empty
       }
     } else if "value" in attrs {
       let result = attrs.value
@@ -153,7 +160,11 @@
       let quoted = if has-quotes and not is-empty(normalized) {
         apply-quotes(normalized, ctx, level: quote-level)
       } else { normalized }
-      (finalize(quoted, attrs), "none", ()) // Literal value, no variable reference
+      let final-attrs = if type(quoted) == str {
+        (..attrs, "_ends-with-period": quoted.ends-with("."))
+      } else { attrs }
+      let ends = if type(quoted) == str { quoted.ends-with(".") } else { false }
+      (finalize(quoted, final-attrs), "none", (), ends) // Literal value, no variable reference
     } else if "term" in attrs {
       let form = attrs.at("form", default: "long")
       let plural = attrs.at("plural", default: "false") == "true"
@@ -161,37 +172,95 @@
       // Term can be none (undefined) or "" (defined as empty)
       // Both render as empty, but the distinction matters for substitute logic
       let term-str = if result != none { result } else { "" }
-      (finalize(term-str, attrs), "none", ()) // Term, no variable reference
+      let final-attrs = if type(term-str) == str {
+        (..attrs, "_ends-with-period": term-str.ends-with("."))
+      } else { attrs }
+      let ends = term-str.ends-with(".")
+      (finalize(term-str, final-attrs), "none", (), ends) // Term, no variable reference
     } else {
-      ([], "none", ())
+      ([], "none", (), false)
     }
   } else if tag == "number" {
     let result = handle-number(node, ctx, n => [])
     if is-empty(result) {
-      ([], "no-var", ()) // Number variable referenced but empty
+      ([], "no-var", (), false) // Number variable referenced but empty
     } else {
-      (result, "var", ()) // Number variable has output
+      let ends = if type(result) == str { result.ends-with(".") } else { false }
+      (result, "var", (), ends) // Number variable has output
     }
   } else if tag == "label" {
     let result = handle-label(node, ctx, n => [])
-    (result, "none", ()) // Label is a term, not a variable
+    let ends = if type(result) == str { result.ends-with(".") } else { false }
+    (result, "none", (), ends) // Label is a term, not a variable
   } else if tag == "names" {
     // handle-names now returns (content, done-vars) for substitute quashing
     let (result, names-done-vars) = handle-names(node, ctx)
     if is-empty(result) {
-      ([], "no-var", names-done-vars)
+      ([], "no-var", names-done-vars, false)
     } else {
-      (result, "var", names-done-vars)
+      let node-children = node.at("children", default: ())
+      let name-node = node-children.find(c => (
+        type(c) == dictionary and c.at("tag", default: "") == "name"
+      ))
+      let name-attrs = if name-node != none {
+        name-node.at("attrs", default: (:))
+      } else { (:) }
+
+      let name-parts = (:)
+      if name-node != none {
+        let name-children = name-node.at("children", default: ())
+        for child in name-children {
+          if (
+            type(child) == dictionary
+              and child.at("tag", default: "") == "name-part"
+          ) {
+            let part-attrs = child.at("attrs", default: (:))
+            let part-name = part-attrs.at("name", default: "")
+            if part-name in ("family", "given") {
+              name-parts.insert(part-name, part-attrs)
+            }
+          }
+        }
+      }
+
+      let et-al-node = node-children.find(c => (
+        type(c) == dictionary and c.at("tag", default: "") == "et-al"
+      ))
+      let et-al-attrs = if et-al-node != none {
+        et-al-node.at("attrs", default: (:))
+      } else { (:) }
+      let et-al-term = et-al-attrs.at("term", default: "et-al")
+      let et-al = _resolve-et-al-settings(name-attrs, ctx)
+
+      let var-names = attrs.at("variable", default: "author").split(" ")
+      let last-names = none
+      for var-name in var-names {
+        let candidate = ctx.parsed-names.at(var-name, default: ())
+        if candidate.len() > 0 { last-names = candidate }
+      }
+      let ends = if last-names != none {
+        names-end-flag(
+          last-names,
+          name-attrs,
+          name-parts,
+          ctx,
+          et-al-term,
+          et-al,
+        )
+      } else { false }
+
+      (result, "var", names-done-vars, ends)
     }
   } else if tag == "date" {
     let result = handle-date(node, ctx)
     if is-empty(result) {
-      ([], "no-var", ()) // Date variable referenced but empty
+      ([], "no-var", (), false) // Date variable referenced but empty
     } else {
-      (result, "var", ()) // Date variable has output
+      let ends = if type(result) == str { result.ends-with(".") } else { false }
+      (result, "var", (), ends) // Date variable has output
     }
   } else {
-    ([], "none", ())
+    ([], "none", (), false)
   }
 }
 
@@ -218,7 +287,7 @@
   if children.len() == 0 { return [] }
 
   // Work stack: (node, state, meta)
-  // Result stack: stores results as (content, var-state, done-vars) tuples
+  // Result stack: stores results as (content, var-state, done-vars, ends-with-period) tuples
   // Macro cache (mutable within this function!)
   // Accumulated done-vars for substitute quashing (mutable)
   let macro-cache = (:)
@@ -237,13 +306,14 @@
 
     // Handle string nodes
     if type(node) == str {
-      results.push((node.trim(), "none", ())) // String literal, no variable
+      let text = node.trim()
+      results.push((text, "none", (), text.ends-with("."))) // String literal, no variable
       continue
     }
 
     // Handle non-dict nodes
     if type(node) != dictionary {
-      results.push(([], "none", ()))
+      results.push(([], "none", (), false))
       continue
     }
 
@@ -261,12 +331,32 @@
           // Cache hit - use cached result with formatting
           let cached = macro-cache.at(macro-name)
           let cached-done-vars = cached.at(2, default: ())
+          let cached-ends = cached.at(3, default: false)
+          let quote-level = ctx.at("quote-level", default: 0)
+          let has-quotes = attrs.at("quotes", default: "false") == "true"
+          let macro-content = cached.at(0)
+          let normalized = if type(macro-content) == str {
+            // Apply text-case + quote normalization on string content
+            let cased = apply-text-case(macro-content, attrs, ctx: ctx)
+            if has-quotes {
+              transform-quotes-at-level(cased, ctx, quote-level + 1)
+            } else {
+              transform-quotes-at-level(cased, ctx, quote-level)
+            }
+          } else { macro-content }
+          let quoted = if has-quotes {
+            apply-quotes(normalized, ctx, level: quote-level)
+          } else { normalized }
+          let ends = if type(quoted) == str { quoted.ends-with(".") } else {
+            cached-ends
+          }
           // Accumulate done-vars from cached macro
           accumulated-done-vars = accumulated-done-vars + cached-done-vars
           results.push((
-            finalize(cached.at(0), attrs),
+            finalize(quoted, (..attrs, "_ends-with-period": ends)),
             cached.at(1),
             cached-done-vars,
+            ends,
           ))
         } else {
           // Cache miss - need to compute
@@ -288,8 +378,8 @@
             }
           } else {
             // Empty or missing macro
-            macro-cache.insert(macro-name, ([], "none", ()))
-            results.push(([], "none", ()))
+            macro-cache.insert(macro-name, ([], "none", (), false))
+            results.push(([], "none", (), false))
           }
         }
       } else if tag == "group" {
@@ -305,7 +395,7 @@
             stack.push((node: c, state: "pending", meta: (:)))
           }
         } else {
-          results.push(([], "none", ()))
+          results.push(([], "none", (), false))
         }
       } else if tag == "choose" {
         // Choose: evaluate conditions and process matching branch
@@ -335,7 +425,7 @@
                 stack.push((node: c, state: "pending", meta: (:)))
               }
             } else {
-              results.push(([], "none", ()))
+              results.push(([], "none", (), false))
             }
             matched = true
             break
@@ -343,7 +433,7 @@
         }
         // If no branch matched, push empty result
         if not matched {
-          results.push(([], "none", ()))
+          results.push(([], "none", (), false))
         }
       } else {
         // Leaf node - process immediately
@@ -376,26 +466,57 @@
 
       if should-suppress-group(states) {
         // Suppress: macro referenced variables but none produced output
-        macro-cache.insert(meta.macro-name, ([], "no-var", merged-done-vars))
-        results.push(([], "no-var", merged-done-vars))
+        macro-cache.insert(meta.macro-name, (
+          [],
+          "no-var",
+          merged-done-vars,
+          false,
+        ))
+        results.push(([], "no-var", merged-done-vars, false))
       } else {
         // Render normally
         let merged-state = merge-var-state(states)
         let contents = ordered.map(r => r.at(0)).filter(x => not is-empty(x))
         let joined = contents.join()
+        let end-flag = false
+        for r in ordered.rev() {
+          if not end-flag {
+            let c = r.at(0)
+            if not is-empty(c) { end-flag = r.at(3, default: false) }
+          }
+        }
+        let quote-level = ctx.at("quote-level", default: 0)
+        let has-quotes = meta.attrs.at("quotes", default: "false") == "true"
+        let normalized = if type(joined) == str {
+          let cased = apply-text-case(joined, meta.attrs, ctx: ctx)
+          if has-quotes {
+            transform-quotes-at-level(cased, ctx, quote-level + 1)
+          } else {
+            transform-quotes-at-level(cased, ctx, quote-level)
+          }
+        } else { joined }
+        let quoted = if has-quotes {
+          apply-quotes(normalized, ctx, level: quote-level)
+        } else { normalized }
+        let end-flag = if type(quoted) == str { quoted.ends-with(".") } else {
+          end-flag
+        }
+        let final-attrs = (..meta.attrs, "_ends-with-period": end-flag)
 
         // Cache the raw result (content, var-state, done-vars) without formatting
         macro-cache.insert(meta.macro-name, (
           joined,
           merged-state,
           merged-done-vars,
+          end-flag,
         ))
 
         // Apply formatting and push
         results.push((
-          finalize(joined, meta.attrs),
+          finalize(quoted, final-attrs),
           merged-state,
           merged-done-vars,
+          end-flag,
         ))
       }
     } else if state == "group-pending" {
@@ -415,7 +536,7 @@
 
       if should-suppress-group(states) {
         // Suppress: all children reference variables but none produced output
-        results.push(([], "no-var", merged-done-vars))
+        results.push(([], "no-var", merged-done-vars, false))
       } else {
         // Render normally
         let merged-state = merge-var-state(states)
@@ -433,6 +554,14 @@
         // Apply prefix/suffix
         let prefix = meta.attrs.at("prefix", default: "")
         let suffix = meta.attrs.at("suffix", default: "")
+        let end-flag = false
+        for r in ordered.rev() {
+          if not end-flag {
+            let c = r.at(0)
+            if not is-empty(c) { end-flag = r.at(3, default: false) }
+          }
+        }
+        if suffix != "" and suffix.ends-with(".") { end-flag = true }
         if not is-empty(joined) {
           // CSL spec: "a non-empty nested cs:group is treated as a non-empty variable
           // for the purposes of determining suppression of the outer cs:group"
@@ -444,9 +573,10 @@
             [#prefix#joined#suffix],
             final-state,
             merged-done-vars,
+            end-flag,
           ))
         } else {
-          results.push(([], merged-state, merged-done-vars))
+          results.push(([], merged-state, merged-done-vars, false))
         }
       }
     } else if state == "choose-pending" {
@@ -467,7 +597,14 @@
 
       let contents = ordered.map(r => r.at(0)).filter(x => not is-empty(x))
       let joined = contents.join()
-      results.push((joined, merged-state, merged-done-vars))
+      let end-flag = false
+      for r in ordered.rev() {
+        if not end-flag {
+          let c = r.at(0)
+          if not is-empty(c) { end-flag = r.at(3, default: false) }
+        }
+      }
+      results.push((joined, merged-state, merged-done-vars, end-flag))
     }
   }
 

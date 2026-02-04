@@ -4,7 +4,8 @@
 
 #import "../core/mod.typ": finalize, is-empty
 #import "../text/names.typ": (
-  apply-name-formatting, format-names, format-names-with-institutions,
+  _resolve-et-al-settings, apply-name-formatting, format-names,
+  format-names-with-institutions, names-end-flag,
 )
 #import "../parsing/mod.typ": lookup-term
 
@@ -466,20 +467,34 @@
       et-al-node.at("attrs", default: (:))
     } else { (:) }
     let et-al-term = et-al-attrs.at("term", default: "et-al")
+    let et-al = _resolve-et-al-settings(name-attrs, ctx)
 
     // Find label if present
     let label-node = children.find(c => (
       type(c) == dictionary and c.at("tag", default: "") == "label"
     ))
+    let term = ""
+    let label-attrs = if label-node != none {
+      label-node.at("attrs", default: (:))
+    } else { (:) }
+    let label-position = "after"
     let label-content = if label-node != none {
-      let label-attrs = label-node.at("attrs", default: (:))
       let form = label-attrs.at("form", default: "long")
       let plural = names.len() > 1
       // Use common term (e.g., "editortranslator") if available, otherwise use variable name
       let term-name = if common-term != none { common-term } else { used-var }
-      let term = lookup-term(ctx, term-name, form: form, plural: plural)
+      term = lookup-term(ctx, term-name, form: form, plural: plural)
       // Only apply formatting if term is defined and non-empty (to avoid prefix/suffix on empty content)
-      if term == none or term == "" { [] } else { finalize(term, label-attrs) }
+      if term == none or term == "" {
+        []
+      } else {
+        let term-ends = (
+          term.ends-with(".")
+            or label-attrs.at("suffix", default: "").ends-with(".")
+        )
+        let final-label-attrs = (..label-attrs, "_ends-with-period": term-ends)
+        finalize(term, final-label-attrs)
+      }
     } else { [] }
 
     // Format names (with institution support if cs:institution is present)
@@ -509,6 +524,19 @@
       )
     }
 
+    let raw-name-ends = if type(names-content) == str {
+      names-content.trim().ends-with(".")
+    } else {
+      names-end-flag(
+        names,
+        name-attrs,
+        name-parts,
+        ctx,
+        et-al-term,
+        et-al,
+      )
+    }
+
     // Apply name-level formatting (font-weight, font-style, etc.)
     // CSL spec: <name> element can have formatting attributes that apply to all rendered names
     names-content = apply-name-formatting(names-content, name-attrs)
@@ -524,8 +552,15 @@
     }
 
     // Combine with label
+    let label-ends = if label-content != [] {
+      (
+        term.trim().ends-with(".")
+          or label-attrs.at("suffix", default: "").ends-with(".")
+      )
+    } else { false }
+
     let result = if label-content != [] {
-      let label-position = if label-node != none {
+      label-position = if label-node != none {
         let label-idx = children.position(c => (
           type(c) == dictionary and c.at("tag", default: "") == "label"
         ))
@@ -538,9 +573,6 @@
       } else { "after" }
 
       // If label has its own prefix, use it directly; otherwise use names delimiter
-      let label-attrs = if label-node != none {
-        label-node.at("attrs", default: (:))
-      } else { (:) }
       let label-has-prefix = label-attrs.at("prefix", default: "") != ""
 
       if label-position == "before" {
@@ -552,7 +584,23 @@
       }
     } else { names-content }
 
+    let name-ends = raw-name-ends
+    if name-suffix.ends-with(".") { name-ends = true }
+
+    let final-ends = if label-content != [] and label-position == "after" {
+      label-ends
+    } else {
+      name-ends
+    }
+
+    let suffix = attrs.at("suffix", default: "")
+    let final-attrs = if final-ends and suffix.starts-with(".") {
+      (..attrs, suffix: suffix.slice(1), "_ends-with-period": final-ends)
+    } else {
+      (..attrs, "_ends-with-period": final-ends)
+    }
+
     // Normal names rendering - no substitute quashing needed
-    (finalize(result, attrs), ())
+    (finalize(result, final-attrs), ())
   }
 }

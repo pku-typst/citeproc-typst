@@ -14,5 +14,8 @@
   let stub-interpret(children, c) = []
   let content = _handle-label(node, ctx, stub-interpret)
   let var-state = if is-empty(content) { "no-var" } else { "none" }
-  (content, var-state, ())
+  let ends = if type(content) == str { content.trim().ends-with(".") } else {
+    false
+  }
+  (content, var-state, (), ends)
 }

@@ -11,8 +11,10 @@
 
   let term = lookup-term(ctx, term-name, form: form, plural: plural)
   if term != none {
-    (finalize(term, attrs), "none", ())
+    let ends = term.ends-with(".")
+    let final-attrs = (..attrs, "_ends-with-period": ends)
+    (finalize(term, final-attrs), "none", (), ends)
   } else {
-    ([], "none", ())
+    ([], "none", (), false)
   }
 }

@@ -14,5 +14,8 @@
 
   let content = _handle-date(node, ctx)
   let var-state = if is-empty(content) { "no-var" } else { "var" }
-  (content, var-state, ())
+  let ends = if type(content) == str { content.trim().ends-with(".") } else {
+    false
+  }
+  (content, var-state, (), ends)
 }

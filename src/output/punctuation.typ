@@ -61,7 +61,10 @@
     let fields = content.fields()
     let dest = fields.at("dest", default: none)
     let body = fields.at("body", default: [])
-    return link(dest, collapse-punctuation(body, punctuation-in-quote: punctuation-in-quote))
+    return link(dest, collapse-punctuation(
+      body,
+      punctuation-in-quote: punctuation-in-quote,
+    ))
   }
 
   // Flatten plain text to allow punctuation rules across boundaries
@@ -84,12 +87,36 @@
   show regex("[?？]{2,}"): it => it.text.first()
 
   // Rule 1b: Duplicate punctuation across closing quotes (keep first)
-  show regex("[.。][\u{201D}\"][.。]"): it => it.text.clusters().slice(0, 2).join()
-  show regex("[,，、][\u{201D}\"][,，、]"): it => it.text.clusters().slice(0, 2).join()
-  show regex("[;；][\u{201D}\"][;；]"): it => it.text.clusters().slice(0, 2).join()
-  show regex("[:：][\u{201D}\"][:：]"): it => it.text.clusters().slice(0, 2).join()
-  show regex("[!！][\u{201D}\"][!！]"): it => it.text.clusters().slice(0, 2).join()
-  show regex("[?？][\u{201D}\"][?？]"): it => it.text.clusters().slice(0, 2).join()
+  show regex("[.。][\u{201D}\"][.。]"): it => it
+    .text
+    .clusters()
+    .slice(0, 2)
+    .join()
+  show regex("[,，、][\u{201D}\"][,，、]"): it => it
+    .text
+    .clusters()
+    .slice(0, 2)
+    .join()
+  show regex("[;；][\u{201D}\"][;；]"): it => it
+    .text
+    .clusters()
+    .slice(0, 2)
+    .join()
+  show regex("[:：][\u{201D}\"][:：]"): it => it
+    .text
+    .clusters()
+    .slice(0, 2)
+    .join()
+  show regex("[!！][\u{201D}\"][!！]"): it => it
+    .text
+    .clusters()
+    .slice(0, 2)
+    .join()
+  show regex("[?？][\u{201D}\"][?？]"): it => it
+    .text
+    .clusters()
+    .slice(0, 2)
+    .join()
 
   // Rule 2: Absorption rules from citeproc-js LtoR_MAP
   // Helper to get the "stronger" punctuation
@@ -122,9 +149,21 @@
   show regex("[;；][?？]"): it => it.text.clusters().last()
 
   // Absorption across closing quotes
-  show regex("[!！][\u{201D}\"][:：]"): it => it.text.clusters().slice(0, 2).join()
-  show regex("[?？][\u{201D}\"][:：]"): it => it.text.clusters().slice(0, 2).join()
-  show regex("[;；][\u{201D}\"][:：]"): it => it.text.clusters().slice(0, 2).join()
+  show regex("[!！][\u{201D}\"][:：]"): it => it
+    .text
+    .clusters()
+    .slice(0, 2)
+    .join()
+  show regex("[?？][\u{201D}\"][:：]"): it => it
+    .text
+    .clusters()
+    .slice(0, 2)
+    .join()
+  show regex("[;；][\u{201D}\"][:：]"): it => it
+    .text
+    .clusters()
+    .slice(0, 2)
+    .join()
 
   // punctuation-in-quote: move periods and commas inside closing quotes
   // Only applies when the locale has punctuation-in-quote="true" (e.g., en-US)
@@ -134,8 +173,16 @@
   if punctuation-in-quote {
     // Right double quote + period/comma → swap them
     // Collapse duplicate period/comma before swapping
-    show regex("[.。][\u{201D}\"][.。]"): it => it.text.clusters().slice(0, 2).join()
-    show regex("[,，、][\u{201D}\"][,，、]"): it => it.text.clusters().slice(0, 2).join()
+    show regex("[.。][\u{201D}\"][.。]"): it => it
+      .text
+      .clusters()
+      .slice(0, 2)
+      .join()
+    show regex("[,，、][\u{201D}\"][,，、]"): it => it
+      .text
+      .clusters()
+      .slice(0, 2)
+      .join()
     show "\u{201D}.": ".\u{201D}"
     show "\u{201D},": ",\u{201D}"
     // Straight double quote + period/comma → swap them

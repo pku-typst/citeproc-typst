@@ -5,33 +5,6 @@
 #import "../../text/ranges.typ": format-page-range
 #import "../../data/variables.typ": get-variable
 
-/// Extract plain text from content recursively
-#let _content-to-string(c) = {
-  if c == none or c == [] { return "" }
-  if type(c) == str { return c }
-  if type(c) == int or type(c) == float { return str(c) }
-
-  let fields = c.fields()
-  let text-func = c.func()
-
-  if text-func == text {
-    let body = fields.at("body", default: fields.at("text", default: ""))
-    if type(body) == str { body } else { _content-to-string(body) }
-  } else if "children" in fields {
-    fields.children.map(_content-to-string).join("")
-  } else if "body" in fields {
-    _content-to-string(fields.body)
-  } else if "child" in fields {
-    _content-to-string(fields.child)
-  } else if "text" in fields {
-    if type(fields.text) == str { fields.text } else {
-      _content-to-string(fields.text)
-    }
-  } else {
-    ""
-  }
-}
-
 /// Get text variable value
 ///
 /// - ctx: Context dictionary with fields and done-vars
@@ -43,7 +16,7 @@
 
   // Check if already rendered (done-vars quashing)
   if var-name in ctx.at("done-vars", default: ()) {
-    return ([], "none", ())
+    return ([], "none", (), false)
   }
 
   // Special handling for year-suffix - it's in ctx, not ctx.fields
@@ -56,19 +29,23 @@
       } else {
         str(suffix)
       }
-      return (finalize(suffix-str, attrs), "var", ())
+      let ends = suffix-str.ends-with(".")
+      let final-attrs = (..attrs, "_ends-with-period": ends)
+      return (finalize(suffix-str, final-attrs), "var", (), ends)
     } else {
-      return ([], "no-var", ())
+      return ([], "no-var", (), false)
     }
   }
 
-  // Get value using get-variable which handles field name mapping
-  let val = get-variable(ctx, var-name)
-
-  // Handle short form
-  let val = if form == "short" and val == "" {
-    get-variable(ctx, var-name + "-short")
-  } else { val }
+  // CSL form="short": try variable-short first, fallback to variable
+  let val = if form == "short" {
+    let short-name = var-name + "-short"
+    let short-val = get-variable(ctx, short-name)
+    if short-val != "" { short-val } else { get-variable(ctx, var-name) }
+  } else {
+    // Get value using get-variable which handles field name mapping
+    get-variable(ctx, var-name)
+  }
 
   if val != "" {
     // Format page ranges for page, page-first, locator
@@ -102,9 +79,13 @@
       apply-quotes(normalized, ctx, level: quote-level)
     } else { normalized }
 
-    (finalize(quoted, attrs), "var", ())
+    let ends = if type(quoted) == str { quoted.ends-with(".") } else { false }
+    let final-attrs = if type(quoted) == str {
+      (..attrs, "_ends-with-period": ends)
+    } else { attrs }
+    (finalize(quoted, final-attrs), "var", (), ends)
   } else {
-    ([], "no-var", ())
+    ([], "no-var", (), false)
   }
 }
 
@@ -156,16 +137,9 @@
     content
   }
 
-  let adjusted-attrs = if (
-    adjusted-attrs.at("suffix", default: "").len() > 0
-      and adjusted-attrs.at("suffix", default: "").first() == "."
-      and _content-to-string(processed).ends-with(".")
-  ) {
-    let s = adjusted-attrs.at("suffix", default: "")
-    (..adjusted-attrs, suffix: s.slice(1))
-  } else {
-    adjusted-attrs
-  }
+  let adjusted-attrs = if type(processed) == str {
+    (..adjusted-attrs, "_ends-with-period": processed.ends-with("."))
+  } else { adjusted-attrs }
 
   finalize(processed, adjusted-attrs)
 }
@@ -174,5 +148,6 @@
 #let format-text-value(ctx, attrs) = {
   let value = attrs.at("value", default: "")
   let content = format-text-content(ctx, value, attrs)
-  (content, "none", ())
+  let ends = if type(content) == str { content.ends-with(".") } else { false }
+  (content, "none", (), ends)
 }

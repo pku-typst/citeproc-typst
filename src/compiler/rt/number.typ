@@ -11,9 +11,13 @@
   let var-name = attrs.at("variable", default: "")
   let val = get-variable(ctx, var-name)
   if is-empty(val) {
-    ([], "no-var", ())
+    ([], "no-var", (), false)
   } else {
-    (finalize(val, attrs), "var", ())
+    let ends = if type(val) == str { val.ends-with(".") } else { false }
+    let final-attrs = if type(val) == str {
+      (..attrs, "_ends-with-period": ends)
+    } else { attrs }
+    (finalize(val, final-attrs), "var", (), ends)
   }
 }
 
@@ -21,13 +25,17 @@
   let var-name = attrs.at("variable", default: "")
   let val = get-variable(ctx, var-name)
   if is-empty(val) {
-    ([], "no-var", ())
+    ([], "no-var", (), false)
   } else {
     let num = safe-int(val)
     let result = if num != none {
       str(num) + get-ordinal-suffix(num, ctx)
     } else { val }
-    (finalize(result, attrs), "var", ())
+    let ends = if type(result) == str { result.ends-with(".") } else { false }
+    let final-attrs = if type(result) == str {
+      (..attrs, "_ends-with-period": ends)
+    } else { attrs }
+    (finalize(result, final-attrs), "var", (), ends)
   }
 }
 
@@ -35,7 +43,7 @@
   let var-name = attrs.at("variable", default: "")
   let val = get-variable(ctx, var-name)
   if is-empty(val) {
-    ([], "no-var", ())
+    ([], "no-var", (), false)
   } else {
     let num = safe-int(val)
     let result = if num != none and num >= 1 and num <= 10 {
@@ -57,7 +65,11 @@
     } else if num != none {
       str(num) + get-ordinal-suffix(num, ctx)
     } else { val }
-    (finalize(result, attrs), "var", ())
+    let ends = if type(result) == str { result.ends-with(".") } else { false }
+    let final-attrs = if type(result) == str {
+      (..attrs, "_ends-with-period": ends)
+    } else { attrs }
+    (finalize(result, final-attrs), "var", (), ends)
   }
 }
 
@@ -65,13 +77,17 @@
   let var-name = attrs.at("variable", default: "")
   let val = get-variable(ctx, var-name)
   if is-empty(val) {
-    ([], "no-var", ())
+    ([], "no-var", (), false)
   } else {
     let num = safe-int(val)
     let result = if num != none and num > 0 {
       numbering("i", num)
     } else { val }
-    (finalize(result, attrs), "var", ())
+    let ends = if type(result) == str { result.ends-with(".") } else { false }
+    let final-attrs = if type(result) == str {
+      (..attrs, "_ends-with-period": ends)
+    } else { attrs }
+    (finalize(result, final-attrs), "var", (), ends)
   }
 }
 
@@ -81,5 +97,6 @@
   let stub-interpret(children, c) = []
   let content = _handle-number(node, ctx, stub-interpret)
   let var-state = if is-empty(content) { "no-var" } else { "var" }
-  (content, var-state, ())
+  let ends = if type(content) == str { content.ends-with(".") } else { false }
+  (content, var-state, (), ends)
 }

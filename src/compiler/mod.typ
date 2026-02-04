@@ -7,7 +7,8 @@
 //   CSL XML → parse-csl() → dict → compile-style() → Typst code string → eval() → functions
 //   Generated code calls helper functions passed via eval(scope: helpers)
 //
-// The compiled functions take a context dict and return (content, var-state, done-vars).
+// The compiled functions take a context dict and return
+// (content, var-state, done-vars, ends-with-period).
 
 #import "emit/codegen.typ": compile-ast, compile-children, compile-macro
 #import "rt/mod.typ": compiler-helpers
@@ -30,7 +31,7 @@
     let code = compile-macro(name, children, macros)
 
     // Compile the function using eval with helpers in scope
-    // The function signature is: (ctx) => (content, var-state, done-vars)
+    // The function signature is: (ctx) => (content, var-state, done-vars, ends-with-period)
     let func = eval(code, mode: "code", scope: helpers)
     compiled.insert(name, func)
   }
@@ -42,13 +43,13 @@
 ///
 /// - style: Parsed CSL style object
 /// - helpers: Dictionary of helper functions to pass to eval() scope
-/// Returns: Compiled function (ctx) => (content, var-state, done-vars)
+/// Returns: Compiled function (ctx) => (content, var-state, done-vars, ends-with-period)
 #let compile-citation-layout(style, helpers: default-helpers) = {
   let citation = style.at("citation", default: none)
-  if citation == none { return ctx => ([], "none", ()) }
+  if citation == none { return ctx => ([], "none", (), false) }
 
   let layouts = citation.at("layouts", default: ())
-  if layouts.len() == 0 { return ctx => ([], "none", ()) }
+  if layouts.len() == 0 { return ctx => ([], "none", (), false) }
 
   let layout = layouts.first()
   let children = layout.at("children", default: ())
@@ -71,7 +72,8 @@
 ///
 /// - style: Parsed CSL style object
 /// - helpers: Dictionary of helper functions to pass to eval() scope
-/// Returns: Dictionary mapping locale -> compiled function (ctx) => (content, var-state, done-vars)
+/// Returns: Dictionary mapping locale -> compiled function
+/// (ctx) => (content, var-state, done-vars, ends-with-period)
 ///          Key "_default" is used for layouts without locale attribute
 #let compile-bibliography-layouts(style, helpers: default-helpers) = {
   let bib = style.at("bibliography", default: none)
