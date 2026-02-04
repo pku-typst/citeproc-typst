@@ -56,6 +56,7 @@
 /// - locales: Optional dict of lang -> locale content for external locales
 ///            e.g., (en-US: read("locales-en-US.xml"))
 /// - compile: If true, pre-compile macros and layouts for faster rendering
+///            (can be overridden by sys.inputs.compiler)
 /// Returns: Parsed CSL style object (with optional compiled functions)
 #let load-csl(csl-content, locales: (:), compile: true) = {
   // Parse external locales
@@ -66,14 +67,15 @@
 
   let xml-tree = xml(bytes(csl-content))
   let style = parse-csl(xml-tree, external-locales: parsed-locales)
-  
-  // Compile style for faster rendering
-  if compile {
+
+  // Compile style for faster rendering (check sys.inputs for override)
+  let use-compiler = sys.inputs.at("compiler", default: "true") == "true"
+  if compile and use-compiler {
     import "../compiler/mod.typ": compile-style
     let compiled = compile-style(style)
     style.insert("compiled", compiled)
   }
-  
+
   style
 }
 

@@ -179,7 +179,7 @@
   // Use compiled function if available, otherwise fall back to interpreter
   let result = {
     let compiled = style.at("compiled", default: none)
-    let use-compiler = true
+    let use-compiler = sys.inputs.at("compiler", default: "true") == "true"
     if compiled != none and use-compiler {
       // Add compiled macros to context for macro calls
       let ctx = (..ctx, compiled-macros: compiled.macros, done-vars: ())

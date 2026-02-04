@@ -9,8 +9,8 @@
 //
 // The compiled functions take a context dict and return (content, var-state, done-vars).
 
-#import "codegen.typ": compile-children, compile-macro, compile-ast
-#import "helpers.typ": compiler-helpers
+#import "emit/codegen.typ": compile-ast, compile-children, compile-macro
+#import "rt/helpers.typ": compiler-helpers
 
 /// Default helpers scope for eval()
 /// These are the functions that compiled code can call
@@ -24,17 +24,17 @@
 #let compile-macros(style, helpers: default-helpers) = {
   let macros = style.at("macros", default: (:))
   let compiled = (:)
-  
+
   for (name, macro-def) in macros.pairs() {
     let children = macro-def.at("children", default: ())
     let code = compile-macro(name, children, macros)
-    
+
     // Compile the function using eval with helpers in scope
     // The function signature is: (ctx) => (content, var-state, done-vars)
     let func = eval(code, mode: "code", scope: helpers)
     compiled.insert(name, func)
   }
-  
+
   compiled
 }
 
@@ -45,18 +45,18 @@
 /// Returns: Compiled function (ctx) => (content, var-state, done-vars)
 #let compile-citation-layout(style, helpers: default-helpers) = {
   let citation = style.at("citation", default: none)
-  if citation == none { return (ctx) => ([], "none", ()) }
-  
+  if citation == none { return ctx => ([], "none", ()) }
+
   let layouts = citation.at("layouts", default: ())
-  if layouts.len() == 0 { return (ctx) => ([], "none", ()) }
-  
+  if layouts.len() == 0 { return ctx => ([], "none", ()) }
+
   let layout = layouts.first()
   let children = layout.at("children", default: ())
   let macros = style.at("macros", default: (:))
-  
+
   let code = compile-children(children, macros)
   let full-code = "(ctx) => {\n  " + code + "\n}"
-  
+
   eval(full-code, mode: "code", scope: helpers)
 }
 
@@ -69,24 +69,24 @@
 #let compile-bibliography-layouts(style, helpers: default-helpers) = {
   let bib = style.at("bibliography", default: none)
   if bib == none { return (:) }
-  
+
   let layouts = bib.at("layouts", default: ())
   if layouts.len() == 0 { return (:) }
-  
+
   let macros = style.at("macros", default: (:))
   let result = (:)
-  
+
   for layout in layouts {
     let locale = layout.at("locale", default: none)
     let key = if locale == none { "_default" } else { locale }
     let children = layout.at("children", default: ())
-    
+
     let code = compile-children(children, macros)
     let full-code = "(ctx) => {\n  " + code + "\n}"
-    
+
     result.insert(key, eval(full-code, mode: "code", scope: helpers))
   }
-  
+
   result
 }
 

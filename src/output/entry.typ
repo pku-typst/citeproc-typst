@@ -161,19 +161,21 @@
   // Use compiled function if available and not filtering, otherwise fall back to interpreter
   let result = {
     let compiled = style.at("compiled", default: none)
-    let use-compiler = false  // Temporarily disabled to debug regression
+    let use-compiler = sys.inputs.at("compiler", default: "true") == "true"
     // Only use compiled version when include-number=true (no filtering needed)
     if compiled != none and include-number and use-compiler {
       // Get the compiled layout for this locale
       let bib-layouts = compiled.at("bibliography-layouts", default: (:))
-      let layout-key = if layout-locale != none { layout-locale } else { "_default" }
+      let layout-key = if layout-locale != none { layout-locale } else {
+        "_default"
+      }
       let compiled-layout = bib-layouts.at(layout-key, default: none)
-      
+
       // Fallback to default if locale-specific not found
       if compiled-layout == none {
         compiled-layout = bib-layouts.at("_default", default: none)
       }
-      
+
       if compiled-layout != none {
         // Add compiled macros to context for macro calls
         let ctx = (..ctx, compiled-macros: compiled.macros, done-vars: ())
