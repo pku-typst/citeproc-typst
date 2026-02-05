@@ -598,6 +598,7 @@
             if not is-empty(c) { end-flag = r.at(3, default: false) }
           }
         }
+        let content-end-flag = end-flag
         if suffix != "" and suffix.ends-with(".") { end-flag = true }
         if not is-empty(joined) {
           // CSL spec: "a non-empty nested cs:group is treated as a non-empty variable
@@ -606,9 +607,12 @@
           let final-state = if merged-state == "none" { "var" } else {
             merged-state
           }
-          let final-attrs = (..meta.attrs, "_ends-with-period": end-flag)
+          let final-attrs = (
+            ..meta.attrs,
+            "_ends-with-period": content-end-flag,
+          )
           results.push((
-            finalize([#prefix#joined#suffix], final-attrs),
+            finalize(joined, final-attrs),
             final-state,
             merged-done-vars,
             end-flag,

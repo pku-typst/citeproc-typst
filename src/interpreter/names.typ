@@ -162,6 +162,12 @@
   let name-attrs = if name-node != none {
     name-node.at("attrs", default: (:))
   } else { (:) }
+  if "name-as-sort-order" not in name-attrs {
+    let sort-order = attrs.at("name-as-sort-order", default: none)
+    if sort-order != none {
+      name-attrs.insert("name-as-sort-order", sort-order)
+    }
+  }
   let name-form = name-attrs.at("form", default: "long")
 
   if name-form == "count" {

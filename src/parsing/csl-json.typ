@@ -293,7 +293,10 @@
     result.insert("literal", csl-date.literal)
   }
   if "raw" in csl-date and "literal" not in csl-date {
-    result.insert("literal", csl-date.raw)
+    let has-date-parts = csl-date.at("date-parts", default: ()).len() > 0
+    if not has-date-parts {
+      result.insert("literal", csl-date.raw)
+    }
   }
 
   let parts = csl-date.at("date-parts", default: ())
@@ -560,6 +563,38 @@
             let family = n.at("family", default: "")
             let given = n.at("given", default: "")
             let literal = n.at("literal", default: "")
+            let prefix = n.at("non-dropping-particle", default: "")
+            let dropping-prefix = n.at("dropping-particle", default: "")
+
+            // Strip quote-protected family names (e.g., "\"van Happel\"")
+            let quoted-family = false
+            if (
+              family.starts-with("\"")
+                and family.ends-with("\"")
+                and family.len() >= 2
+            ) {
+              family = family.slice(1, family.len() - 1)
+              quoted-family = true
+            }
+
+            // Infer non-dropping particle from leading lowercase words
+            if (
+              not quoted-family
+                and prefix == ""
+                and dropping-prefix == ""
+                and family != ""
+            ) {
+              let parts = family.split(" ").filter(p => p != "")
+              let particle-parts = ()
+              while parts.len() > 1 and parts.first() == lower(parts.first()) {
+                particle-parts.push(parts.first())
+                parts = parts.slice(1)
+              }
+              if particle-parts.len() > 0 {
+                prefix = particle-parts.join(" ")
+                family = parts.join(" ")
+              }
+            }
             // If isInstitution is set, use family as literal
             if is-institution and literal == "" {
               literal = family
@@ -568,8 +603,8 @@
               family: family,
               given: given,
               suffix: n.at("suffix", default: ""),
-              prefix: n.at("non-dropping-particle", default: ""),
-              dropping-prefix: n.at("dropping-particle", default: ""),
+              prefix: prefix,
+              dropping-prefix: dropping-prefix,
               comma-suffix: n.at("comma-suffix", default: false),
               literal: literal,
               is-institution: is-institution,

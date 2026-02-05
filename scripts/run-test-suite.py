@@ -559,10 +559,10 @@ def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str,
 
                         if locator_value or cite_prefix or cite_suffix:
                             cite_call = (
-                                f'#cite({key_expr}, form: "prose", supplement: locator("{locator_label}", "{locator_escaped}", prefix: "{prefix_escaped}", suffix: "{suffix_escaped}"))'
+                                f'#cite({key_expr}, supplement: locator("{locator_label}", "{locator_escaped}", prefix: "{prefix_escaped}", suffix: "{suffix_escaped}"))'
                             )
                         else:
-                            cite_call = f'#cite({key_expr}, form: "prose")'
+                            cite_call = f'#cite({key_expr})'
                         cite_calls.append(f'#text(">>[{idx}] ") {cite_call}')
                 elif len(citation_items) > 1:
                     items = []
@@ -649,7 +649,7 @@ def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str,
             if len(input_items) == 1:
                 key = input_items[0].get('id', 'ITEM-1')
                 key_expr = _format_cite_key(key)
-                cite_calls.append(f'#cite({key_expr}, form: "prose")')
+                cite_calls.append(f'#cite({key_expr})')
             else:
                 keys = [f'"{item.get("id", "ITEM-1")}"' for item in input_items]
                 cite_calls.append(f'#multicite({", ".join(keys)})')

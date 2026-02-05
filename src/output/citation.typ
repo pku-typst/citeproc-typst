@@ -2,7 +2,7 @@
 //
 // Functions for rendering in-text citations.
 
-#import "../core/constants.typ": POSITION, RENDER-CONTEXT
+#import "../core/constants.typ": POSITION, RENDER-CONTEXT, STYLE-CLASS
 #import "../core/formatting.typ": apply-formatting
 #import "../core/utils.typ": capitalize-first-char, is-empty
 #import "../interpreter/mod.typ": create-context
@@ -10,6 +10,26 @@
 #import "../parsing/mod.typ": detect-language
 #import "../text/names.typ": format-names
 #import "layout.typ": select-layout
+
+// Check if a layout contains any position conditions
+#let _layout-has-position(nodes, targets) = {
+  for node in nodes {
+    if type(node) == dictionary {
+      let attrs = node.at("attrs", default: (:))
+      if "position" in attrs {
+        let positions = if type(attrs.position) == str {
+          attrs.position.split(" ")
+        } else {
+          attrs.position
+        }
+        if positions.any(p => targets.any(t => t == p)) { return true }
+      }
+      let kids = node.at("children", default: ())
+      if kids.len() > 0 and _layout-has-position(kids, targets) { return true }
+    }
+  }
+  false
+}
 
 // =============================================================================
 // Citation Rendering
@@ -44,8 +64,19 @@
   abbreviations: (:),
   names-expanded: 0,
   givenname-level: 0,
+  givenname-levels: (),
   needs-disambiguate: false,
 ) = {
+  let effective-position = if (
+    form == "prose"
+      and style.class == STYLE-CLASS.in-text
+      and position == POSITION.first
+  ) {
+    POSITION.subsequent
+  } else {
+    position
+  }
+
   let ctx = create-context(
     style,
     entry,
@@ -150,13 +181,14 @@
   let ctx = (
     ..ctx,
     year-suffix: year-suffix,
-    position: position,
+    position: effective-position,
     first-reference-note-number: if first-note-number != none {
       str(first-note-number)
     } else { "" },
     // Disambiguation state for name rendering
     names-expanded: names-expanded,
     givenname-level: givenname-level,
+    givenname-levels: givenname-levels,
     render-context: RENDER-CONTEXT.citation,
     // Et-al settings for subsequent cites (CSL spec: inheritable name options)
     et-al-subsequent-min: citation.at("et-al-subsequent-min", default: none),
@@ -202,6 +234,19 @@
     if target-locale != none {
       ctx = (..ctx, locale: target-locale)
     }
+  }
+
+  // If layout has no ibid logic, treat ibid positions as subsequent
+  let has-ibid = _layout-has-position(
+    layout.children,
+    (POSITION.ibid, POSITION.ibid-with-locator),
+  )
+  if (
+    effective-position in (POSITION.ibid, POSITION.ibid-with-locator)
+      and not has-ibid
+  ) {
+    effective-position = POSITION.subsequent
+    ctx = (..ctx, position: effective-position)
   }
 
   // Render citation layout

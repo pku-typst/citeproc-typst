@@ -30,6 +30,7 @@
   style,
   names-expanded: 0,
   givenname-level: 0,
+  givenname-levels: (),
 ) = {
   let citation = style.at("citation", default: none)
   if citation == none { return "" }
@@ -51,6 +52,7 @@
     ..ctx,
     names-expanded: names-expanded,
     givenname-level: givenname-level,
+    givenname-levels: givenname-levels,
     // Citation-level et-al settings (inheritable name options)
     citation-et-al-min: citation.at("et-al-min", default: none),
     citation-et-al-use-first: citation.at("et-al-use-first", default: none),
@@ -78,6 +80,7 @@
   style,
   names-expanded: 0,
   givenname-level: 0,
+  givenname-levels: (),
 ) = {
   let citation = style.at("citation", default: none)
   if citation == none { return [] }
@@ -102,6 +105,7 @@
       ..ctx,
       names-expanded: names-expanded,
       givenname-level: givenname-level,
+      givenname-levels: givenname-levels,
       // Citation-level et-al settings (inheritable name options)
       citation-et-al-min: citation.at("et-al-min", default: none),
       citation-et-al-use-first: citation.at("et-al-use-first", default: none),
@@ -115,6 +119,7 @@
     ..ctx,
     names-expanded: names-expanded,
     givenname-level: givenname-level,
+    givenname-levels: givenname-levels,
     // Citation-level et-al settings (inheritable name options)
     citation-et-al-min: citation.at("et-al-min", default: none),
     citation-et-al-use-first: citation.at("et-al-use-first", default: none),
@@ -159,6 +164,7 @@
   style,
   names-expanded: 0,
   givenname-level: 0,
+  givenname-levels: (),
 ) = {
   let names-node = get-first-bib-names-node(style)
   if names-node == none { return "" }
@@ -169,6 +175,7 @@
     ..ctx,
     names-expanded: names-expanded,
     givenname-level: givenname-level,
+    givenname-levels: givenname-levels,
     render-context: RENDER-CONTEXT.bibliography,
   )
 

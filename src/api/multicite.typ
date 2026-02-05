@@ -265,6 +265,7 @@
           let disambig = disambig-states.at(item.key, default: (
             names-expanded: 0,
             givenname-level: 0,
+            givenname-levels: (),
             needs-disambiguate: false,
           ))
 
@@ -274,6 +275,7 @@
             style,
             names-expanded: disambig.at("names-expanded", default: 0),
             givenname-level: disambig.at("givenname-level", default: 0),
+            givenname-levels: disambig.at("givenname-levels", default: ()),
           )
 
           // Get year for year-suffix collapse detection
@@ -380,6 +382,10 @@
                       "givenname-level",
                       default: 0,
                     ),
+                    givenname-levels: item.disambig.at(
+                      "givenname-levels",
+                      default: (),
+                    ),
                     needs-disambiguate: item.disambig.at(
                       "needs-disambiguate",
                       default: false,
@@ -416,6 +422,10 @@
                         givenname-level: item.disambig.at(
                           "givenname-level",
                           default: 0,
+                        ),
+                        givenname-levels: item.disambig.at(
+                          "givenname-levels",
+                          default: (),
                         ),
                         needs-disambiguate: item.disambig.at(
                           "needs-disambiguate",
@@ -454,6 +464,10 @@
                         givenname-level: start-item.disambig.at(
                           "givenname-level",
                           default: 0,
+                        ),
+                        givenname-levels: start-item.disambig.at(
+                          "givenname-levels",
+                          default: (),
                         ),
                         needs-disambiguate: start-item.disambig.at(
                           "needs-disambiguate",
@@ -518,6 +532,10 @@
                     "givenname-level",
                     default: 0,
                   ),
+                  givenname-levels: item.disambig.at(
+                    "givenname-levels",
+                    default: (),
+                  ),
                   needs-disambiguate: item.disambig.at(
                     "needs-disambiguate",
                     default: false,
@@ -558,6 +576,10 @@
                 givenname-level: item.disambig.at(
                   "givenname-level",
                   default: 0,
+                ),
+                givenname-levels: item.disambig.at(
+                  "givenname-levels",
+                  default: (),
                 ),
                 needs-disambiguate: item.disambig.at(
                   "needs-disambiguate",
@@ -629,6 +651,7 @@
             cite-number: citations.order.at(item.key, default: 0),
             names-expanded: item.disambig.at("names-expanded", default: 0),
             givenname-level: item.disambig.at("givenname-level", default: 0),
+            givenname-levels: item.disambig.at("givenname-levels", default: ()),
             needs-disambiguate: item.disambig.at(
               "needs-disambiguate",
               default: false,
@@ -660,6 +683,7 @@
         let disambig = disambig-states.at(item.key, default: (
           names-expanded: 0,
           givenname-level: 0,
+          givenname-levels: (),
           year-suffix: none,
           needs-disambiguate: false,
         ))
@@ -673,6 +697,7 @@
           year-suffix: disambig.at("year-suffix", default: none),
           names-expanded: disambig.at("names-expanded", default: 0),
           givenname-level: disambig.at("givenname-level", default: 0),
+          givenname-levels: disambig.at("givenname-levels", default: ()),
           needs-disambiguate: disambig.at("needs-disambiguate", default: false),
         )
       })
@@ -693,7 +718,10 @@
       let is-inline-form = (
         form in (CITE-FORM.prose, CITE-FORM.author, CITE-FORM.year)
       )
-      if is-inline-form {
+      let use-footnote = (
+        sys.inputs.at("use-footnote", default: "true") == "true"
+      )
+      if is-inline-form or not use-footnote {
         linked
       } else {
         footnote(linked)

@@ -87,6 +87,7 @@
     let key = data.key
     let locator = data.locator
     let form = data.form
+    let is-first-key = key not in result.order
 
     // Positions key for O(1) lookup (uses repr for consistency)
     let positions-key = key + "\n" + repr(locator)
@@ -94,7 +95,7 @@
     note-number += 1
 
     // Track first occurrence order (by key, not positions-key)
-    if key not in result.order {
+    if is-first-key {
       n += 1
       result.order.insert(key, n)
       result.first-note-numbers.insert(key, note-number)
@@ -105,12 +106,8 @@
       result.positions.insert(positions-key, ())
     }
 
-    // Track each occurrence's position
-    let is-first = result.positions.at(positions-key).len() == 0
-    let is-first-of-key = result.order.at(key) == n and is-first
-
-    // Determine position type
-    let position = if is-first-of-key {
+    // Determine position type (based on first occurrence of key)
+    let position = if is-first-key {
       POSITION.first
     } else if prev-key == key {
       // Same key as previous citation

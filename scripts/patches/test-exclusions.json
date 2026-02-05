@@ -166,6 +166,10 @@
       "reason": "Requires parsing <span class='nocase'> from input data. This HTML parsing is not supported."
     },
     {
+      "fixture": "flipflop_BoldfaceNodeLevelMarkup",
+      "reason": "Requires parsing embedded HTML tags (<b>) inside quoted input. This HTML parsing is not supported."
+    },
+    {
       "fixture": "flipflop_ItalicsFlipped",
       "reason": "Requires parsing <i> tags from input data to detect embedded italics. This HTML parsing is not supported."
     },

@@ -593,6 +593,7 @@
   position: 1,
   name-parts: (:),
 ) = {
+  let name-position = position
   // Handle literal names (institutional names)
   // CSL-JSON can have names with only "literal" field
   let literal = name.at("literal", default: "")
@@ -624,6 +625,9 @@
 
   // Get formatting options from attrs with proper cascade (names -> citation/bib -> style)
   let name-as-sort-order = _resolve-name-attr("name-as-sort-order", attrs, ctx)
+  if type(name-as-sort-order) == str {
+    name-as-sort-order = name-as-sort-order.trim()
+  }
   let initialize-with = _resolve-name-attr("initialize-with", attrs, ctx)
   let sort-separator = _resolve-name-attr("sort-separator", attrs, ctx)
   // CSL spec default for sort-separator is ", " - apply if still none
@@ -650,6 +654,25 @@
   // Get disambiguation givenname-level from context (CSL Method 1)
   // Level 0 = default, 1 = initials, 2 = full given name
   let givenname-level = ctx.at("givenname-level", default: 0)
+  let givenname-levels = ctx.at("givenname-levels", default: none)
+  if (
+    givenname-levels != none
+      and type(givenname-levels) == array
+      and givenname-levels.len() >= name-position
+  ) {
+    givenname-level = givenname-levels.at(name-position - 1)
+  }
+  let cite-position = ctx.at("position", default: POSITION.first)
+  if (
+    name-form == "short"
+      and (
+        cite-position == POSITION.subsequent
+          or cite-position == POSITION.ibid
+          or cite-position == POSITION.ibid-with-locator
+      )
+  ) {
+    givenname-level = 0
+  }
 
   // Short form: only family name with non-dropping-particle (unless disambiguation requires more)
   // CSL spec: non-dropping-particle is always attached to family name, even in short form
@@ -712,7 +735,7 @@
   // Determine name order
   let use-sort-order = (
     name-as-sort-order == "all"
-      or (name-as-sort-order == "first" and position == 1)
+      or (name-as-sort-order == "first" and name-position == 1)
   )
 
   // Build name string
@@ -1004,6 +1027,9 @@
       "name-as-sort-order",
       default: ctx.style.name-as-sort-order,
     )
+    if type(name-as-sort-order) == str {
+      name-as-sort-order = name-as-sort-order.trim()
+    }
     // Check if the first name (before last) is inverted
     // Literal/institutional names are never inverted
     let first-name = names.at(0, default: (:))
@@ -1039,6 +1065,9 @@
       "name-as-sort-order",
       default: ctx.style.name-as-sort-order,
     )
+    if type(name-as-sort-order) == str {
+      name-as-sort-order = name-as-sort-order.trim()
+    }
 
     // Check if the name before last is inverted (for after-inverted-name)
     let before-last-idx = formatted.len() - 2

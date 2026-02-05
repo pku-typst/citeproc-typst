@@ -6,7 +6,20 @@
 #import "../core/constants.typ": RENDER-CONTEXT
 #import "../interpreter/mod.typ": create-context
 #import "../interpreter/stack.typ": interpret-children-stack
-#import "../output/helpers.typ": content-to-string
+#import "../output/helpers.typ": content-to-string, find-first-names-node
+
+// Helper: get initials for a given name string
+#let _get-initials(given) = {
+  if given == none or given == "" { return "" }
+  let parts = given.split(regex("\\s+"))
+  parts
+    .filter(p => p.len() > 0)
+    .map(p => {
+      let clusters = p.clusters()
+      if clusters.len() > 0 { clusters.at(0) + "." } else { "" }
+    })
+    .join(" ")
+}
 
 // =============================================================================
 // Sort Key Extraction
@@ -57,39 +70,112 @@
     )
   }
 
+  let name-sort-key = (var-name, initialize-with: none) => {
+    let parsed-names = ctx.at("parsed-names", default: (:))
+    let names-list = parsed-names.at(var-name, default: ())
+    if names-list.len() > 0 {
+      let sort-min = ctx.at("sort-names-min", default: none)
+      let sort-use-first = ctx.at("sort-names-use-first", default: none)
+      let sort-use-last = ctx.at("sort-names-use-last", default: none)
+      let et-al-min = ctx.at("citation-et-al-min", default: none)
+      let et-al-use-first = ctx.at("citation-et-al-use-first", default: none)
+      let et-al-use-last = ctx.at("citation-et-al-use-last", default: none)
+      let min = if sort-min != none { sort-min } else { et-al-min }
+      let use-first = if sort-use-first != none {
+        sort-use-first
+      } else { et-al-use-first }
+      let use-last = if sort-use-last != none { sort-use-last } else {
+        et-al-use-last
+      }
+
+      if (
+        min != none
+          and use-first != none
+          and names-list.len() >= min
+          and use-first < names-list.len()
+      ) {
+        let truncated = names-list.slice(0, use-first)
+        if use-last == true and names-list.len() > use-first {
+          truncated.push(names-list.last())
+        }
+        names-list = truncated
+      }
+
+      // CSL spec: sort key is constructed from name parts
+      // For literal names: use literal value
+      // For structured names: "family given" for each name, joined by space
+      let use-initials = initialize-with != none
+      names-list
+        .map(name => {
+          if name.at("literal", default: "") != "" {
+            name.literal
+          } else {
+            let family = name.at("family", default: "")
+            let given = name.at("given", default: "")
+            let prefix = name.at("prefix", default: "") // non-dropping particle
+            if use-initials {
+              given = _get-initials(given)
+            }
+            // CSL sort order: family prefix given
+            (family, prefix, given).filter(p => p != "").join(" ")
+          }
+        })
+        .join(" ")
+    } else { "" }
+  }
+
   let value = if key-spec.at("macro", default: none) != none {
     // Render macro and use result as sort key
     let macro-name = key-spec.macro
     let macro-def = style.macros.at(macro-name, default: none)
     if macro-def != none {
-      let rendered = interpret-children-stack(macro-def.children, ctx)
-      // Convert to string for sorting
-      content-to-string(rendered)
+      // CSL spec: for macros, compare output of the first cs:names element
+      let names-node = find-first-names-node(macro-def, macros: style.macros)
+      if names-node != none {
+        let vars = names-node
+          .at("attrs", default: (:))
+          .at("variable", default: "")
+        let var-list = vars.split(" ")
+        let name-node = names-node
+          .at("children", default: ())
+          .find(c => (
+            type(c) == dictionary and c.at("tag", default: "") == "name"
+          ))
+        let init-with = if name-node != none {
+          name-node
+            .at("attrs", default: (:))
+            .at("initialize-with", default: none)
+        } else { none }
+        let key = ""
+        for v in var-list {
+          if key == "" { key = name-sort-key(v, initialize-with: init-with) }
+        }
+        if key != "" {
+          key
+        } else {
+          let rendered = interpret-children-stack((names-node,), ctx)
+          let rendered-key = content-to-string(rendered)
+          if rendered-key != "" {
+            rendered-key
+          } else {
+            let full-rendered = interpret-children-stack(
+              macro-def.children,
+              ctx,
+            )
+            content-to-string(full-rendered)
+          }
+        }
+      } else {
+        let rendered = interpret-children-stack(macro-def.children, ctx)
+        // Convert to string for sorting
+        content-to-string(rendered)
+      }
     } else { "" }
   } else if key-spec.at("variable", default: "") != "" {
     let var-name = key-spec.variable
     // Special handling for name variables: construct sort key from parsed names
     if var-name in NAME-VARS {
-      let parsed-names = ctx.at("parsed-names", default: (:))
-      let names-list = parsed-names.at(var-name, default: ())
-      if names-list.len() > 0 {
-        // CSL spec: sort key is constructed from name parts
-        // For literal names: use literal value
-        // For structured names: "family given" for each name, joined by space
-        names-list
-          .map(name => {
-            if name.at("literal", default: "") != "" {
-              name.literal
-            } else {
-              let family = name.at("family", default: "")
-              let given = name.at("given", default: "")
-              let prefix = name.at("prefix", default: "") // non-dropping particle
-              // CSL sort order: family prefix given
-              (family, prefix, given).filter(p => p != "").join(" ")
-            }
-          })
-          .join(" ")
-      } else { "" }
+      name-sort-key(var-name)
     } else if (
       var-name in ("issued", "accessed", "original-date", "event-date")
     ) {

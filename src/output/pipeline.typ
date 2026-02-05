@@ -77,6 +77,10 @@
   // Determine if bibliography should be sorted by citation order
   // Check if style uses citation-number variable
   let uses-citation-number = style-uses-citation-number(style)
+  let bib = style.at("bibliography", default: (:))
+  let bib-sort = if type(bib) == dictionary {
+    bib.at("sort", default: ())
+  } else { () }
 
   // Phase 2: Sort entries
   // - If bibliography uses citation-number: sort by citation order
@@ -84,8 +88,17 @@
   let sorted-entries = sort-bibliography-entries(
     entries,
     style,
-    by-order: uses-citation-number,
+    by-order: uses-citation-number and bib-sort.len() == 0,
   )
+
+  if uses-citation-number and bib-sort.len() > 0 {
+    sorted-entries = sorted-entries
+      .enumerate()
+      .map(((i, e)) => (
+        ..e,
+        order: i + 1,
+      ))
+  }
 
   // Phase 3: Apply disambiguation
   let disambig-entries = apply-disambiguation(sorted-entries, style)
@@ -108,6 +121,12 @@
   abbreviations: (:),
   precomputed: none,
 ) = {
+  let uses-citation-number = style-uses-citation-number(style)
+  let bib = style.at("bibliography", default: (:))
+  let bib-sort = if type(bib) == dictionary {
+    bib.at("sort", default: ())
+  } else { () }
+
   // Use precomputed sorted order and disambig states if available
   let entries = if (
     precomputed != none
@@ -126,7 +145,11 @@
       .map(((idx, key)) => {
         let entry = bib-data.at(key, default: none)
         if entry == none { return none }
-        let order = citations.order.at(key, default: idx)
+        let order = if uses-citation-number and bib-sort.len() > 0 {
+          idx + 1
+        } else {
+          citations.order.at(key, default: idx)
+        }
         let ir = create-entry-ir(key, entry, order, style)
         // Apply cached disambiguation state
         let disambig = disambig-states.at(key, default: ir.disambig)
@@ -172,6 +195,7 @@
       style,
       names-expanded: e.disambig.at("names-expanded", default: 0),
       givenname-level: e.disambig.at("givenname-level", default: 0),
+      givenname-levels: e.disambig.at("givenname-levels", default: ()),
     )
 
     // Get the parsed names list for the substitute variable (for per-name comparison)

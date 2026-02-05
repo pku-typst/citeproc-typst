@@ -223,6 +223,7 @@
         let disambig = disambig-states.at(key, default: (
           names-expanded: 0,
           givenname-level: 0,
+          givenname-levels: (),
         ))
         let first-note-number = citations.first-note-numbers.at(
           key,
@@ -242,6 +243,11 @@
             abbreviations: abbrevs,
             names-expanded: disambig.at("names-expanded", default: 0),
             givenname-level: disambig.at("givenname-level", default: 0),
+            givenname-levels: disambig.at("givenname-levels", default: ()),
+            needs-disambiguate: disambig.at(
+              "needs-disambiguate",
+              default: false,
+            ),
           ),
           punctuation-in-quote: get-punctuation-in-quote(style),
         )

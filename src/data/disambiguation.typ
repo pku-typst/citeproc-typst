@@ -54,6 +54,100 @@
   layouts.any(l => _node-uses-citation-label(l, macros))
 }
 
+#let _node-uses-date(node, macros) = {
+  if type(node) != dictionary { return false }
+  let tag = node.at("tag", default: "")
+
+  if tag == "date" {
+    let attrs = node.at("attrs", default: (:))
+    if attrs.at("variable", default: "") != "" { return true }
+  }
+
+  if tag == "text" {
+    let attrs = node.at("attrs", default: (:))
+    let macro-name = attrs.at("macro", default: none)
+    if macro-name != none {
+      let macro-def = macros.at(macro-name, default: none)
+      if macro-def != none {
+        for child in macro-def.at("children", default: ()) {
+          if _node-uses-date(child, macros) { return true }
+        }
+      }
+    }
+  }
+
+  for child in node.at("children", default: ()) {
+    if _node-uses-date(child, macros) { return true }
+  }
+
+  false
+}
+
+#let _citation-uses-date(style) = {
+  let citation = style.at("citation", default: none)
+  if citation == none { return false }
+  let layouts = citation.at("layouts", default: ())
+  let macros = style.at("macros", default: (:))
+  layouts.any(l => _node-uses-date(l, macros))
+}
+
+#let _find-first-names-node(node, macros) = {
+  if type(node) != dictionary { return none }
+  let tag = node.at("tag", default: "")
+  if tag == "names" { return node }
+
+  if tag == "text" {
+    let attrs = node.at("attrs", default: (:))
+    let macro-name = attrs.at("macro", default: none)
+    if macro-name != none {
+      let macro-def = macros.at(macro-name, default: none)
+      if macro-def != none {
+        for child in macro-def.at("children", default: ()) {
+          let found = _find-first-names-node(child, macros)
+          if found != none { return found }
+        }
+      }
+    }
+  }
+
+  for child in node.at("children", default: ()) {
+    let found = _find-first-names-node(child, macros)
+    if found != none { return found }
+  }
+  none
+}
+
+#let _citation-names-use-initials(style) = {
+  let citation = style.at("citation", default: none)
+  if citation == none { return false }
+  let layouts = citation.at("layouts", default: ())
+  let macros = style.at("macros", default: (:))
+
+  for layout in layouts {
+    let names-node = _find-first-names-node(layout, macros)
+    if names-node == none { continue }
+    let attrs = names-node.at("attrs", default: (:))
+    let init = attrs.at("initialize", default: none)
+    if init == "false" { return false }
+    let init-with = attrs.at("initialize-with", default: none)
+    if init-with != none { return true }
+    for child in names-node.at("children", default: ()) {
+      if type(child) == dictionary and child.at("tag", default: "") == "name" {
+        let child-attrs = child.at("attrs", default: (:))
+        let child-init = child-attrs.at("initialize", default: none)
+        if child-init == "false" { return false }
+        let child-init-with = child-attrs.at(
+          "initialize-with",
+          default: none,
+        )
+        if child-init-with != none { return true }
+      }
+    }
+    return false
+  }
+  false
+}
+
 #let _build-citation-label(entry) = {
   let fields = entry.at("fields", default: (:))
   let custom = fields.at("citation-label", default: "")
@@ -215,6 +309,26 @@
     .join(" ")
 }
 
+#let _normalize-given(given) = {
+  if given == none { return "" }
+  let lowered = lower(given)
+  lowered.replace(regex("[\\s\\.]"), "")
+}
+
+#let _name-family-key(name) = {
+  let literal = name.at("literal", default: "")
+  if literal != "" { return literal }
+  let family = name.at("family", default: "")
+  let prefix = name.at("prefix", default: "")
+  if prefix == "" { return family }
+  if family == "" { return prefix }
+  if prefix.ends-with("'") or prefix.ends-with("-") {
+    prefix + family
+  } else {
+    prefix + " " + family
+  }
+}
+
 /// Build author short representation with given disambiguation level
 ///
 /// - names: Array of parsed name dicts
@@ -225,27 +339,38 @@
 #let build-author-key(
   names,
   et-al-use-first,
+  et-al-min: none,
   expand-names: 0,
   givenname-level: 0,
+  givenname-levels: none,
 ) = {
   if names.len() == 0 { return "" }
 
-  let show-count = calc.min(names.len(), et-al-use-first + expand-names)
+  let use-et-al = (
+    et-al-min != none
+      and names.len() >= et-al-min
+      and et-al-use-first < names.len()
+  )
+  let base-count = if use-et-al { et-al-use-first } else { names.len() }
+  let show-count = calc.min(names.len(), base-count + expand-names)
   let parts = ()
 
   for i in range(show-count) {
     let name = names.at(i)
-    // Handle literal names: fall back to literal when family is empty
-    let raw-family = name.at("family", default: "")
-    let family = if raw-family != "" {
-      raw-family
-    } else {
-      name.at("literal", default: "")
-    }
+    let family = _name-family-key(name)
 
-    let given-part = if givenname-level == 0 {
+    let level = if (
+      givenname-levels != none
+        and type(givenname-levels) == array
+        and i < givenname-levels.len()
+    ) {
+      givenname-levels.at(i)
+    } else {
+      givenname-level
+    }
+    let given-part = if level == 0 {
       ""
-    } else if givenname-level == 1 {
+    } else if level == 1 {
       get-initials(name.at("given", default: ""))
     } else {
       name.at("given", default: "")
@@ -301,6 +426,12 @@
   let max-givenname-level = if givenname-rule.ends-with("-with-initials") {
     1
   } else { 2 }
+  let use-initials = _citation-names-use-initials(style)
+  let min-givenname-level = if max-givenname-level == 1 {
+    1
+  } else if use-initials {
+    1
+  } else { 2 }
 
   // Determine if we only target primary (first) name
   let primary-only = givenname-rule.starts-with("primary-name")
@@ -316,6 +447,7 @@
       authors: authors,
       names-expanded: 0,
       givenname-level: 0,
+      givenname-levels: (),
       year: get-entry-year(e.entry),
       needs-disambiguate: false, // Method 3 flag
     ))
@@ -333,15 +465,14 @@
 
     for (entry-key, state) in disambig-state.pairs() {
       let authors = state.authors
-      let show-count = calc.min(authors.len(), et-al-use-first)
+      let show-count = authors.len()
 
       for i in range(show-count) {
         let name = authors.at(i)
-        let family = lower(name.at("family", default: name.at(
-          "literal",
-          default: "",
-        )))
-        let given = name.at("given", default: "")
+        let family = lower(_name-family-key(name))
+        let raw-given = name.at("given", default: "")
+        let given = _normalize-given(raw-given)
+        let initials = get-initials(raw-given)
 
         if family == "" { continue }
 
@@ -356,6 +487,7 @@
             entry-key: entry-key,
             position: i,
             given: given,
+            initials: initials,
           ))
       }
     }
@@ -365,23 +497,177 @@
     for (group-key, group-entries) in family-name-groups.pairs() {
       if group-entries.len() <= 1 { continue }
 
-      // Check if there are different given names in this group
+      let initials-list = group-entries.map(e => e.initials).dedup()
       let given-names = group-entries.map(e => e.given).dedup()
-      if given-names.len() <= 1 { continue }
+      let target-level = if max-givenname-level == 1 {
+        if initials-list.len() > 1 { 1 } else { none }
+      } else if given-names.len() > 1 {
+        if use-initials and initials-list.len() > 1 { 1 } else { 2 }
+      } else { none }
 
-      // Different given names exist for this family name - expand all entries
+      if target-level == none { continue }
+
+      // Apply per-position expansion levels
       for entry-info in group-entries {
         let entry-key = entry-info.entry-key
         let state = disambig-state.at(entry-key)
-
-        // Progressively expand until disambiguation is achieved
-        let target-level = max-givenname-level
-        if state.givenname-level < target-level {
-          disambig-state.insert(entry-key, (
-            ..state,
-            givenname-level: target-level,
-          ))
+        let levels = state.givenname-levels
+        // Ensure levels list is long enough
+        if levels.len() <= entry-info.position {
+          let extended = levels
+          for _ in range(entry-info.position + 1 - levels.len()) {
+            extended.push(0)
+          }
+          levels = extended
         }
+        // Update target position
+        let updated = ()
+        for (idx, val) in levels.enumerate() {
+          if idx == entry-info.position and val < target-level {
+            updated.push(target-level)
+          } else {
+            updated.push(val)
+          }
+        }
+        levels = updated
+        let max-level = if state.givenname-level > target-level {
+          state.givenname-level
+        } else { target-level }
+        disambig-state.insert(entry-key, (
+          ..state,
+          givenname-level: max-level,
+          givenname-levels: levels,
+        ))
+      }
+    }
+  }
+
+  // ==========================================================================
+  // For "primary-name" rule: Disambiguate only primary names across entries
+  // ==========================================================================
+  if add-givenname and primary-only {
+    let primary-groups = (:)
+
+    for e in entries {
+      let authors = get-all-authors(e.entry)
+      if authors.len() == 0 { continue }
+      let name = authors.at(0)
+      let family = lower(_name-family-key(name))
+      let raw-given = name.at("given", default: "")
+      let given = _normalize-given(raw-given)
+      let initials = get-initials(raw-given)
+      if family == "" { continue }
+      if family not in primary-groups {
+        primary-groups.insert(family, ())
+      }
+      primary-groups
+        .at(family)
+        .push((
+          entry-key: e.key,
+          given: given,
+          initials: initials,
+        ))
+    }
+
+    for (family, group-entries) in primary-groups.pairs() {
+      if group-entries.len() <= 1 { continue }
+      let initials-list = group-entries.map(e => e.initials).dedup()
+      let given-names = group-entries.map(e => e.given).dedup()
+      let target-level = if max-givenname-level == 1 {
+        if initials-list.len() > 1 { 1 } else { none }
+      } else if given-names.len() > 1 {
+        if use-initials and initials-list.len() > 1 { 1 } else { 2 }
+      } else { none }
+      if target-level == none { continue }
+
+      for entry-info in group-entries {
+        let entry-key = entry-info.entry-key
+        let state = states.at(entry-key)
+        let levels = state.givenname-levels
+        if levels.len() == 0 {
+          levels = ()
+          levels.push(0)
+        }
+        let updated = ()
+        for (idx, val) in levels.enumerate() {
+          if idx == 0 and val < target-level {
+            updated.push(target-level)
+          } else {
+            updated.push(val)
+          }
+        }
+        levels = updated
+        let max-level = state.givenname-level
+        states.insert(entry-key, (
+          ..state,
+          givenname-level: max-level,
+          givenname-levels: levels,
+        ))
+      }
+    }
+  }
+
+  // ==========================================================================
+  // For "primary-name" rule: Disambiguate only primary names across entries
+  // ==========================================================================
+  if add-givenname and primary-only {
+    let primary-groups = (:)
+
+    for (entry-key, state) in disambig-state.pairs() {
+      let authors = state.authors
+      if authors.len() == 0 { continue }
+      let name = authors.at(0)
+      let family = lower(_name-family-key(name))
+      let raw-given = name.at("given", default: "")
+      let given = _normalize-given(raw-given)
+      let initials = get-initials(raw-given)
+      if family == "" { continue }
+      if family not in primary-groups {
+        primary-groups.insert(family, ())
+      }
+      primary-groups
+        .at(family)
+        .push((
+          entry-key: entry-key,
+          given: given,
+          initials: initials,
+        ))
+    }
+
+    for (family, group-entries) in primary-groups.pairs() {
+      if group-entries.len() <= 1 { continue }
+      let initials-list = group-entries.map(e => e.initials).dedup()
+      let given-names = group-entries.map(e => e.given).dedup()
+      let target-level = if max-givenname-level == 1 {
+        if initials-list.len() > 1 { 1 } else { none }
+      } else if given-names.len() > 1 {
+        if use-initials and initials-list.len() > 1 { 1 } else { 2 }
+      } else { none }
+      if target-level == none { continue }
+
+      for entry-info in group-entries {
+        let entry-key = entry-info.entry-key
+        let state = disambig-state.at(entry-key)
+        let levels = state.givenname-levels
+        if levels.len() == 0 {
+          levels = ()
+          levels.push(0)
+        }
+        let updated = ()
+        for (idx, val) in levels.enumerate() {
+          if idx == 0 and val < target-level {
+            updated.push(target-level)
+          } else {
+            updated.push(val)
+          }
+        }
+        levels = updated
+        let max-level = state.givenname-level
+        disambig-state.insert(entry-key, (
+          ..state,
+          givenname-level: max-level,
+          givenname-levels: levels,
+        ))
       }
     }
   }
@@ -401,8 +687,10 @@
       let author-key = build-author-key(
         state.authors,
         et-al-use-first,
+        et-al-min: et-al-min,
         expand-names: state.names-expanded,
         givenname-level: state.givenname-level,
+        givenname-levels: state.givenname-levels,
       )
       let full-key = author-key + "|" + str(state.year)
 
@@ -434,8 +722,10 @@
             let new-key = build-author-key(
               state.authors,
               et-al-use-first,
+              et-al-min: et-al-min,
               expand-names: state.names-expanded,
               givenname-level: new-level,
+              givenname-levels: state.givenname-levels,
             )
 
             // Check if this would resolve collision
@@ -446,8 +736,10 @@
                 let other-new-key = build-author-key(
                   other.authors,
                   et-al-use-first,
+                  et-al-min: et-al-min,
                   expand-names: other.names-expanded,
                   givenname-level: other.givenname-level,
+                  givenname-levels: other.givenname-levels,
                 )
                 if new-key == other-new-key {
                   would-resolve = false
@@ -490,8 +782,10 @@
     let author-key = build-author-key(
       state.authors,
       et-al-use-first,
+      et-al-min: et-al-min,
       expand-names: state.names-expanded,
       givenname-level: state.givenname-level,
+      givenname-levels: state.givenname-levels,
     )
     let full-key = author-key + "|" + str(state.year)
 
@@ -540,7 +834,7 @@
 /// - state: Current disambiguation state for this entry
 /// - style: Parsed CSL style
 /// Returns: String key for comparison
-#let build-citation-key(entry, state, style) = {
+#let build-citation-key(entry, state, style, include-year: true) = {
   let citation = style.at("citation", default: none)
   if citation == none { return "" }
 
@@ -567,14 +861,18 @@
   let author-key = build-author-key(
     authors,
     effective-use-first,
+    et-al-min: et-al-min,
     expand-names: 0, // Already included in effective-use-first
     givenname-level: state.givenname-level,
+    givenname-levels: state.givenname-levels,
   )
 
-  // Add year
-  let year = get-entry-year(entry)
-
-  author-key + "|" + str(year)
+  if include-year {
+    let year = get-entry-year(entry)
+    author-key + "|" + str(year)
+  } else {
+    author-key
+  }
 }
 
 /// Group entries by citation key
@@ -583,12 +881,17 @@
 /// - states: Dictionary of key -> disambiguation state
 /// - style: Parsed CSL style
 /// Returns: Dictionary of citation_key -> [entry_key, ...]
-#let group-by-citation-key(entries, states, style) = {
+#let group-by-citation-key(entries, states, style, include-year: true) = {
   let groups = (:)
 
   for e in entries {
     let state = states.at(e.key)
-    let citation-key = build-citation-key(e.entry, state, style)
+    let citation-key = build-citation-key(
+      e.entry,
+      state,
+      style,
+      include-year: include-year,
+    )
 
     if citation-key not in groups {
       groups.insert(citation-key, ())
@@ -618,9 +921,19 @@
 ///
 /// - key: The entry key to check
 /// - entries: All entries
+/// - states: Current disambiguation states
+/// - et-al-use-first: Base et-al use-first value
 /// - ambiguous: Current ambiguous groups
+/// - consider-all: If true, consider full name list
 /// Returns: true if expansion would help
-#let _givenname-expansion-would-help(key, entries, ambiguous) = {
+#let _givenname-expansion-would-help(
+  key,
+  entries,
+  states,
+  et-al-use-first,
+  ambiguous,
+  consider-all: false,
+) = {
   let entry = entries.find(e => e.key == key)
   if entry == none { return false }
 
@@ -630,6 +943,14 @@
     .at("author", default: ())
 
   if authors.len() == 0 { return false }
+  let state = states.at(key, default: none)
+  let show-count = if consider-all {
+    authors.len()
+  } else if state != none {
+    calc.min(authors.len(), et-al-use-first + state.names-expanded)
+  } else {
+    calc.min(authors.len(), et-al-use-first)
+  }
 
   // Find other entries in same ambiguous group
   for (group-key, group-keys) in ambiguous {
@@ -642,15 +963,15 @@
               .entry
               .at("parsed_names", default: (:))
               .at("author", default: ())
-            // Check if first given name differs
-            if other-authors.len() > 0 {
-              let first-given = authors.first().at("given", default: "")
-              let other-first-given = other-authors
-                .first()
-                .at("given", default: "")
-              if first-given != other-first-given {
-                return true
-              }
+            let max-idx = calc.min(show-count, other-authors.len())
+            for i in range(max-idx) {
+              let given = _normalize-given(
+                authors.at(i).at("given", default: ""),
+              )
+              let other-given = _normalize-given(
+                other-authors.at(i).at("given", default: ""),
+              )
+              if given != other-given { return true }
             }
           }
         }
@@ -667,11 +988,24 @@
 /// - entry-map: Map of key -> entry
 /// - et-al-use-first: Number of names shown before et al
 /// Returns: (can-expand, new-state)
-#let _try-expand-names(key, state, entry-map, et-al-use-first) = {
+#let _try-expand-names(
+  key,
+  state,
+  entry-map,
+  et-al-use-first,
+  et-al-min,
+  allow-full: true,
+) = {
   let e = entry-map.at(key)
   let authors = get-all-authors(e.entry)
 
-  if state.names-expanded + et-al-use-first < authors.len() {
+  let max-show = if allow-full {
+    authors.len()
+  } else {
+    calc.min(authors.len(), et-al-min - 1)
+  }
+  let next-show = et-al-use-first + state.names-expanded + 1
+  if next-show <= max-show {
     (
       can-expand: true,
       new-state: (..state, names-expanded: state.names-expanded + 1),
@@ -739,6 +1073,7 @@
         year-suffix: none,
         names-expanded: 0,
         givenname-level: 0,
+        givenname-levels: (),
         needs-disambiguate: false,
       ),
     ))
@@ -760,6 +1095,12 @@
   let max-givenname-level = if givenname-rule.ends-with("-with-initials") {
     1
   } else { 2 }
+  let use-initials = _citation-names-use-initials(style)
+  let min-givenname-level = if max-givenname-level == 1 {
+    1
+  } else if use-initials {
+    1
+  } else { 2 }
   let primary-only = givenname-rule.starts-with("primary-name")
 
   // Check if this is an "all-names" rule (expand ambiguous names even in unambiguous cites)
@@ -778,10 +1119,12 @@
   // Initialize disambiguation state for each entry
   let states = (:)
   let entry-map = (:) // key -> entry for quick lookup
+  let include-year = _citation-uses-date(style)
 
   for e in entries {
     states.insert(e.key, (
       givenname-level: 0,
+      givenname-levels: (),
       names-expanded: 0,
       needs-disambiguate: false,
       year-suffix: none,
@@ -806,18 +1149,14 @@
     for e in entries {
       let authors = get-all-authors(e.entry)
       let state = states.at(e.key)
-      let show-count = calc.min(
-        authors.len(),
-        et-al-use-first + state.names-expanded,
-      )
+      let show-count = authors.len()
 
       for i in range(show-count) {
         let name = authors.at(i)
-        let family = lower(name.at("family", default: name.at(
-          "literal",
-          default: "",
-        )))
-        let given = name.at("given", default: "")
+        let family = lower(_name-family-key(name))
+        let raw-given = name.at("given", default: "")
+        let given = _normalize-given(raw-given)
+        let initials = get-initials(raw-given)
 
         if family == "" { continue }
 
@@ -832,6 +1171,7 @@
             entry-key: e.key,
             position: i,
             given: given,
+            initials: initials,
           ))
       }
     }
@@ -841,28 +1181,128 @@
     for (group-key, group-entries) in family-name-groups.pairs() {
       if group-entries.len() <= 1 { continue }
 
-      // Check if there are different given names in this group
+      let initials-list = group-entries.map(e => e.initials).dedup()
       let given-names = group-entries.map(e => e.given).dedup()
-      if given-names.len() <= 1 { continue }
+      let target-level = if (
+        max-givenname-level > 1
+          and group-entries.first().position == 0
+          and given-names.len() > 1
+      ) {
+        2
+      } else if initials-list.len() > 1 {
+        1
+      } else if max-givenname-level > 1 and given-names.len() > 1 {
+        2
+      } else { none }
 
-      // Different given names exist for this family name
-      // Expand all entries to max level for this rule
+      if target-level == none { continue }
+
       for entry-info in group-entries {
         let entry-key = entry-info.entry-key
         let state = states.at(entry-key)
-
-        if state.givenname-level < max-givenname-level {
-          states.insert(entry-key, (
-            ..state,
-            givenname-level: max-givenname-level,
-          ))
+        let levels = state.givenname-levels
+        if levels.len() <= entry-info.position {
+          let extended = levels
+          for _ in range(entry-info.position + 1 - levels.len()) {
+            extended.push(0)
+          }
+          levels = extended
         }
+        let updated = ()
+        for (idx, val) in levels.enumerate() {
+          if idx == entry-info.position and val < target-level {
+            updated.push(target-level)
+          } else {
+            updated.push(val)
+          }
+        }
+        levels = updated
+        let max-level = if state.givenname-level > target-level {
+          state.givenname-level
+        } else { target-level }
+        states.insert(entry-key, (
+          ..state,
+          givenname-level: max-level,
+          givenname-levels: levels,
+        ))
+      }
+    }
+  }
+
+  // ==========================================================================
+  // For "primary-name" rule: Disambiguate only primary names across entries
+  // ==========================================================================
+  if add-givenname and primary-only {
+    let primary-groups = (:)
+
+    for e in entries {
+      let authors = get-all-authors(e.entry)
+      if authors.len() == 0 { continue }
+      let name = authors.at(0)
+      let family = lower(_name-family-key(name))
+      let raw-given = name.at("given", default: "")
+      let given = _normalize-given(raw-given)
+      let initials = get-initials(raw-given)
+      if family == "" { continue }
+      if family not in primary-groups {
+        primary-groups.insert(family, ())
+      }
+      primary-groups
+        .at(family)
+        .push((
+          entry-key: e.key,
+          given: given,
+          initials: initials,
+        ))
+    }
+
+    for (family, group-entries) in primary-groups.pairs() {
+      if group-entries.len() <= 1 { continue }
+      let initials-list = group-entries.map(e => e.initials).dedup()
+      let given-names = group-entries.map(e => e.given).dedup()
+      let target-level = if max-givenname-level == 1 {
+        if initials-list.len() > 1 { 1 } else { none }
+      } else if given-names.len() > 1 {
+        if use-initials and initials-list.len() > 1 { 1 } else { 2 }
+      } else { none }
+      if target-level == none { continue }
+
+      for entry-info in group-entries {
+        let entry-key = entry-info.entry-key
+        let state = states.at(entry-key)
+        let levels = state.givenname-levels
+        if levels.len() == 0 {
+          levels = ()
+          levels.push(0)
+        }
+        let updated = ()
+        for (idx, val) in levels.enumerate() {
+          if idx == 0 and val < target-level {
+            updated.push(target-level)
+          } else {
+            updated.push(val)
+          }
+        }
+        levels = updated
+        let max-level = if state.givenname-level > target-level {
+          state.givenname-level
+        } else { target-level }
+        states.insert(entry-key, (
+          ..state,
+          givenname-level: max-level,
+          givenname-levels: levels,
+        ))
       }
     }
   }
 
   // Initial grouping
-  let groups = group-by-citation-key(entries, states, style)
+  let groups = group-by-citation-key(
+    entries,
+    states,
+    style,
+    include-year: include-year,
+  )
   let ambiguous = get-ambiguous-groups(groups)
 
   // ==========================================================================
@@ -871,25 +1311,95 @@
   // Skip if all-names rule already handled givenname expansion
   if add-givenname and not is-all-names-rule and ambiguous.len() > 0 {
     // Try expanding givenname for ambiguous entries
-    for level in range(1, max-givenname-level + 1) {
-      let ambiguous-keys = ambiguous.map(((k, v)) => v).flatten()
+    for level in range(min-givenname-level, max-givenname-level + 1) {
+      let changed = false
+      for (gk, gkeys) in ambiguous {
+        if gkeys.len() <= 1 { continue }
+        let first-key = gkeys.first()
+        let first-entry = entry-map.at(first-key)
+        let first-authors = get-all-authors(first-entry.entry)
+        let first-state = states.at(first-key)
+        let show-count = calc.min(
+          first-authors.len(),
+          et-al-use-first + first-state.names-expanded,
+        )
 
-      // Check each ambiguous entry for potential givenname expansion
-      for key in ambiguous-keys {
-        let state = states.at(key)
-        if state.givenname-level < level {
-          // Only expand if it would actually help disambiguate
-          if _givenname-expansion-would-help(key, entries, ambiguous) {
-            states.insert(key, (..state, givenname-level: level))
+        let positions = ()
+        for i in range(show-count) {
+          let family-list = ()
+          let given-list = ()
+          for key in gkeys {
+            let entry = entry-map.at(key)
+            let authors = get-all-authors(entry.entry)
+            if i < authors.len() {
+              let name = authors.at(i)
+              let family = _name-family-key(name)
+              let given = _normalize-given(name.at("given", default: ""))
+              family-list.push(family)
+              given-list.push(given)
+            } else {
+              family-list.push("")
+              given-list.push("")
+            }
           }
+          if family-list.dedup().len() == 1 and given-list.dedup().len() > 1 {
+            positions.push(i)
+          }
+        }
+
+        if positions.len() > 0 {
+          if primary-only {
+            positions = positions.filter(p => p == 0)
+          }
+          if positions.len() == 0 { continue }
+          let max-pos = -1
+          for p in positions {
+            if p > max-pos { max-pos = p }
+          }
+          for key in gkeys {
+            let state = states.at(key)
+            let levels = state.givenname-levels
+            if max-pos >= 0 and levels.len() <= max-pos {
+              let extended = levels
+              for _ in range(max-pos + 1 - levels.len()) {
+                extended.push(0)
+              }
+              levels = extended
+            }
+            let updated = ()
+            for (idx, val) in levels.enumerate() {
+              if idx in positions and val < level {
+                updated.push(level)
+              } else {
+                updated.push(val)
+              }
+            }
+            levels = updated
+            let max-level = if primary-only {
+              state.givenname-level
+            } else if state.givenname-level > level {
+              state.givenname-level
+            } else { level }
+            states.insert(key, (
+              ..state,
+              givenname-level: max-level,
+              givenname-levels: levels,
+            ))
+          }
+          changed = true
         }
       }
 
       // Re-group and check
-      let new-groups = group-by-citation-key(entries, states, style)
+      let new-groups = group-by-citation-key(
+        entries,
+        states,
+        style,
+        include-year: include-year,
+      )
       ambiguous = get-ambiguous-groups(new-groups)
 
-      if ambiguous.len() == 0 { break }
+      if ambiguous.len() == 0 or not changed { break }
     }
   }
 
@@ -909,108 +1419,402 @@
 
       // Save current state before trying expansions
       let prev-states = states
-      let prev-ambiguous-count = ambiguous.len()
       let prev-ambiguous-total = 0
       for (gk, gkeys) in ambiguous {
         prev-ambiguous-total += gkeys.len()
       }
 
-      let ambiguous-keys = ambiguous.map(((k, v)) => v).flatten()
-
-      // Try to expand names for each ambiguous entry
+      // Try to expand names only when additional names can help disambiguate
       let any-expanded = false
-      for key in ambiguous-keys {
-        let state = states.at(key)
-        let result = _try-expand-names(key, state, entry-map, et-al-use-first)
-        if result.can-expand {
-          any-expanded = true
-          states.insert(key, result.new-state)
+      for (gk, gkeys) in ambiguous {
+        if gkeys.len() <= 1 { continue }
+        let first-key = gkeys.first()
+        let first-entry = entry-map.at(first-key)
+        let first-state = states.at(first-key)
+        let show-count = et-al-use-first + first-state.names-expanded
+        let first-authors = get-all-authors(first-entry.entry)
+        if first-authors.len() == 0 { continue }
+        let first-rest = first-authors.slice(show-count)
+        let first-rest-key = first-rest
+          .map(n => (
+            _name-family-key(n)
+              + "|"
+              + (
+                if add-givenname {
+                  _normalize-given(n.at("given", default: ""))
+                } else { "" }
+              )
+          ))
+          .join("||")
+        let can-help = false
+        for key in gkeys.slice(1) {
+          let entry = entry-map.at(key)
+          let authors = get-all-authors(entry.entry)
+          if authors.len() == 0 { continue }
+          let rest = authors.slice(show-count)
+          let rest-key = rest
+            .map(n => (
+              _name-family-key(n)
+                + "|"
+                + (
+                  if add-givenname {
+                    _normalize-given(n.at("given", default: ""))
+                  } else { "" }
+                )
+            ))
+            .join("||")
+          if rest-key != first-rest-key {
+            can-help = true
+            break
+          }
+        }
+        if not can-help { continue }
+        for key in gkeys {
+          let state = states.at(key)
+          let result = _try-expand-names(
+            key,
+            state,
+            entry-map,
+            et-al-use-first,
+            et-al-min,
+            allow-full: true,
+          )
+          if result.can-expand {
+            any-expanded = true
+            states.insert(key, result.new-state)
+          }
         }
       }
 
-      if not any-expanded { break }
+      if not any-expanded {
+        break
+      }
 
       // Re-group and check
-      let new-groups = group-by-citation-key(entries, states, style)
+      let new-groups = group-by-citation-key(
+        entries,
+        states,
+        style,
+        include-year: include-year,
+      )
       ambiguous = get-ambiguous-groups(new-groups)
 
-      // If no progress was made (no reduction in ambiguous entries), revert
+      // Interleave givenname expansion with add-names when enabled
+      if add-givenname and not is-all-names-rule and ambiguous.len() > 0 {
+        for level in range(min-givenname-level, max-givenname-level + 1) {
+          let changed = false
+          for (gk, gkeys) in ambiguous {
+            if gkeys.len() <= 1 { continue }
+            let first-key = gkeys.first()
+            let first-entry = entry-map.at(first-key)
+            let first-authors = get-all-authors(first-entry.entry)
+            let first-state = states.at(first-key)
+            let show-count = calc.min(
+              first-authors.len(),
+              et-al-use-first + first-state.names-expanded,
+            )
+
+            let positions = ()
+            for i in range(show-count) {
+              let family-list = ()
+              let given-list = ()
+              for key in gkeys {
+                let entry = entry-map.at(key)
+                let authors = get-all-authors(entry.entry)
+                if i < authors.len() {
+                  let name = authors.at(i)
+                  let family = _name-family-key(name)
+                  let given = _normalize-given(name.at("given", default: ""))
+                  family-list.push(family)
+                  given-list.push(given)
+                } else {
+                  family-list.push("")
+                  given-list.push("")
+                }
+              }
+              if (
+                family-list.dedup().len() == 1 and given-list.dedup().len() > 1
+              ) {
+                positions.push(i)
+              }
+            }
+
+            if positions.len() > 0 {
+              if primary-only {
+                positions = positions.filter(p => p == 0)
+              }
+              if positions.len() == 0 { continue }
+              let max-pos = -1
+              for p in positions {
+                if p > max-pos { max-pos = p }
+              }
+              for key in gkeys {
+                let state = states.at(key)
+                let levels = state.givenname-levels
+                if max-pos >= 0 and levels.len() <= max-pos {
+                  let extended = levels
+                  for _ in range(max-pos + 1 - levels.len()) {
+                    extended.push(0)
+                  }
+                  levels = extended
+                }
+                let updated = ()
+                for (idx, val) in levels.enumerate() {
+                  if idx in positions and val < level {
+                    updated.push(level)
+                  } else {
+                    updated.push(val)
+                  }
+                }
+                levels = updated
+                let max-level = if primary-only {
+                  state.givenname-level
+                } else if state.givenname-level > level {
+                  state.givenname-level
+                } else { level }
+                states.insert(key, (
+                  ..state,
+                  givenname-level: max-level,
+                  givenname-levels: levels,
+                ))
+              }
+              changed = true
+            }
+          }
+          let newer-groups = group-by-citation-key(
+            entries,
+            states,
+            style,
+            include-year: include-year,
+          )
+          ambiguous = get-ambiguous-groups(newer-groups)
+          if ambiguous.len() == 0 or not changed { break }
+        }
+      }
+
+      // If no progress was made (no reduction in ambiguous entries), check
+      // whether further expansion could still help disambiguate.
       let new-ambiguous-total = 0
       for (gk, gkeys) in ambiguous {
         new-ambiguous-total += gkeys.len()
       }
       if new-ambiguous-total >= prev-ambiguous-total {
-        states = prev-states
-        ambiguous = get-ambiguous-groups(group-by-citation-key(
-          entries,
-          states,
-          style,
+        // Determine if remaining names differ beyond current show-count
+        let can-help = false
+        for (gk, gkeys) in ambiguous {
+          if gkeys.len() <= 1 { continue }
+          let first-key = gkeys.first()
+          let first-entry = entry-map.at(first-key)
+          let first-authors = get-all-authors(first-entry.entry)
+          let first-state = states.at(first-key)
+          let show-count = et-al-use-first + first-state.names-expanded
+          let first-rest = first-authors.slice(show-count)
+          let first-rest-key = first-rest
+            .map(n => (
+              _name-family-key(n)
+                + "|"
+                + (
+                  if add-givenname {
+                    _normalize-given(n.at("given", default: ""))
+                  } else { "" }
+                )
+            ))
+            .join("||")
+          for key in gkeys.slice(1) {
+            let entry = entry-map.at(key)
+            let authors = get-all-authors(entry.entry)
+            let rest = authors.slice(show-count)
+            let rest-key = rest
+              .map(n => (
+                _name-family-key(n)
+                  + "|"
+                  + (
+                    if add-givenname {
+                      _normalize-given(n.at("given", default: ""))
+                    } else { "" }
+                  )
+              ))
+              .join("||")
+            if rest-key != first-rest-key {
+              can-help = true
+              break
+            }
+          }
+          if can-help { break }
+        }
+        if not can-help { break }
+      }
+    }
+
+    if not add-givenname {
+      // Final check: revert expansion for entries that are still ambiguous
+      // with the exact same collision partners as before
+      // This ensures that if expansion didn't help, we don't show expanded names
+      let final-groups = group-by-citation-key(
+        entries,
+        states,
+        style,
+        include-year: include-year,
+      )
+      let final-ambiguous = get-ambiguous-groups(final-groups)
+
+      // Build initial groups (with no expansion) for comparison
+      let initial-states = (:)
+      for e in entries {
+        initial-states.insert(e.key, (
+          givenname-level: states.at(e.key).givenname-level,
+          givenname-levels: states.at(e.key).givenname-levels,
+          names-expanded: 0,
+          needs-disambiguate: false,
+          year-suffix: none,
         ))
-        break
       }
-    }
+      let initial-groups = group-by-citation-key(
+        entries,
+        initial-states,
+        style,
+        include-year: include-year,
+      )
 
-    // Final check: revert expansion for entries that are still ambiguous
-    // with the exact same collision partners as before
-    // This ensures that if expansion didn't help, we don't show expanded names
-    let final-groups = group-by-citation-key(entries, states, style)
-    let final-ambiguous = get-ambiguous-groups(final-groups)
+      // For each still-ambiguous group, check if expansion actually helped
+      for (group-key, group-keys) in final-ambiguous {
+        // Check if all these entries were in the same initial group
+        let initial-group-keys-set = (:)
+        let initial-group-sizes = (:)
+        for (init-key, init-entries) in initial-groups.pairs() {
+          initial-group-sizes.insert(init-key, init-entries.len())
+          for ek in init-entries {
+            initial-group-keys-set.insert(ek, init-key)
+          }
+        }
 
-    // Build initial groups (with no expansion) for comparison
-    let initial-states = (:)
-    for e in entries {
-      initial-states.insert(e.key, (
-        givenname-level: states.at(e.key).givenname-level,
-        names-expanded: 0,
-        needs-disambiguate: false,
-        year-suffix: none,
-      ))
-    }
-    let initial-groups = group-by-citation-key(entries, initial-states, style)
+        // If all current group members were in the same initial group,
+        // the expansion didn't help - revert to 0
+        let first-initial-group = initial-group-keys-set.at(
+          group-keys.first(),
+          default: "",
+        )
+        let all-same-initial = group-keys.all(k => (
+          initial-group-keys-set.at(k, default: "") == first-initial-group
+        ))
 
-    // For each still-ambiguous group, check if expansion actually helped
-    for (group-key, group-keys) in final-ambiguous {
-      // Check if all these entries were in the same initial group
-      let initial-group-keys-set = (:)
-      let initial-group-sizes = (:)
-      for (init-key, init-entries) in initial-groups.pairs() {
-        initial-group-sizes.insert(init-key, init-entries.len())
-        for ek in init-entries {
-          initial-group-keys-set.insert(ek, init-key)
+        let initial-group-size = initial-group-sizes.at(
+          first-initial-group,
+          default: 0,
+        )
+        let reduced-group = group-keys.len() < initial-group-size
+
+        if all-same-initial and not reduced-group {
+          // Expansion didn't help these entries - revert their expansion
+          for key in group-keys {
+            let state = states.at(key)
+            states.insert(key, (..state, names-expanded: 0))
+          }
         }
       }
 
-      // If all current group members were in the same initial group,
-      // the expansion didn't help - revert to 0
-      let first-initial-group = initial-group-keys-set.at(
-        group-keys.first(),
-        default: "",
-      )
-      let all-same-initial = group-keys.all(k => (
-        initial-group-keys-set.at(k, default: "") == first-initial-group
+      // Recalculate ambiguous groups after potential reversion
+      ambiguous = get-ambiguous-groups(group-by-citation-key(
+        entries,
+        states,
+        style,
+        include-year: include-year,
       ))
+    }
+  }
 
-      let initial-group-size = initial-group-sizes.at(
-        first-initial-group,
-        default: 0,
-      )
-      let reduced-group = group-keys.len() < initial-group-size
+  // ==========================================================================
+  // Method 2b: disambiguate-add-givenname after add-names
+  // ==========================================================================
+  // Adding names can expose new positions for givenname disambiguation.
+  if add-givenname and not is-all-names-rule and ambiguous.len() > 0 {
+    for level in range(min-givenname-level, max-givenname-level + 1) {
+      let changed = false
+      for (gk, gkeys) in ambiguous {
+        if gkeys.len() <= 1 { continue }
+        let first-key = gkeys.first()
+        let first-entry = entry-map.at(first-key)
+        let first-authors = get-all-authors(first-entry.entry)
+        let first-state = states.at(first-key)
+        let show-count = calc.min(
+          first-authors.len(),
+          et-al-use-first + first-state.names-expanded,
+        )
 
-      if all-same-initial and not reduced-group {
-        // Expansion didn't help these entries - revert their expansion
-        for key in group-keys {
-          let state = states.at(key)
-          states.insert(key, (..state, names-expanded: 0))
+        let positions = ()
+        for i in range(show-count) {
+          let family-list = ()
+          let given-list = ()
+          for key in gkeys {
+            let entry = entry-map.at(key)
+            let authors = get-all-authors(entry.entry)
+            if i < authors.len() {
+              let name = authors.at(i)
+              let family = _name-family-key(name)
+              let given = _normalize-given(name.at("given", default: ""))
+              family-list.push(family)
+              given-list.push(given)
+            } else {
+              family-list.push("")
+              given-list.push("")
+            }
+          }
+          if family-list.dedup().len() == 1 and given-list.dedup().len() > 1 {
+            positions.push(i)
+          }
+        }
+
+        if positions.len() > 0 {
+          if primary-only {
+            positions = positions.filter(p => p == 0)
+          }
+          if positions.len() == 0 { continue }
+          let max-pos = -1
+          for p in positions {
+            if p > max-pos { max-pos = p }
+          }
+          for key in gkeys {
+            let state = states.at(key)
+            let levels = state.givenname-levels
+            if max-pos >= 0 and levels.len() <= max-pos {
+              let extended = levels
+              for _ in range(max-pos + 1 - levels.len()) {
+                extended.push(0)
+              }
+              levels = extended
+            }
+            let updated = ()
+            for (idx, val) in levels.enumerate() {
+              if idx in positions and val < level {
+                updated.push(level)
+              } else {
+                updated.push(val)
+              }
+            }
+            levels = updated
+            let max-level = if primary-only {
+              state.givenname-level
+            } else if state.givenname-level > level {
+              state.givenname-level
+            } else { level }
+            states.insert(key, (
+              ..state,
+              givenname-level: max-level,
+              givenname-levels: levels,
+            ))
+          }
+          changed = true
         }
       }
+      let new-groups = group-by-citation-key(
+        entries,
+        states,
+        style,
+        include-year: include-year,
+      )
+      ambiguous = get-ambiguous-groups(new-groups)
+      if ambiguous.len() == 0 or not changed { break }
     }
-
-    // Recalculate ambiguous groups after potential reversion
-    ambiguous = get-ambiguous-groups(group-by-citation-key(
-      entries,
-      states,
-      style,
-    ))
   }
 
   // ==========================================================================
@@ -1036,6 +1840,14 @@
   // ==========================================================================
   if add-year-suffix and ambiguous.len() > 0 {
     states = _assign-year-suffixes(ambiguous, entries, states)
+  }
+
+  if add-givenname and primary-only {
+    let normalized = (:)
+    for (key, state) in states.pairs() {
+      normalized.insert(key, (..state, givenname-level: 0))
+    }
+    states = normalized
   }
 
   // ==========================================================================
