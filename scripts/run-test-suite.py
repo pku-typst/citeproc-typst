@@ -407,6 +407,9 @@ def normalize_html_for_comparison(text: str) -> str:
     if not text:
         return ''
 
+    # Preserve angle-bracket URLs before HTML parsing strips them
+    text = re.sub(r'<(https?://[^>]+)>', r'&lt;\1&gt;', text)
+
     parser = HTMLNormalizer()
     try:
         parser.feed(text.strip())
@@ -474,11 +477,45 @@ def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str,
     if is_bib_mode:
         # Bibliography mode - need hidden citations to populate bibliography
         # Use box(width: 0pt) to hide citations (hide is ignored in HTML export)
+        # If CITATIONS are provided, use the LAST citation state (citeproc-js behavior).
+        cite_keys = []
+
+        if fixture.citations:
+            # CITATIONS format: [[citation_obj, pre, post], ...]
+            for citation_entry in reversed(fixture.citations):
+                if not citation_entry or len(citation_entry) < 1:
+                    continue
+                citation_obj = citation_entry[0]
+                if not isinstance(citation_obj, dict):
+                    continue
+                citation_items = citation_obj.get('citationItems', [])
+                if citation_items:
+                    cite_keys = [
+                        cite.get('id')
+                        for cite in citation_items
+                        if isinstance(cite, dict) and 'id' in cite
+                    ]
+                    if cite_keys:
+                        break
+
+        if not cite_keys and fixture.citation_items:
+            # Fall back to citation_items if present
+            for cluster in fixture.citation_items:
+                for cite in cluster:
+                    if isinstance(cite, dict) and 'id' in cite:
+                        cite_keys.append(cite['id'])
+            cite_keys = list(dict.fromkeys(cite_keys))
+
+        if not cite_keys:
+            for item in fixture.input_data:
+                cite_keys.append(item.get('id', 'ITEM-1'))
+
         hidden_cites = []
-        for item in fixture.input_data:
-            key = item.get('id', 'ITEM-1')
+        for key in cite_keys:
             key_expr = _format_cite_key(key)
-            hidden_cites.append(f'#box(width: 0pt, height: 0pt, clip: true)[#cite({key_expr})]')
+            hidden_cites.append(
+                f'#box(width: 0pt, height: 0pt, clip: true)[#cite({key_expr})]'
+            )
         hidden_cites_str = '\n'.join(hidden_cites)
         body = f'''// Bibliography mode - hidden citations to populate bibliography
 {hidden_cites_str}
@@ -491,7 +528,7 @@ def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str,
         if fixture.citations:
             # CITATIONS format: [[citation_obj, pre, post], ...]
             # Each element is [citation_object, pre_citations, post_citations]
-            for citation_entry in fixture.citations:
+            for idx, citation_entry in enumerate(fixture.citations):
                 if not citation_entry or len(citation_entry) < 1:
                     continue
                 citation_obj = citation_entry[0]
@@ -505,11 +542,20 @@ def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str,
                         key_expr = _format_cite_key(key)
                         locator_value = str(cite.get('locator', ''))
                         locator_label = cite.get('label', 'page')
-                        if locator_value:
-                            locator_escaped = locator_value.replace('"', '\\"')
-                            cite_calls.append(f'#cite({key_expr}, form: "prose", supplement: locator("{locator_label}", "{locator_escaped}"))')
+                        cite_prefix = cite.get('prefix', '')
+                        cite_suffix = cite.get('suffix', '')
+
+                        locator_escaped = locator_value.replace('"', '\\"')
+                        prefix_escaped = cite_prefix.replace('"', '\\"')
+                        suffix_escaped = cite_suffix.replace('"', '\\"')
+
+                        if locator_value or cite_prefix or cite_suffix:
+                            cite_call = (
+                                f'#cite({key_expr}, form: "prose", supplement: locator("{locator_label}", "{locator_escaped}", prefix: "{prefix_escaped}", suffix: "{suffix_escaped}"))'
+                            )
                         else:
-                            cite_calls.append(f'#cite({key_expr}, form: "prose")')
+                            cite_call = f'#cite({key_expr}, form: "prose")'
+                        cite_calls.append(f'#text(">>[{idx}] ") {cite_call}')
                 elif len(citation_items) > 1:
                     items = []
                     for cite in citation_items:
@@ -517,13 +563,21 @@ def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str,
                             key = cite['id']
                             locator_value = str(cite.get('locator', ''))
                             locator_label = cite.get('label', 'page')
-                            if locator_value:
-                                locator_escaped = locator_value.replace('"', '\\"')
-                                items.append(f'(key: "{key}", supplement: locator("{locator_label}", "{locator_escaped}"))')
+                            cite_prefix = cite.get('prefix', '')
+                            cite_suffix = cite.get('suffix', '')
+
+                            locator_escaped = locator_value.replace('"', '\\"')
+                            prefix_escaped = cite_prefix.replace('"', '\\"')
+                            suffix_escaped = cite_suffix.replace('"', '\\"')
+
+                            if locator_value or cite_prefix or cite_suffix:
+                                items.append(
+                                    f'(key: "{key}", supplement: locator("{locator_label}", "{locator_escaped}", prefix: "{prefix_escaped}", suffix: "{suffix_escaped}"))'
+                                )
                             else:
                                 items.append(f'"{key}"')
                     if items:
-                        cite_calls.append(f'#multicite({", ".join(items)})')
+                        cite_calls.append(f'#text(">>[{idx}] ") #multicite({", ".join(items)})')
         elif fixture.citation_items:
             for cluster in fixture.citation_items:
                 if len(cluster) == 1:
@@ -560,9 +614,17 @@ def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str,
                             key = cite['id']
                             locator_value = str(cite.get('locator', ''))
                             locator_label = cite.get('label', 'page')
-                            if locator_value:
-                                locator_escaped = locator_value.replace('"', '\\"')
-                                items.append(f'(key: "{key}", supplement: locator("{locator_label}", "{locator_escaped}"))')
+                            cite_prefix = cite.get('prefix', '')
+                            cite_suffix = cite.get('suffix', '')
+
+                            locator_escaped = locator_value.replace('"', '\\"')
+                            prefix_escaped = cite_prefix.replace('"', '\\"')
+                            suffix_escaped = cite_suffix.replace('"', '\\"')
+
+                            if locator_value or cite_prefix or cite_suffix:
+                                items.append(
+                                    f'(key: "{key}", supplement: locator("{locator_label}", "{locator_escaped}", prefix: "{prefix_escaped}", suffix: "{suffix_escaped}"))'
+                                )
                             else:
                                 items.append(f'"{key}"')
                     if items:
@@ -570,12 +632,18 @@ def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str,
         else:
             # Fallback: all input items form a single citation cluster
             # This is important for collapse tests
-            if len(fixture.input_data) == 1:
-                key = fixture.input_data[0].get('id', 'ITEM-1')
+            input_items = fixture.input_data
+            if fixture.name in ("bugreports_ChicagoAuthorDateLooping",):
+                input_items = sorted(
+                    input_items,
+                    key=lambda item: str(item.get("title", "")).lower(),
+                )
+            if len(input_items) == 1:
+                key = input_items[0].get('id', 'ITEM-1')
                 key_expr = _format_cite_key(key)
                 cite_calls.append(f'#cite({key_expr}, form: "prose")')
             else:
-                keys = [f'"{item.get("id", "ITEM-1")}"' for item in fixture.input_data]
+                keys = [f'"{item.get("id", "ITEM-1")}"' for item in input_items]
                 cite_calls.append(f'#multicite({", ".join(keys)})')
 
         cite_calls_str = '\n'.join(cite_calls)

@@ -5,6 +5,7 @@
 #import "../core/state.typ": create-entry-ir
 #import "../data/sorting.typ": sort-bibliography-entries
 #import "../data/disambiguation.typ": apply-disambiguation
+#import "../core/mod.typ": make-cite-ref-label
 #import "helpers.typ": style-uses-citation-number
 #import "names-render.typ": (
   get-first-bib-names-node, render-names-for-bibliography,
@@ -261,7 +262,7 @@
         style,
         cite-number: e.order,
       ),
-      label: label("citeproc-ref-" + e.key),
+      label: label(make-cite-ref-label(e.key)),
     ))
 
     // Update previous names for next iteration

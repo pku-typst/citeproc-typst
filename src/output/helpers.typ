@@ -150,8 +150,16 @@
 
 /// Check if any child in a list uses citation-number
 #let _children-use-citation-number(children) = {
-  for child in children {
-    if node-uses-citation-number(child) { return true }
+  let stack = children
+  while stack.len() > 0 {
+    let node = stack.pop()
+    if node-uses-citation-number(node) { return true }
+    if type(node) == dictionary {
+      let kids = node.at("children", default: ())
+      if kids.len() > 0 {
+        for c in kids { stack.push(c) }
+      }
+    }
   }
   false
 }

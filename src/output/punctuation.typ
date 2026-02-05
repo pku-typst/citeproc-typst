@@ -57,7 +57,7 @@
 
 #let collapse-punctuation(content, punctuation-in-quote: false) = {
   // Apply punctuation rules inside links by recursing into the body
-  if type(content) != str and content.func() == link {
+  if content != none and type(content) != str and content.func() == link {
     let fields = content.fields()
     let dest = fields.at("dest", default: none)
     let body = fields.at("body", default: [])

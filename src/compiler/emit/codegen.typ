@@ -6,7 +6,9 @@
 // as the stack-based interpreter.
 
 #import "../../data/variables.typ": get-variable
-#import "../plan/mod.typ": build-text-var-plan, build-term-plan, build-group-plan
+#import "../plan/mod.typ": (
+  build-group-plan, build-term-plan, build-text-var-plan,
+)
 
 /// Escape a string for use in Typst string literals
 #let escape-string(s) = {
@@ -165,13 +167,21 @@
 
     if not has-other {
       let locator-types = escape-string(attrs.at("locator"))
+      let match-mode = escape-string(attrs.at("match", default: "any"))
       return (
         "{ let locator-types = \""
           + locator-types
           + "\".split(\" \")\n"
           + "  let current-label = ctx.at(\"locator-label\", default: \"page\")\n"
           + "  let has-locator = ctx.fields.at(\"locator\", default: \"\") != \"\"\n"
-          + "  has-locator and locator-types.any(t => t == current-label)\n"
+          + "  let in-list = locator-types.any(t => t == current-label)\n"
+          + "  if \""
+          + match-mode
+          + "\" == \"none\" {\n"
+          + "    has-locator and not in-list\n"
+          + "  } else {\n"
+          + "    has-locator and in-list\n"
+          + "  }\n"
           + "}"
       )
     }
@@ -412,6 +422,10 @@
 
     if not has-other {
       let type-list = escape-string(attrs.at("type"))
+      let match-mode = attrs.at("match", default: "all")
+      if match-mode == "none" or match-mode == "nand" {
+        return "not check-type(ctx, \"" + type-list + "\")"
+      }
       return "check-type(ctx, \"" + type-list + "\")"
     }
   }
@@ -429,6 +443,7 @@
   macro-name,
   indent,
   attrs-str,
+  raw: false,
   prefix: "",
   suffix: "",
 ) = {
@@ -477,22 +492,33 @@
   code += indent + "  let state = result.at(1, default: \"none\")\n"
   code += indent + "  let done = result.at(2, default: ())\n"
   code += indent + "  let ends = result.at(3, default: false)\n"
-  code += indent + "  let attrs = " + attrs-str + "\n"
-  code += indent + "  let attrs = (..attrs, \"_ends-with-period\": ends)\n"
-  code += (
-    indent + "  if content != [] and content != none and content != \"\" {\n"
-  )
-  code += (
-    indent + "    let formatted = format-text-content(ctx, content, attrs)\n"
-  )
-  code += (
-    indent
-      + "    let new-ends = if type(formatted) == str { formatted.ends-with(\".\") } else { ends }\n"
-  )
-  code += indent + "    (formatted, state, done, new-ends)\n"
-  code += indent + "  } else {\n"
-  code += indent + "    ([], state, done, false)\n"
-  code += indent + "  }\n"
+  if raw {
+    code += (
+      indent + "  if content != [] and content != none and content != \"\" {\n"
+    )
+    code += indent + "    (content, state, done, ends)\n"
+    code += indent + "  } else {\n"
+    code += indent + "    ([], state, done, false)\n"
+    code += indent + "  }\n"
+  } else {
+    code += indent + "  let attrs = " + attrs-str + "\n"
+    code += indent + "  let attrs = (..attrs, \"_ends-with-period\": ends)\n"
+    code += (
+      indent + "  if content != [] and content != none and content != \"\" {\n"
+    )
+    code += (
+      indent
+        + "    let (formatted, formatted-ends) = format-text-content(ctx, content, attrs)\n"
+    )
+    code += (
+      indent
+        + "    let new-ends = if type(formatted) == str { formatted.ends-with(\".\") } else { formatted-ends }\n"
+    )
+    code += indent + "    (formatted, state, done, new-ends)\n"
+    code += indent + "  } else {\n"
+    code += indent + "    ([], state, done, false)\n"
+    code += indent + "  }\n"
+  }
   code += indent + "}"
   code
 }
@@ -546,7 +572,14 @@
           and not plan.has-formatting
       ) {
         let plan-str = serialize-dict(plan)
-        return indent + "get-text-variable-raw(ctx, " + attrs-str + ", " + plan-str + ")"
+        return (
+          indent
+            + "get-text-variable-raw(ctx, "
+            + attrs-str
+            + ", "
+            + plan-str
+            + ")"
+        )
       }
       if (
         plan.is-page-like
@@ -555,7 +588,14 @@
           and not plan.has-text-case
       ) {
         let plan-str = serialize-dict(plan)
-        return indent + "get-text-variable-planned(ctx, " + attrs-str + ", " + plan-str + ")"
+        return (
+          indent
+            + "get-text-variable-planned(ctx, "
+            + attrs-str
+            + ", "
+            + plan-str
+            + ")"
+        )
       }
       return indent + "get-text-variable(ctx, " + attrs-str + ")"
     } else if "value" in attrs {
@@ -570,7 +610,14 @@
           and not plan.has-formatting
       ) {
         let plan-str = serialize-dict(plan)
-        return indent + "format-text-value-raw(ctx, " + attrs-str + ", " + plan-str + ")"
+        return (
+          indent
+            + "format-text-value-raw(ctx, "
+            + attrs-str
+            + ", "
+            + plan-str
+            + ")"
+        )
       }
       return indent + "format-text-value(ctx, " + attrs-str + ")"
     } else if "term" in attrs {
@@ -581,6 +628,8 @@
         not plan.has-affixes
           and not plan.has-strip-periods
           and not plan.has-formatting
+          and not plan.has-text-case
+          and not plan.has-quotes
       ) {
         let plan-str = serialize-dict(plan)
         return indent + "get-term-raw(ctx, " + attrs-str + ", " + plan-str + ")"
@@ -590,12 +639,34 @@
       let macro-name = attrs.macro
       let prefix = attrs.at("prefix", default: "")
       let suffix = attrs.at("suffix", default: "")
+      let has-quotes = "quotes" in attrs and attrs.at("quotes") == "true"
+      let has-text-case = "text-case" in attrs
+      let has-strip-periods = (
+        attrs.at("strip-periods", default: "false") == "true"
+      )
+      let has-formatting = (
+        "font-style" in attrs
+          or "font-weight" in attrs
+          or "font-variant" in attrs
+          or "text-decoration" in attrs
+          or "vertical-align" in attrs
+          or "display" in attrs
+      )
+      let raw = (
+        prefix == ""
+          and suffix == ""
+          and not has-quotes
+          and not has-text-case
+          and not has-strip-periods
+          and not has-formatting
+      )
 
       let attrs-str = serialize-dict(attrs)
       return compile-macro-call(
         macro-name,
         indent,
         attrs-str,
+        raw: raw,
         prefix: prefix,
         suffix: suffix,
       )
@@ -611,6 +682,7 @@
     let delimiter = attrs.at("delimiter", default: "")
     let prefix = attrs.at("prefix", default: "")
     let suffix = attrs.at("suffix", default: "")
+    let plan = build-group-plan(attrs, children)
 
     // Filter valid children
     let valid-children = children.filter(c => (
@@ -619,6 +691,18 @@
 
     if valid-children.len() == 0 {
       return indent + "([], \"none\", (), false)"
+    }
+
+    if (
+      valid-children.len() == 1
+        and delimiter == ""
+        and not plan.has-prefix
+        and not plan.has-suffix
+        and not plan.has-strip-periods
+        and not plan.has-formatting
+        and plan.allowed-children-only
+    ) {
+      return compile-ast(valid-children.first(), macros, depth: depth)
     }
 
     let code = indent + "{\n"
@@ -630,38 +714,69 @@
       results-name: "results",
       done-name: "done",
     )
-    code += indent + "  let states = results.map(r => r.at(1))\n"
-    code += indent + "  let has-var = states.any(s => s == \"var\")\n"
-    code += indent + "  let has-no-var = states.any(s => s == \"no-var\")\n"
-    code += indent + "  if (has-var or has-no-var) and not has-var {\n"
+    code += indent + "  let contents = ()\n"
+    code += indent + "  let parts = ()\n"
+    code += indent + "  let all-strings = true\n"
+    code += indent + "  let has-var = false\n"
+    code += indent + "  let has-no-var = false\n"
+    code += indent + "  let done = ()\n"
+    code += indent + "  for r in results {\n"
+    code += indent + "    let c = normalize-content(r.at(0))\n"
+    code += indent + "    if c != [] and c != none and c != \"\" {\n"
+    code += indent + "      if type(c) != str { all-strings = false }\n"
+    code += indent + "      contents.push(c)\n"
+    code += indent + "      parts.push((c, r.at(3, default: false)))\n"
+    code += indent + "    }\n"
+    code += indent + "    let s = r.at(1)\n"
+    code += indent + "    if s == \"var\" { has-var = true }\n"
+    code += indent + "    if s == \"no-var\" { has-no-var = true }\n"
+    code += indent + "    done = done + r.at(2)\n"
+    code += indent + "  }\n"
     code += (
-      indent
-        + "    ([], \"no-var\", results.map(r => r.at(2)).flatten(), false)\n"
+      indent + "  if (has-var or has-no-var) and not has-var {\n"
     )
+    code += indent + "    ([], \"no-var\", done, false)\n"
     code += indent + "  } else {\n"
     code += indent + "    let end-flag = false\n"
     code += indent + "    for r in results.rev() {\n"
     code += indent + "      if not end-flag {\n"
-    code += indent + "        let c = r.at(0)\n"
+    code += indent + "        let c = normalize-content(r.at(0))\n"
     code += (
       indent
         + "        if c != [] and c != none and c != \"\" { end-flag = r.at(3, default: false) }\n"
     )
     code += indent + "      }\n"
     code += indent + "    }\n"
-    code += (
-      indent
-        + "    let contents = results.map(r => r.at(0)).filter(x => x != [] and x != none and x != \"\")\n"
-    )
-
-    code += indent + "    let all-strings = contents.all(c => type(c) == str)\n"
     if delimiter != "" {
+      let escaped = escape-string(delimiter)
+      code += indent + "    let joined = if parts.len() > 1 {\n"
+      code += indent + "      let joined = ()\n"
+      code += indent + "      for i in range(parts.len()) {\n"
+      code += indent + "        if i > 0 {\n"
       code += (
         indent
-          + "    let joined = contents.join(\""
-          + escape-string(delimiter)
-          + "\")\n"
+          + "          let prev-ends = parts.at(i - 1).at(1, default: false)\n"
       )
+      code += (
+        indent
+          + "          let delim = if (\""
+          + escaped
+          + "\".len() > 0 and \""
+          + escaped
+          + "\".first() == \".\" and prev-ends) { \""
+          + escaped
+          + "\".slice(1) } else { \""
+          + escaped
+          + "\" }\n"
+      )
+      code += indent + "          if delim != \"\" { joined.push(delim) }\n"
+      code += indent + "        }\n"
+      code += indent + "        joined.push(parts.at(i).at(0))\n"
+      code += indent + "      }\n"
+      code += indent + "      joined.join()\n"
+      code += indent + "    } else {\n"
+      code += indent + "      contents.join()\n"
+      code += indent + "    }\n"
     } else {
       code += (
         indent
@@ -669,13 +784,22 @@
       )
     }
 
-    code += (
-      indent
-        + "    let formatted = finalize(joined, "
-        + serialize-dict(attrs)
-        + ")\n"
-    )
-    code += indent + "    let done = results.map(r => r.at(2)).flatten()\n"
+    if (
+      not plan.has-prefix
+        and not plan.has-suffix
+        and not plan.has-strip-periods
+        and not plan.has-formatting
+    ) {
+      code += indent + "    let formatted = joined\n"
+    } else {
+      code += (
+        indent
+          + "    let formatted = finalize(joined, "
+          + serialize-dict(attrs)
+          + ")\n"
+      )
+    }
+    // done already accumulated above
     code += (
       indent
         + "    if formatted != [] and formatted != none and formatted != \"\" {\n"
@@ -704,6 +828,7 @@
   if tag == "choose" {
     let code = indent + "{\n"
     let first = true
+    let saw-variable-cond = false
 
     for branch in children {
       if type(branch) != dictionary { continue }
@@ -717,7 +842,9 @@
       ))
 
       if branch-tag == "if" or branch-tag == "else-if" {
+        if "variable" in branch-attrs { saw-variable-cond = true }
         let condition = compile-condition(branch-attrs)
+        let force-var = "variable" in branch-attrs
 
         if first {
           code += indent + "  if " + condition + " {\n"
@@ -727,7 +854,7 @@
         }
 
         // Compile branch children
-        if valid-branch-children.len() == 1 {
+        if valid-branch-children.len() == 1 and not force-var {
           code += (
             compile-ast(valid-branch-children.first(), macros, depth: depth + 2)
               + "\n"
@@ -742,37 +869,96 @@
             results-name: "results",
             done-name: "done",
           )
+          code += indent + "      let contents = ()\n"
+          code += indent + "      let has-var = false\n"
+          code += indent + "      let has-no-var = false\n"
+          code += indent + "      for r in results {\n"
+          code += indent + "        let c = normalize-content(r.at(0))\n"
           code += (
             indent
-              + "      let contents = results.map(r => r.at(0)).filter(x => x != [] and x != none and x != \"\")\n"
+              + "        if c != [] and c != none and c != \"\" { contents.push(c) }\n"
           )
-          code += indent + "      let states = results.map(r => r.at(1))\n"
+          code += indent + "        let s = r.at(1)\n"
+          code += indent + "        if s == \"var\" { has-var = true }\n"
+          code += indent + "        if s == \"no-var\" { has-no-var = true }\n"
+          code += indent + "      }\n"
           code += (
             indent
-              + "      let merged = if states.any(s => s == \"var\") { \"var\" } else if states.any(s => s == \"no-var\") { \"no-var\" } else { \"none\" }\n"
+              + "      let merged = if has-var { \"var\" } else if has-no-var { \"no-var\" } else { \"none\" }\n"
           )
+          if force-var {
+            code += (
+              indent
+                + "      if merged == \"none\" and contents.len() > 0 { merged = \"var\" }\n"
+            )
+          }
+          code += indent + "      let done = ()\n"
           code += indent + "      let end-flag = false\n"
           code += indent + "      for r in results.rev() {\n"
+          code += indent + "        done = done + r.at(2)\n"
           code += indent + "        if not end-flag {\n"
-          code += indent + "          let c = r.at(0)\n"
+          code += indent + "          let c = normalize-content(r.at(0))\n"
           code += (
             indent
               + "          if c != [] and c != none and c != \"\" { end-flag = r.at(3, default: false) }\n"
           )
           code += indent + "        }\n"
           code += indent + "      }\n"
+          code += indent + "      (contents.join(), merged, done, end-flag)\n"
+          code += indent + "    }\n"
+        } else if valid-branch-children.len() == 1 and force-var {
+          code += indent + "    {\n"
+          code += compile-children-seq(
+            valid-branch-children,
+            macros,
+            depth + 3,
+            compile-ast,
+            results-name: "results",
+            done-name: "done",
+          )
+          code += indent + "      let contents = ()\n"
+          code += indent + "      let has-var = false\n"
+          code += indent + "      let has-no-var = false\n"
+          code += indent + "      for r in results {\n"
+          code += indent + "        let c = normalize-content(r.at(0))\n"
           code += (
             indent
-              + "      (contents.join(), merged, results.map(r => r.at(2)).flatten(), end-flag)\n"
+              + "        if c != [] and c != none and c != \"\" { contents.push(c) }\n"
           )
+          code += indent + "        let s = r.at(1)\n"
+          code += indent + "        if s == \"var\" { has-var = true }\n"
+          code += indent + "        if s == \"no-var\" { has-no-var = true }\n"
+          code += indent + "      }\n"
+          code += (
+            indent
+              + "      let merged = if has-var { \"var\" } else if has-no-var { \"no-var\" } else { \"none\" }\n"
+          )
+          code += (
+            indent
+              + "      if merged == \"none\" and contents.len() > 0 { merged = \"var\" }\n"
+          )
+          code += indent + "      let done = ()\n"
+          code += indent + "      let end-flag = false\n"
+          code += indent + "      for r in results.rev() {\n"
+          code += indent + "        done = done + r.at(2)\n"
+          code += indent + "        if not end-flag {\n"
+          code += indent + "          let c = normalize-content(r.at(0))\n"
+          code += (
+            indent
+              + "          if c != [] and c != none and c != \"\" { end-flag = r.at(3, default: false) }\n"
+          )
+          code += indent + "        }\n"
+          code += indent + "      }\n"
+          code += indent + "      (contents.join(), merged, done, end-flag)\n"
           code += indent + "    }\n"
         } else {
           code += indent + "    ([], \"none\", (), false)\n"
         }
       } else if branch-tag == "else" {
+        let force-var = saw-variable-cond
         code += indent + "  } else {\n"
 
-        if valid-branch-children.len() == 1 {
+        if valid-branch-children.len() == 1 and not force-var {
           code += (
             compile-ast(valid-branch-children.first(), macros, depth: depth + 2)
               + "\n"
@@ -787,29 +973,87 @@
             results-name: "results",
             done-name: "done",
           )
+          code += indent + "      let contents = ()\n"
+          code += indent + "      let has-var = false\n"
+          code += indent + "      let has-no-var = false\n"
+          code += indent + "      for r in results {\n"
+          code += indent + "        let c = normalize-content(r.at(0))\n"
           code += (
             indent
-              + "      let contents = results.map(r => r.at(0)).filter(x => x != [] and x != none and x != \"\")\n"
+              + "        if c != [] and c != none and c != \"\" { contents.push(c) }\n"
           )
-          code += indent + "      let states = results.map(r => r.at(1))\n"
+          code += indent + "        let s = r.at(1)\n"
+          code += indent + "        if s == \"var\" { has-var = true }\n"
+          code += indent + "        if s == \"no-var\" { has-no-var = true }\n"
+          code += indent + "      }\n"
           code += (
             indent
-              + "      let merged = if states.any(s => s == \"var\") { \"var\" } else if states.any(s => s == \"no-var\") { \"no-var\" } else { \"none\" }\n"
+              + "      let merged = if has-var { \"var\" } else if has-no-var { \"no-var\" } else { \"none\" }\n"
           )
+          if force-var {
+            code += (
+              indent
+                + "      if merged == \"none\" and contents.len() > 0 { merged = \"var\" }\n"
+            )
+          }
+          code += indent + "      let done = ()\n"
           code += indent + "      let end-flag = false\n"
           code += indent + "      for r in results.rev() {\n"
+          code += indent + "        done = done + r.at(2)\n"
           code += indent + "        if not end-flag {\n"
-          code += indent + "          let c = r.at(0)\n"
+          code += indent + "          let c = normalize-content(r.at(0))\n"
           code += (
             indent
               + "          if c != [] and c != none and c != \"\" { end-flag = r.at(3, default: false) }\n"
           )
           code += indent + "        }\n"
           code += indent + "      }\n"
+          code += indent + "      (contents.join(), merged, done, end-flag)\n"
+          code += indent + "    }\n"
+        } else if valid-branch-children.len() == 1 and force-var {
+          code += indent + "    {\n"
+          code += compile-children-seq(
+            valid-branch-children,
+            macros,
+            depth + 3,
+            compile-ast,
+            results-name: "results",
+            done-name: "done",
+          )
+          code += indent + "      let contents = ()\n"
+          code += indent + "      let has-var = false\n"
+          code += indent + "      let has-no-var = false\n"
+          code += indent + "      for r in results {\n"
+          code += indent + "        let c = normalize-content(r.at(0))\n"
           code += (
             indent
-              + "      (contents.join(), merged, results.map(r => r.at(2)).flatten(), end-flag)\n"
+              + "        if c != [] and c != none and c != \"\" { contents.push(c) }\n"
           )
+          code += indent + "        let s = r.at(1)\n"
+          code += indent + "        if s == \"var\" { has-var = true }\n"
+          code += indent + "        if s == \"no-var\" { has-no-var = true }\n"
+          code += indent + "      }\n"
+          code += (
+            indent
+              + "      let merged = if has-var { \"var\" } else if has-no-var { \"no-var\" } else { \"none\" }\n"
+          )
+          code += (
+            indent
+              + "      if merged == \"none\" and contents.len() > 0 { merged = \"var\" }\n"
+          )
+          code += indent + "      let done = ()\n"
+          code += indent + "      let end-flag = false\n"
+          code += indent + "      for r in results.rev() {\n"
+          code += indent + "        done = done + r.at(2)\n"
+          code += indent + "        if not end-flag {\n"
+          code += indent + "          let c = normalize-content(r.at(0))\n"
+          code += (
+            indent
+              + "          if c != [] and c != none and c != \"\" { end-flag = r.at(3, default: false) }\n"
+          )
+          code += indent + "        }\n"
+          code += indent + "      }\n"
+          code += indent + "      (contents.join(), merged, done, end-flag)\n"
           code += indent + "    }\n"
         } else {
           code += indent + "    ([], \"none\", (), false)\n"
@@ -1050,23 +1294,30 @@
   // Multiple children
   let code = "(ctx) => {\n"
   code += compile-children-seq(valid-children, macros, 1, compile-ast)
-  code += "  let contents = results.map(r => r.at(0)).filter(x => x != [] and x != none and x != \"\")\n"
-  code += "  let states = results.map(r => r.at(1))\n"
-  code += "  let has-var = states.any(s => s == \"var\")\n"
-  code += "  let has-no-var = states.any(s => s == \"no-var\")\n"
-  code += "  let merged-done = results.map(r => r.at(2)).flatten()\n"
-  code += "  let end-flag = false\n"
-  code += "  for r in results.rev() {\n"
-  code += "    if not end-flag {\n"
-  code += "      let c = r.at(0)\n"
-  code += "      if c != [] and c != none and c != \"\" { end-flag = r.at(3, default: false) }\n"
-  code += "    }\n"
+  code += "  let contents = ()\n"
+  code += "  let has-var = false\n"
+  code += "  let has-no-var = false\n"
+  code += "  let done = ()\n"
+  code += "  for r in results {\n"
+  code += "    let c = normalize-content(r.at(0))\n"
+  code += "    if c != [] and c != none and c != \"\" { contents.push(c) }\n"
+  code += "    let s = r.at(1)\n"
+  code += "    if s == \"var\" { has-var = true }\n"
+  code += "    if s == \"no-var\" { has-no-var = true }\n"
+  code += "    done = done + r.at(2)\n"
   code += "  }\n"
   code += "  if (has-var or has-no-var) and not has-var {\n"
-  code += "    ([], \"no-var\", merged-done, false)\n"
+  code += "    ([], \"no-var\", done, false)\n"
   code += "  } else {\n"
+  code += "    let end-flag = false\n"
+  code += "    for r in results.rev() {\n"
+  code += "      if not end-flag {\n"
+  code += "        let c = normalize-content(r.at(0))\n"
+  code += "        if c != [] and c != none and c != \"\" { end-flag = r.at(3, default: false) }\n"
+  code += "      }\n"
+  code += "    }\n"
   code += "    let merged = if has-var { \"var\" } else if has-no-var { \"no-var\" } else { \"none\" }\n"
-  code += "    (contents.join(), merged, merged-done, end-flag)\n"
+  code += "    (contents.join(), merged, done, end-flag)\n"
   code += "  }\n"
   code += "}"
   code
@@ -1089,18 +1340,27 @@
   // Multiple children
   let code = "{\n"
   code += compile-children-seq(valid-children, macros, 1, compile-ast)
-  code += "  let contents = results.map(r => r.at(0)).filter(x => x != [] and x != none and x != \"\")\n"
-  code += "  let states = results.map(r => r.at(1))\n"
-  code += "  let merged = if states.any(s => s == \"var\") { \"var\" } else if states.any(s => s == \"no-var\") { \"no-var\" } else { \"none\" }\n"
-  code += "  let merged-done = results.map(r => r.at(2)).flatten()\n"
+  code += "  let contents = ()\n"
+  code += "  let has-var = false\n"
+  code += "  let has-no-var = false\n"
+  code += "  let done = ()\n"
+  code += "  for r in results {\n"
+  code += "    let c = normalize-content(r.at(0))\n"
+  code += "    if c != [] and c != none and c != \"\" { contents.push(c) }\n"
+  code += "    let s = r.at(1)\n"
+  code += "    if s == \"var\" { has-var = true }\n"
+  code += "    if s == \"no-var\" { has-no-var = true }\n"
+  code += "    done = done + r.at(2)\n"
+  code += "  }\n"
   code += "  let end-flag = false\n"
   code += "  for r in results.rev() {\n"
   code += "    if not end-flag {\n"
-  code += "      let c = r.at(0)\n"
+  code += "      let c = normalize-content(r.at(0))\n"
   code += "      if c != [] and c != none and c != \"\" { end-flag = r.at(3, default: false) }\n"
   code += "    }\n"
   code += "  }\n"
-  code += "  (contents.join(), merged, merged-done, end-flag)\n"
+  code += "  let merged = if has-var { \"var\" } else if has-no-var { \"no-var\" } else { \"none\" }\n"
+  code += "  (contents.join(), merged, done, end-flag)\n"
   code += "}"
   code
 }

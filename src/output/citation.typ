@@ -4,6 +4,7 @@
 
 #import "../core/constants.typ": POSITION, RENDER-CONTEXT
 #import "../core/formatting.typ": apply-formatting
+#import "../core/utils.typ": capitalize-first-char, is-empty
 #import "../interpreter/mod.typ": create-context
 #import "../interpreter/stack.typ": interpret-children-stack
 #import "../parsing/mod.typ": detect-language
@@ -72,27 +73,55 @@
     let parsed-label = locator-label
     let parsed-value = ""
 
-    if type(supplement) == content {
-      // Check if it's a structured locator (metadata wrapper)
-      let sup-repr = repr(supplement)
-      if (
-        sup-repr.starts-with("metadata(")
-          and sup-repr.contains("_citrus-locator")
-      ) {
-        // Extract dictionary from metadata content
-        let fields = supplement.fields()
-        if "value" in fields {
-          let dict = fields.value
-          if type(dict) == dictionary {
-            parsed-label = dict.at("label", default: "page")
-            parsed-value = str(dict.at("value", default: ""))
-            // Extract citation-item level prefix/suffix
-            cite-item-prefix = dict.at("prefix", default: "")
-            cite-item-suffix = dict.at("suffix", default: "")
-          }
+    let parse-locator-fields(fields) = {
+      if "label" in fields and "value" in fields {
+        (
+          ok: true,
+          label: fields.at("label", default: "page"),
+          value: fields.at("value", default: ""),
+          prefix: fields.at("prefix", default: ""),
+          suffix: fields.at("suffix", default: ""),
+        )
+      } else if "value" in fields {
+        let val = fields.value
+        if (
+          type(val) == dictionary
+            and (
+              val.at("_citrus-locator", default: false)
+                or ("label" in val and "value" in val)
+            )
+        ) {
+          (
+            ok: true,
+            label: val.at("label", default: "page"),
+            value: val.at("value", default: ""),
+            prefix: val.at("prefix", default: ""),
+            suffix: val.at("suffix", default: ""),
+          )
+        } else if type(val) == content {
+          parse-locator-fields(val.fields())
+        } else {
+          (ok: false)
         }
       } else {
-        // Plain content - convert to string, use default label
+        (ok: false)
+      }
+    }
+
+    if type(supplement) == content {
+      // Check if it's a structured locator (metadata wrapper)
+      let fields = supplement.fields()
+      let parsed = parse-locator-fields(fields)
+      if parsed.ok {
+        parsed-label = parsed.label
+        if type(parsed-label) == str and parsed-label.contains(" ") {
+          parsed-label = parsed-label.replace(" ", "-")
+        }
+        parsed-value = str(parsed.value)
+        cite-item-prefix = parsed.prefix
+        cite-item-suffix = parsed.suffix
+      } else {
+        let sup-repr = repr(supplement)
         parsed-value = sup-repr
           .replace("\"", "")
           .replace("[", "")
@@ -105,8 +134,8 @@
     // Trim whitespace from locator value
     let trimmed-value = parsed-value.trim()
     if trimmed-value != "" {
-      ctx.fields.insert("locator", trimmed-value)
-      ctx = (..ctx, locator-label: parsed-label)
+      let new-fields = (..ctx.fields, locator: trimmed-value)
+      ctx = (..ctx, fields: new-fields, locator-label: parsed-label)
     }
   }
 
@@ -191,8 +220,19 @@
     }
   }
 
+  if is-empty(result) {
+    return "[CSL STYLE ERROR: reference with no printed form.]"
+  }
+
   // Apply citation-item level prefix/suffix (from locator metadata)
   // CSL spec: these go INSIDE the layout prefix/suffix
+  if cite-item-prefix != "" and type(result) == str {
+    let trimmed-prefix = cite-item-prefix.trim()
+    let words = trimmed-prefix.split(" ").filter(w => w != "")
+    if trimmed-prefix.ends-with(".") and words.len() > 1 {
+      result = capitalize-first-char(result)
+    }
+  }
   if cite-item-prefix != "" or cite-item-suffix != "" {
     result = [#cite-item-prefix#result#cite-item-suffix]
   }

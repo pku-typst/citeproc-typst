@@ -16,6 +16,110 @@
 #let _whitespace-pattern = regex("\\s+")
 
 // =============================================================================
+// Citation Label Detection (for disambiguation)
+// =============================================================================
+
+#let _node-uses-citation-label(node, macros) = {
+  if type(node) != dictionary { return false }
+  let tag = node.at("tag", default: "")
+
+  if tag == "text" {
+    let attrs = node.at("attrs", default: (:))
+    if attrs.at("variable", default: "") == "citation-label" {
+      return true
+    }
+    let macro-name = attrs.at("macro", default: none)
+    if macro-name != none {
+      let macro-def = macros.at(macro-name, default: none)
+      if macro-def != none {
+        for child in macro-def.at("children", default: ()) {
+          if _node-uses-citation-label(child, macros) { return true }
+        }
+      }
+    }
+  }
+
+  for child in node.at("children", default: ()) {
+    if _node-uses-citation-label(child, macros) { return true }
+  }
+
+  false
+}
+
+#let _citation-uses-label(style) = {
+  let citation = style.at("citation", default: none)
+  if citation == none { return false }
+  let layouts = citation.at("layouts", default: ())
+  let macros = style.at("macros", default: (:))
+  layouts.any(l => _node-uses-citation-label(l, macros))
+}
+
+#let _build-citation-label(entry) = {
+  let fields = entry.at("fields", default: (:))
+  let custom = fields.at("citation-label", default: "")
+  if custom != "" { return custom }
+
+  let names = entry.at("parsed_names", default: (:))
+  let primary = if names.at("author", default: ()).len() > 0 {
+    names.at("author", default: ())
+  } else if names.at("editor", default: ()).len() > 0 {
+    names.at("editor", default: ())
+  } else if names.at("translator", default: ()).len() > 0 {
+    names.at("translator", default: ())
+  } else {
+    ()
+  }
+
+  let family-list = primary
+    .map(n => {
+      let literal = n.at("literal", default: "")
+      let raw = if literal != "" { literal } else {
+        n.at("family", default: "")
+      }
+      if raw == "" { return "" }
+      let parts = raw.split(" ").filter(p => p != "")
+      while parts.len() > 1 and parts.first() == lower(parts.first()) {
+        parts = parts.slice(1)
+      }
+      parts.join(" ")
+    })
+    .filter(x => x != "")
+
+  let label = if family-list.len() > 0 {
+    let cleaned = family-list.map(x => x.replace(regex("[^A-Za-z]"), ""))
+    if cleaned.len() == 1 {
+      let s = cleaned.first()
+      if s.len() >= 4 { s.slice(0, 4) } else { s }
+    } else if cleaned.len() == 2 {
+      let a = cleaned.at(0)
+      let b = cleaned.at(1)
+      let a2 = if a.len() >= 2 { a.slice(0, 2) } else { a }
+      let b2 = if b.len() >= 2 { b.slice(0, 2) } else { b }
+      a2 + b2
+    } else {
+      cleaned
+        .slice(0, 4)
+        .map(s => if s.len() > 0 { s.slice(0, 1) } else { "" })
+        .join()
+    }
+  } else {
+    ""
+  }
+
+  if label == "" { return "" }
+
+  let year = get-entry-year(entry)
+  let year-str = str(year)
+  let year-suffix = if year-str.len() >= 2 {
+    year-str.slice(year-str.len() - 2)
+  } else {
+    year-str
+  }
+
+  label + year-suffix
+}
+
+// =============================================================================
 // Year Suffix Computation
 // =============================================================================
 
@@ -439,6 +543,10 @@
 #let build-citation-key(entry, state, style) = {
   let citation = style.at("citation", default: none)
   if citation == none { return "" }
+
+  if _citation-uses-label(style) {
+    return _build-citation-label(entry)
+  }
 
   let et-al-min = citation.at("et-al-min", default: none)
   let et-al-use-first = citation.at("et-al-use-first", default: none)

@@ -3,6 +3,35 @@
 // Handles <names> CSL element.
 
 #import "../core/mod.typ": finalize, is-empty
+
+#let _collect-vars(node, macros) = {
+  if type(node) != dictionary { return () }
+  let tag = node.at("tag", default: "")
+  let attrs = node.at("attrs", default: (:))
+  let vars = ()
+
+  if tag == "text" and "variable" in attrs {
+    vars.push(attrs.variable)
+  } else if tag == "names" and "variable" in attrs {
+    vars = vars + attrs.variable.split(" ")
+  } else if tag == "date" and "variable" in attrs {
+    vars.push(attrs.variable)
+  } else if tag == "text" and "macro" in attrs {
+    let macro-name = attrs.macro
+    let macro-def = macros.at(macro-name, default: none)
+    if macro-def != none {
+      for child in macro-def.at("children", default: ()) {
+        vars = vars + _collect-vars(child, macros)
+      }
+    }
+  }
+
+  for child in node.at("children", default: ()) {
+    vars = vars + _collect-vars(child, macros)
+  }
+
+  vars
+}
 #import "../text/names.typ": (
   _resolve-et-al-settings, apply-name-formatting, format-names,
   format-names-with-institutions, names-end-flag,
@@ -110,6 +139,12 @@
   let attrs = node.at("attrs", default: (:))
   let children = node.at("children", default: ())
   let var-names = attrs.at("variable", default: "author").split(" ")
+  if (
+    var-names.len() == 1
+      and var-names.first() in ctx.at("done-vars", default: ())
+  ) {
+    return ([], ())
+  }
 
   // Check for merged editor-translator pattern first
   // CSL spec: When variable="editor translator" and both have identical names,
@@ -279,6 +314,8 @@
           if child-tag == "text" and "variable" in child-attrs {
             // <text variable="..."/> - track this variable
             (child-attrs.variable,)
+          } else if child-tag == "text" and "macro" in child-attrs {
+            _collect-vars(sub-child, ctx.macros)
           } else if child-tag == "names" and "variable" in child-attrs {
             // <names variable="..."/> - track all name variables
             child-attrs.variable.split(" ")
@@ -553,10 +590,14 @@
 
     // Combine with label
     let label-ends = if label-content != [] {
-      (
-        term.trim().ends-with(".")
-          or label-attrs.at("suffix", default: "").ends-with(".")
-      )
+      if type(label-content) == str {
+        label-content.trim().ends-with(".")
+      } else {
+        (
+          term.trim().ends-with(".")
+            or label-attrs.at("suffix", default: "").ends-with(".")
+        )
+      }
     } else { false }
 
     let result = if label-content != [] {

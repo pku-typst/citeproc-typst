@@ -14,12 +14,8 @@
 )
 #import "label.typ": format-label-compiled
 #import "text.typ": (
-  format-text-content,
-  format-text-value,
-  format-text-value-raw,
-  get-text-variable,
-  get-text-variable-raw,
-  get-text-variable-planned,
+  format-text-content, format-text-value, format-text-value-raw,
+  get-text-variable, get-text-variable-planned, get-text-variable-raw,
 )
 #import "term.typ": get-term-compiled, get-term-raw
 #import "conditions.typ": has-variable
@@ -28,8 +24,23 @@
 #import "../../data/variables.typ": get-variable
 #import "../../parsing/mod.typ": lookup-term
 
+/// Normalize content to avoid nested arrays in joins
+#let normalize-content(content) = {
+  if type(content) == bool { return [] }
+  if type(content) != array { return content }
+  let result = []
+  for item in content {
+    let normalized = normalize-content(item)
+    if normalized != [] and normalized != none and normalized != "" {
+      result = [#result#normalized]
+    }
+  }
+  result
+}
+
 /// All helpers bundled for passing to eval()
 #let compiler-helpers = (
+  normalize-content: normalize-content,
   format-names: format-names-compiled,
   format-names-single: format-names-single-compiled,
   format-names-multi: format-names-multi-compiled,

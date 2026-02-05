@@ -93,3 +93,9 @@
   if parts.len() == 1 { return parts.first() }
   parts.join(delimiter)
 }
+
+/// Build a safe reference label from a cite key
+#let make-cite-ref-label(key) = {
+  let safe = str(key).replace(regex("[^A-Za-z0-9_-]"), "-")
+  "citeproc-ref-" + safe
+}

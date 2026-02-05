@@ -252,6 +252,10 @@
       (result, "var", names-done-vars, ends)
     }
   } else if tag == "date" {
+    let var-name = attrs.at("variable", default: "issued")
+    if var-name in done-vars {
+      return ([], "none", (), false)
+    }
     let result = handle-date(node, ctx)
     if is-empty(result) {
       ([], "no-var", (), false) // Date variable referenced but empty
@@ -400,11 +404,16 @@
       } else if tag == "choose" {
         // Choose: evaluate conditions and process matching branch
         let matched = false
+        let saw-variable-cond = false
         for branch in node-children {
           if type(branch) != dictionary { continue }
           let branch-tag = branch.at("tag", default: "")
           let branch-attrs = branch.at("attrs", default: (:))
           let branch-children = branch.at("children", default: ())
+
+          if branch-tag == "if" or branch-tag == "else-if" {
+            if "variable" in branch-attrs { saw-variable-cond = true }
+          }
 
           let should-take = if branch-tag == "if" or branch-tag == "else-if" {
             eval-condition(branch-attrs, ctx)
@@ -415,11 +424,21 @@
           }
 
           if should-take {
+            let force-var = (
+              (
+                (branch-tag == "if" or branch-tag == "else-if")
+                  and "variable" in branch-attrs
+              )
+                or (branch-tag == "else" and saw-variable-cond)
+            )
             if branch-children.len() > 0 {
               stack.push((
                 node: node,
                 state: "choose-pending",
-                meta: (child-count: branch-children.len()),
+                meta: (
+                  child-count: branch-children.len(),
+                  force-var: force-var,
+                ),
               ))
               for c in branch-children.rev() {
                 stack.push((node: c, state: "pending", meta: (:)))
@@ -463,7 +482,6 @@
 
       // Check var-states - apply group suppression to macros
       let states = ordered.map(r => r.at(1, default: "none"))
-
       if should-suppress-group(states) {
         // Suppress: macro referenced variables but none produced output
         macro-cache.insert(meta.macro-name, (
@@ -533,7 +551,6 @@
 
       // Check var-states for group suppression
       let states = ordered.map(r => r.at(1, default: "none"))
-
       if should-suppress-group(states) {
         // Suppress: all children reference variables but none produced output
         results.push(([], "no-var", merged-done-vars, false))
@@ -541,10 +558,28 @@
         // Render normally
         let merged-state = merge-var-state(states)
         let group-delimiter = meta.attrs.at("delimiter", default: "")
-        let parts = ordered.map(r => r.at(0)).filter(x => not is-empty(x))
+        let part-results = ordered.filter(r => not is-empty(r.at(0)))
+        let parts = part-results.map(r => r.at(0))
         let all-strings = parts.all(p => type(p) == str)
         let joined = if group-delimiter != "" and parts.len() > 1 {
-          parts.join(group-delimiter)
+          let joined = ()
+          for i in range(parts.len()) {
+            if i > 0 {
+              let prev-ends = part-results.at(i - 1).at(3, default: false)
+              let delim = if (
+                group-delimiter.len() > 0
+                  and group-delimiter.first() == "."
+                  and prev-ends
+              ) {
+                group-delimiter.slice(1)
+              } else {
+                group-delimiter
+              }
+              if delim != "" { joined.push(delim) }
+            }
+            joined.push(parts.at(i))
+          }
+          joined.join()
         } else if all-strings {
           parts.join("")
         } else {
@@ -603,6 +638,9 @@
           let c = r.at(0)
           if not is-empty(c) { end-flag = r.at(3, default: false) }
         }
+      }
+      if meta.at("force-var", default: false) and not is-empty(joined) {
+        merged-state = "var"
       }
       results.push((joined, merged-state, merged-done-vars, end-flag))
     }

@@ -2,7 +2,9 @@
 //
 // Provides multicite() function for citing multiple sources at once.
 
-#import "../core/mod.typ": _bib-data, _csl-style, cite-marker, get-entry-year
+#import "../core/mod.typ": (
+  _bib-data, _csl-style, cite-marker, get-entry-year, make-cite-ref-label,
+)
 #import "../core/constants.typ": (
   CITE-FORM, COLLAPSE, STYLE-CLASS, VERTICAL-ALIGN,
 )
@@ -61,7 +63,7 @@
 /// - first-key: The first citation key (for the reference target)
 /// Returns: Linked content
 #let _make-ref-link(content, first-key) = {
-  link(label("citeproc-ref-" + first-key), content)
+  link(label(make-cite-ref-label(first-key)), content)
 }
 
 /// Get effective delimiter with fallback
@@ -196,7 +198,12 @@
       let with-entries = normalized.map(item => {
         let entry = bib.at(item.key, default: none)
         if entry == none { return (..item, entry: none, sort-keys: ()) }
-        let keys = extract-sort-keys(entry, citation-sort, style)
+        let keys = extract-sort-keys(
+          entry,
+          citation-sort,
+          style,
+          citation-context: true,
+        )
         (..item, entry: entry, sort-keys: keys)
       })
       // Use sort-entries to apply the sort
@@ -217,10 +224,10 @@
       let disambig-states = precomputed.at("disambig-states", default: (:))
 
       // Get delimiters
-      // cite-group-delimiter falls back to layout delimiter if not explicitly set
+      // cite-group-delimiter defaults to ", " if not explicitly set
       let cite-group-delim = _get-with-fallback(
         style.citation.at("cite-group-delimiter", default: none),
-        layout.at("delimiter", default: ", "),
+        ", ",
       )
       let after-collapse-delim = _get-with-fallback(
         style.citation.at("after-collapse-delimiter", default: none),
@@ -669,7 +676,7 @@
         joined
       }
 
-      let linked = link(label("citeproc-ref-" + first-key), result)
+      let linked = link(label(make-cite-ref-label(first-key)), result)
 
       let is-inline-form = (
         form in (CITE-FORM.prose, CITE-FORM.author, CITE-FORM.year)

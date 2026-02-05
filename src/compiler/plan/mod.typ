@@ -9,7 +9,8 @@
   let has-quotes = "quotes" in attrs and attrs.at("quotes") == "true"
   let has-text-case = "text-case" in attrs
   let has-affixes = (
-    attrs.at("prefix", default: "") != "" or attrs.at("suffix", default: "") != ""
+    attrs.at("prefix", default: "") != ""
+      or attrs.at("suffix", default: "") != ""
   )
   let has-strip-periods = attrs.at("strip-periods", default: "false") == "true"
   let has-formatting = (
@@ -39,8 +40,11 @@
   let term-name = attrs.at("term", default: "")
   let form = attrs.at("form", default: "long")
   let plural = attrs.at("plural", default: "false") == "true"
+  let has-quotes = "quotes" in attrs and attrs.at("quotes") == "true"
+  let has-text-case = "text-case" in attrs
   let has-affixes = (
-    attrs.at("prefix", default: "") != "" or attrs.at("suffix", default: "") != ""
+    attrs.at("prefix", default: "") != ""
+      or attrs.at("suffix", default: "") != ""
   )
   let has-strip-periods = attrs.at("strip-periods", default: "false") == "true"
   let has-formatting = (
@@ -56,6 +60,8 @@
     term: term-name,
     form: form,
     plural: plural,
+    has-quotes: has-quotes,
+    has-text-case: has-text-case,
     has-affixes: has-affixes,
     has-strip-periods: has-strip-periods,
     has-formatting: has-formatting,
@@ -67,6 +73,15 @@
   let delimiter = attrs.at("delimiter", default: "")
   let has-prefix = attrs.at("prefix", default: "") != ""
   let has-suffix = attrs.at("suffix", default: "") != ""
+  let has-strip-periods = attrs.at("strip-periods", default: "false") == "true"
+  let has-formatting = (
+    "font-style" in attrs
+      or "font-weight" in attrs
+      or "font-variant" in attrs
+      or "text-decoration" in attrs
+      or "vertical-align" in attrs
+      or "display" in attrs
+  )
   let allowed-children-only = children.all(c => (
     type(c) == dictionary and c.at("tag", default: "") != ""
   ))
@@ -75,6 +90,8 @@
     delimiter: delimiter,
     has-prefix: has-prefix,
     has-suffix: has-suffix,
+    has-strip-periods: has-strip-periods,
+    has-formatting: has-formatting,
     allowed-children-only: allowed-children-only,
   )
 }

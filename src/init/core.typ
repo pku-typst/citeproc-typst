@@ -20,7 +20,7 @@
 #import "../parsing/mod.typ": detect-language
 #import "../core/mod.typ": (
   _abbreviations, _bib-data, _cite-global-idx, _config, _csl-style, cite-marker,
-  collect-citations,
+  collect-citations, make-cite-ref-label,
 )
 
 // =============================================================================
@@ -142,9 +142,9 @@
         )
 
         if is-note-style and not is-inline-form and _use-footnote {
-          footnote(link(label("citeproc-ref-" + cite-key), result))
+          footnote(link(label(make-cite-ref-label(cite-key)), result))
         } else {
-          link(label("citeproc-ref-" + cite-key), result)
+          link(label(make-cite-ref-label(cite-key)), result)
         }
       } else {
         // Fallback for edge cases
@@ -319,7 +319,7 @@
 
         set par(first-line-indent: 0em, hanging-indent: indent, spacing: 0.65em)
         for e in pre-rendered {
-          box(width: num-width, align(right, e.rendered-number))
+          box(width: num-width, e.rendered-number)
           h(0.5em)
           [#e.rendered-body #e.ref-label]
           parbreak()
@@ -336,7 +336,7 @@
         )
         pad(left: num-width)[
           #for e in pre-rendered {
-            box(width: num-width, align(right, e.rendered-number))
+            box(width: num-width, e.rendered-number)
             [#e.rendered-body #e.ref-label]
             parbreak()
           }

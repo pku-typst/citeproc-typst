@@ -183,7 +183,12 @@
     // CSL spec: for locator variable, use locator-label to determine the term
     // e.g., locator-label="page" → lookup term "page" → "p." or "pp."
     let term-name = if var-name == "locator" {
-      ctx.at("locator-label", default: "page")
+      let label = ctx.at("locator-label", default: "page")
+      if type(label) == str and label.contains(" ") {
+        label.replace(" ", "-")
+      } else {
+        label
+      }
     } else {
       var-name
     }

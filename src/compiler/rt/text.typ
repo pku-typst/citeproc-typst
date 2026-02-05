@@ -105,12 +105,12 @@
       format-page-range(val, format: page-format, ctx: ctx)
     } else { val }
 
-  // Apply text-case FIRST while content is still a string
-  let cased = if plan.at("has-text-case", default: false) {
-    apply-text-case(formatted, attrs, ctx: ctx)
-  } else {
-    formatted
-  }
+    // Apply text-case FIRST while content is still a string
+    let cased = if plan.at("has-text-case", default: false) {
+      apply-text-case(formatted, attrs, ctx: ctx)
+    } else {
+      formatted
+    }
 
     // Handle quotes (CSL quote flipflopping)
     let quote-level = ctx.at("quote-level", default: 0)
@@ -130,10 +130,18 @@
     } else { normalized }
 
     let ends = if type(quoted) == str { quoted.ends-with(".") } else { false }
-    let final-attrs = if type(quoted) == str {
-      (..attrs, "_ends-with-period": ends)
-    } else { attrs }
-    (finalize(quoted, final-attrs), "var", (), ends)
+    if (
+      not plan.at("has-affixes", default: false)
+        and not plan.at("has-strip-periods", default: false)
+        and not plan.at("has-formatting", default: false)
+    ) {
+      (quoted, "var", (), ends)
+    } else {
+      let final-attrs = if type(quoted) == str {
+        (..attrs, "_ends-with-period": ends)
+      } else { attrs }
+      (finalize(quoted, final-attrs), "var", (), ends)
+    }
   } else {
     ([], "no-var", (), false)
   }
@@ -233,7 +241,7 @@
 
 /// Apply text-case and quotes to generic text content
 #let format-text-content(ctx, content, attrs) = {
-  if is-empty(content) { return [] }
+  if is-empty(content) { return ([], false) }
 
   let quote-level = ctx.at("quote-level", default: 0)
   let has-quotes = attrs.at("quotes", default: "false") == "true"
@@ -279,17 +287,19 @@
     content
   }
 
+  let ends = if type(processed) == str { processed.ends-with(".") } else {
+    false
+  }
   let adjusted-attrs = if type(processed) == str {
-    (..adjusted-attrs, "_ends-with-period": processed.ends-with("."))
+    (..adjusted-attrs, "_ends-with-period": ends)
   } else { adjusted-attrs }
 
-  finalize(processed, adjusted-attrs)
+  (finalize(processed, adjusted-attrs), ends)
 }
 
 /// Format <text value="..."> with quotes/text-case
 #let format-text-value(ctx, attrs) = {
   let value = attrs.at("value", default: "")
-  let content = format-text-content(ctx, value, attrs)
-  let ends = if type(content) == str { content.ends-with(".") } else { false }
+  let (content, ends) = format-text-content(ctx, value, attrs)
   (content, "none", (), ends)
 }

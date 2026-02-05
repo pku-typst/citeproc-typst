@@ -6,6 +6,11 @@
 /// Format date from a CSL <date> element
 /// Hybrid adapter: use interpreter implementation
 #let format-date-compiled(ctx, attrs, children) = {
+  let done-vars = ctx.at("done-vars", default: ())
+  let var-name = attrs.at("variable", default: "issued")
+  if var-name in done-vars {
+    return ([], "none", (), false)
+  }
   let node = (
     tag: "date",
     attrs: attrs,
@@ -14,6 +19,8 @@
 
   let content = _handle-date(node, ctx)
   let var-state = if is-empty(content) { "no-var" } else { "var" }
-  let ends = if type(content) == str { content.trim().ends-with(".") } else { false }
+  let ends = if type(content) == str { content.trim().ends-with(".") } else {
+    false
+  }
   (content, var-state, (), ends)
 }

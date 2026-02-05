@@ -3,6 +3,7 @@
 // Extracts sort keys from CSL <sort> element and sorts entries.
 
 #import "variables.typ": NAME-VARS, get-variable
+#import "../core/constants.typ": RENDER-CONTEXT
 #import "../interpreter/mod.typ": create-context
 #import "../interpreter/stack.typ": interpret-children-stack
 #import "../output/helpers.typ": content-to-string
@@ -17,7 +18,7 @@
 /// - entry: Entry from citegeist
 /// - style: Parsed CSL style
 /// Returns: (order, value) tuple
-#let extract-sort-key(key-spec, entry, style) = {
+#let extract-sort-key(key-spec, entry, style, citation-context: false) = {
   let ctx = create-context(style, entry)
   let order = key-spec.at("sort", default: "ascending")
 
@@ -34,6 +35,27 @@
     sort-names-use-first: names-use-first,
     sort-names-use-last: names-use-last,
   )
+
+  if citation-context {
+    let citation = style.citation
+    ctx = (
+      ..ctx,
+      render-context: RENDER-CONTEXT.citation,
+      citation-et-al-min: citation.at("et-al-min", default: none),
+      citation-et-al-use-first: citation.at("et-al-use-first", default: none),
+      citation-et-al-use-last: citation.at("et-al-use-last", default: none),
+      citation-and: citation.at("and", default: none),
+      citation-name-delimiter: citation.at("name-delimiter", default: none),
+      citation-delimiter-precedes-et-al: citation.at(
+        "delimiter-precedes-et-al",
+        default: none,
+      ),
+      citation-delimiter-precedes-last: citation.at(
+        "delimiter-precedes-last",
+        default: none,
+      ),
+    )
+  }
 
   let value = if key-spec.at("macro", default: none) != none {
     // Render macro and use result as sort key
@@ -200,12 +222,17 @@
 /// - sort-spec: Array of sort key specifications from CSL
 /// - style: Parsed CSL style
 /// Returns: Array of (order, value) tuples
-#let extract-sort-keys(entry, sort-spec, style) = {
+#let extract-sort-keys(entry, sort-spec, style, citation-context: false) = {
   if sort-spec == none or sort-spec.len() == 0 {
     return ()
   }
 
-  sort-spec.map(key-spec => extract-sort-key(key-spec, entry, style))
+  sort-spec.map(key-spec => extract-sort-key(
+    key-spec,
+    entry,
+    style,
+    citation-context: citation-context,
+  ))
 }
 
 // =============================================================================

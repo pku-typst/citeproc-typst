@@ -2,6 +2,35 @@
 
 #import "../../interpreter/names.typ": handle-names as _handle-names
 #import "../../core/mod.typ": finalize, is-empty
+
+#let _collect-vars(node, macros) = {
+  if type(node) != dictionary { return () }
+  let tag = node.at("tag", default: "")
+  let attrs = node.at("attrs", default: (:))
+  let vars = ()
+
+  if tag == "text" and "variable" in attrs {
+    vars.push(attrs.variable)
+  } else if tag == "names" and "variable" in attrs {
+    vars = vars + attrs.variable.split(" ")
+  } else if tag == "date" and "variable" in attrs {
+    vars.push(attrs.variable)
+  } else if tag == "text" and "macro" in attrs {
+    let macro-name = attrs.macro
+    let macro-def = macros.at(macro-name, default: none)
+    if macro-def != none {
+      for child in macro-def.at("children", default: ()) {
+        vars = vars + _collect-vars(child, macros)
+      }
+    }
+  }
+
+  for child in node.at("children", default: ()) {
+    vars = vars + _collect-vars(child, macros)
+  }
+
+  vars
+}
 #import "../../parsing/mod.typ": lookup-term
 #import "../../interpreter/stack.typ": interpret-children-stack
 #import "../../text/names.typ": (
@@ -187,10 +216,14 @@
 
   let label-ends = false
   if plan.at("has-label", default: false) and label-content != [] {
-    label-ends = (
-      term.ends-with(".")
-        or label-attrs.at("suffix", default: "").ends-with(".")
-    )
+    label-ends = if type(label-content) == str {
+      label-content.trim().ends-with(".")
+    } else {
+      (
+        term.ends-with(".")
+          or label-attrs.at("suffix", default: "").ends-with(".")
+      )
+    }
   }
 
   let name-ends = raw-name-ends
@@ -298,6 +331,10 @@
 #let format-names-single-compiled(ctx, attrs, plan) = {
   let var-name = plan.at("var", default: "author")
 
+  if var-name in ctx.at("done-vars", default: ()) {
+    return ([], "none", (), false)
+  }
+
   // Respect suppress-author for collapse
   if ctx.at("suppress-author", default: false) and var-name == "author" {
     let names = ctx.at("parsed-names", default: (:)).at(var-name, default: ())
@@ -325,6 +362,11 @@
   let var-names = plan.at("vars", default: ())
   if var-names.len() == 0 {
     return ([], "no-var", (), false)
+  }
+
+  let done-vars = ctx.at("done-vars", default: ())
+  if var-names.all(v => v in done-vars) {
+    return ([], "none", (), false)
   }
 
   let name-attrs = plan.at("name-attrs", default: (:))
@@ -421,7 +463,16 @@
   if rendered-parts.len() == 0 {
     ([], "no-var", (), false)
   } else {
-    let joined = rendered-parts.join(names-delimiter)
+    let joined = if rendered-parts.len() > 1 {
+      let joined = ()
+      for i in range(rendered-parts.len()) {
+        if i > 0 and names-delimiter != "" { joined.push(names-delimiter) }
+        joined.push(rendered-parts.at(i))
+      }
+      joined.join()
+    } else {
+      rendered-parts.first()
+    }
     let ends = if type(joined) == str { joined.ends-with(".") } else { false }
     (joined, "var", (), ends)
   }
@@ -488,6 +539,8 @@
       let child-attrs = sub-child.at("attrs", default: (:))
       if child-tag == "text" and "variable" in child-attrs {
         (child-attrs.variable,)
+      } else if child-tag == "text" and "macro" in child-attrs {
+        _collect-vars(sub-child, ctx.macros)
       } else if child-tag == "names" and "variable" in child-attrs {
         child-attrs.variable.split(" ")
       } else {

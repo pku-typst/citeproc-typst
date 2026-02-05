@@ -3,12 +3,13 @@
 // Functions for rendering bibliography entries.
 
 #import "../core/constants.typ": RENDER-CONTEXT
+#import "../core/mod.typ": is-empty
 #import "../interpreter/mod.typ": create-context
 #import "../interpreter/stack.typ": interpret-children-stack
 #import "../parsing/mod.typ": detect-language
 #import "layout.typ": select-layout
 #import "punctuation.typ": collapse-punctuation, get-punctuation-in-quote
-#import "helpers.typ": node-uses-citation-number
+#import "helpers.typ": node-uses-citation-number, style-uses-citation-number
 
 // =============================================================================
 // Entry Rendering
@@ -37,7 +38,12 @@
     node,
   ))
   if number-nodes.len() > 0 {
-    interpret-children-stack(number-nodes, ctx)
+    let rendered = interpret-children-stack(number-nodes, ctx)
+    if is-empty(rendered) {
+      [[#cite-number]]
+    } else {
+      rendered
+    }
   } else {
     // Fallback: simple bracketed number
     [[#cite-number]]
@@ -189,6 +195,19 @@
       // Fall back to stack-based interpreter (handles filtering case)
       interpret-children-stack(children, ctx)
     }
+  }
+
+  if is-empty(result) {
+    let error = "[CSL STYLE ERROR: reference with no printed form.]"
+    if include-number and style-uses-citation-number(style) {
+      let number-content = if cite-number != none { str(cite-number) } else {
+        ""
+      }
+      if number-content != "" {
+        return [#number-content#". "#error]
+      }
+    }
+    return error
   }
 
   // Apply layout suffix (usually ".")

@@ -145,7 +145,9 @@
 #let TEXT-VARS = (
   "title",
   "container-title",
+  "container-title-short",
   "collection-title",
+  "collection-title-short",
   "publisher",
   "publisher-place",
   "volume",
@@ -154,10 +156,12 @@
   "edition",
   "abstract",
   "note",
+  "journalAbbreviation",
   "DOI",
   "URL",
   "ISBN",
   "ISSN",
+  "citation-label",
   "language",
   "archive",
   "archive_location",
@@ -588,6 +592,43 @@
         if var == "container-author" {
           parsed-names.insert("bookauthor", normalized)
         }
+      }
+    }
+  }
+
+  // Accept CSL-JSON reviewed-author (citeproc-js extension)
+  if "reviewed-author" in csl-entry and "reviewed-author" not in parsed-names {
+    let names = csl-entry.at("reviewed-author")
+    if type(names) == array and names.len() > 0 {
+      let normalized = names
+        .map(n => {
+          if type(n) == dictionary {
+            let is-institution = (
+              n.at("isInstitution", default: "false") == "true"
+            )
+            let family = n.at("family", default: "")
+            let given = n.at("given", default: "")
+            let literal = n.at("literal", default: "")
+            if is-institution and literal == "" {
+              literal = family
+            }
+            (
+              family: family,
+              given: given,
+              suffix: n.at("suffix", default: ""),
+              prefix: n.at("non-dropping-particle", default: ""),
+              dropping-prefix: n.at("dropping-particle", default: ""),
+              comma-suffix: n.at("comma-suffix", default: false),
+              literal: literal,
+              isInstitution: is-institution,
+            )
+          } else {
+            none
+          }
+        })
+        .filter(x => x != none)
+      if normalized.len() > 0 {
+        parsed-names.insert("reviewed-author", normalized)
       }
     }
   }
