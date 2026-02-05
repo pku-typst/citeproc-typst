@@ -2,7 +2,7 @@
 //
 // Handles <date> CSL element.
 
-#import "../core/mod.typ": finalize
+#import "../core/mod.typ": apply-text-case, finalize
 #import "../data/collapsing.typ": num-to-suffix
 #import "../text/dates.typ": (
   date-has-component, format-date-part, format-date-with-form,
@@ -165,6 +165,146 @@
       let parts = ()
       let year-rendered = false
       let date-delimiter = attrs.at("delimiter", default: "")
+      let end-fields = (
+        year: date-fields.at("end-year", default: ""),
+        month: date-fields.at("end-month", default: ""),
+        day: date-fields.at("end-day", default: ""),
+      )
+      let raw-end = date-fields.at("raw-end-year", default: "")
+      let has-end = (
+        raw-end == "0"
+          or end-fields.year != ""
+          or end-fields.month != ""
+          or end-fields.day != ""
+      )
+      let end-dt = if has-end { parse-bibtex-date(end-fields) } else { none }
+
+      if has-end {
+        let start-parts = ()
+        let end-parts = ()
+        let meta = ()
+        for dp in date-part-nodes {
+          let dp-attrs = dp.at("attrs", default: (:))
+          let dp-name = dp-attrs.at("name", default: "")
+          // CSL spec: month defaults to "long", day/year default to "numeric"
+          let default-form = if dp-name == "month" { "long" } else { "numeric" }
+          let dp-form = dp-attrs.at("form", default: default-form)
+          let dp-prefix = dp-attrs.at("prefix", default: "")
+          let dp-suffix = dp-attrs.at("suffix", default: "")
+          let dp-text-case = dp-attrs.at("text-case", default: "")
+          let dp-range-delim = dp-attrs.at("range-delimiter", default: "–")
+
+          let has-start = date-has-component(date-fields, dp-name)
+          let has-end-part = date-has-component(end-fields, dp-name)
+          if not has-start and not has-end-part {
+            continue
+          }
+
+          let start-core = if has-start {
+            let formatted = format-date-part(dt, dp-name, dp-form, ctx)
+            if formatted != "" and dp-text-case != "" {
+              formatted = apply-text-case(
+                formatted,
+                (text-case: dp-text-case),
+                ctx: ctx,
+              )
+            }
+            if formatted != "" { [#dp-prefix#formatted] } else { "" }
+          } else { "" }
+          let start-content = if start-core != "" {
+            [#start-core#dp-suffix]
+          } else { "" }
+
+          let end-core = if raw-end == "0" {
+            ""
+          } else if has-end-part {
+            let formatted-end = format-date-part(end-dt, dp-name, dp-form, ctx)
+            if formatted-end != "" and dp-text-case != "" {
+              formatted-end = apply-text-case(
+                formatted-end,
+                (text-case: dp-text-case),
+                ctx: ctx,
+              )
+            }
+            if formatted-end != "" { [#dp-prefix#formatted-end] } else { "" }
+          } else { "" }
+          let end-content = if end-core != "" {
+            [#end-core#dp-suffix]
+          } else { "" }
+
+          if start-content != "" { start-parts.push(start-content) }
+          if end-content != "" { end-parts.push(end-content) }
+
+          let start-val = if has-start {
+            date-fields.at(dp-name, default: "")
+          } else { "" }
+          let end-val = if raw-end == "0" {
+            "0"
+          } else if has-end-part {
+            end-fields.at(dp-name, default: "")
+          } else { "" }
+          meta.push((
+            range-delimiter: dp-range-delim,
+            start: start-val,
+            end: end-val,
+            start-core: start-core,
+            start-content: start-content,
+            end-content: end-content,
+          ))
+        }
+
+        let diff-idx = none
+        for i in range(0, meta.len()) {
+          let m = meta.at(i)
+          if m.end != "" and m.start != m.end {
+            diff-idx = i
+          }
+        }
+
+        if diff-idx != none {
+          let range-delim = meta.at(diff-idx).range-delimiter
+          let start-prefix-parts = ()
+          let prefix-meta = meta.slice(0, diff-idx + 1)
+          for i in range(0, prefix-meta.len()) {
+            let m = prefix-meta.at(i)
+            let part = if i == diff-idx and m.start-core != "" {
+              m.start-core
+            } else {
+              m.start-content
+            }
+            if part != "" { start-prefix-parts.push(part) }
+          }
+          let start-prefix = start-prefix-parts.join(date-delimiter)
+          let end-combined = if raw-end == "0" {
+            ""
+          } else {
+            let end-prefix = meta
+              .slice(0, diff-idx + 1)
+              .map(m => m.end-content)
+              .filter(x => x != "")
+              .join(date-delimiter)
+            let suffix = meta
+              .slice(diff-idx + 1, meta.len())
+              .map(m => {
+                if m.start == m.end and m.start-content != "" {
+                  m.start-content
+                } else {
+                  m.end-content
+                }
+              })
+              .filter(x => x != "")
+              .join(date-delimiter)
+            if suffix == "" {
+              end-prefix
+            } else if end-prefix == "" {
+              suffix
+            } else {
+              [#end-prefix#date-delimiter#suffix]
+            }
+          }
+          return finalize([#start-prefix#range-delim#end-combined], attrs)
+        }
+      }
       for dp in date-part-nodes {
         let dp-attrs = dp.at("attrs", default: (:))
         let dp-name = dp-attrs.at("name", default: "")
@@ -173,6 +313,7 @@
         let dp-form = dp-attrs.at("form", default: default-form)
         let dp-prefix = dp-attrs.at("prefix", default: "")
         let dp-suffix = dp-attrs.at("suffix", default: "")
+        let dp-text-case = dp-attrs.at("text-case", default: "")
 
         // Check if the date actually has this component
         if not date-has-component(date-fields, dp-name) {
@@ -180,6 +321,13 @@
         }
 
         let formatted = format-date-part(dt, dp-name, dp-form, ctx)
+        if formatted != "" and dp-text-case != "" {
+          formatted = apply-text-case(
+            formatted,
+            (text-case: dp-text-case),
+            ctx: ctx,
+          )
+        }
         if formatted != "" {
           // Auto-append year-suffix after the first year part
           if dp-name == "year" and not year-rendered and year-suffix != "" {

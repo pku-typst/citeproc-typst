@@ -291,6 +291,9 @@
   if "literal" in csl-date {
     result.insert("literal", csl-date.literal)
   }
+  if "raw" in csl-date and "literal" not in csl-date {
+    result.insert("literal", csl-date.raw)
+  }
 
   let parts = csl-date.at("date-parts", default: ())
   if parts.len() > 0 {
@@ -335,8 +338,11 @@
       let end = parts.at(1)
       if end.len() >= 1 {
         let end-year-val = str(end.at(0))
-        if end-year-val != "" {
+        if end-year-val != "" and end-year-val != "0" {
           result.insert("end-year", end-year-val)
+        }
+        if end-year-val == "0" {
+          result.insert("raw-end-year", "0")
         }
       }
       if end.len() >= 2 {

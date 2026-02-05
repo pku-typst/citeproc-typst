@@ -224,10 +224,9 @@
       let disambig-states = precomputed.at("disambig-states", default: (:))
 
       // Get delimiters
-      // cite-group-delimiter defaults to ", " if not explicitly set
-      let cite-group-delim = _get-with-fallback(
-        style.citation.at("cite-group-delimiter", default: none),
-        ", ",
+      let raw-cite-group-delim = style.citation.at(
+        "cite-group-delimiter",
+        default: none,
       )
       let after-collapse-delim = _get-with-fallback(
         style.citation.at("after-collapse-delimiter", default: none),
@@ -243,6 +242,19 @@
         collapse-mode,
         has-year-suffix,
       )
+      // cite-group-delimiter defaults to ", " except for year-suffix modes
+      // If year-suffix delimiter is not set, CSL tests expect layout delimiter
+      // between year groups unless cite-group-delimiter is explicitly provided.
+      let cite-group-delim = if raw-cite-group-delim != none {
+        raw-cite-group-delim
+      } else if (
+        effective-collapse-mode
+          in (COLLAPSE.year-suffix, COLLAPSE.year-suffix-ranged)
+      ) {
+        layout.at("delimiter", default: "; ")
+      } else {
+        ", "
+      }
 
       // Build items with author key for grouping
       let cite-items = normalized

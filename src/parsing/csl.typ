@@ -216,14 +216,16 @@
 
   for date-node in find-children(locale-node, "date") {
     let form = date-node.attrs.at("form", default: "numeric")
+    let delimiter = date-node.attrs.at("delimiter", default: "")
     let parts = find-children(date-node, "date-part").map(p => (
       name: p.attrs.at("name", default: ""),
       form: p.attrs.at("form", default: ""),
       prefix: p.attrs.at("prefix", default: ""),
       suffix: p.attrs.at("suffix", default: ""),
+      text-case: p.attrs.at("text-case", default: ""),
       range-delimiter: p.attrs.at("range-delimiter", default: "–"),
     ))
-    dates.insert(form, (parts: parts))
+    dates.insert(form, (parts: parts, delimiter: delimiter))
   }
 
   dates

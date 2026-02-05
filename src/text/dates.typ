@@ -2,7 +2,7 @@
 //
 // Uses Typst's native datetime for formatting
 
-#import "../core/mod.typ": zero-pad
+#import "../core/mod.typ": apply-text-case, zero-pad
 #import "../parsing/mod.typ": lookup-term
 
 // =============================================================================
@@ -200,9 +200,11 @@
 /// - day = {15}
 /// - date = {2024-05-15}  (biblatex)
 #let parse-bibtex-date(fields) = {
-  // Try biblatex date field first
+  let season-str = fields.at("season", default: "")
+
+  // Try biblatex date field first (unless season is present)
   let date-field = fields.at("date", default: "")
-  if date-field != "" {
+  if date-field != "" and season-str == "" {
     let parsed = parse-date-string(date-field)
     if parsed != none { return parsed }
   }
@@ -225,6 +227,16 @@
     } else {
       let parsed = int(month-str)
       if parsed != none { month = parsed }
+    }
+  } else {
+    // CSL-JSON season: 1-4 (Spring..Winter). Map to 21-24.
+    if season-str != "" {
+      let season-int = int(season-str)
+      if season-int != none and season-int >= 1 and season-int <= 4 {
+        month = 20 + season-int
+      } else if season-int != none and season-int >= 21 and season-int <= 24 {
+        month = season-int
+      }
     }
   }
 
@@ -269,6 +281,7 @@
   } else if component == "month" {
     (
       fields.at("month", default: "") != ""
+        or fields.at("season", default: "") != ""
         or fields.at("date", default: "").contains("-")
     )
   } else if component == "day" {
@@ -310,11 +323,20 @@
     } else if name == "month" {
       // Season terms: 21=spring, 22=summer, 23=fall, 24=winter
       let season-num = dt.season
+      let season-idx = if season-num >= 21 and season-num <= 24 {
+        season-num - 20
+      } else if season-num >= 13 and season-num <= 16 {
+        season-num - 12
+      } else if season-num >= 1 and season-num <= 4 {
+        season-num
+      } else {
+        season-num
+      }
       let season-key = (
         "season-"
-          + if season-num < 10 { "0" } else { "" }
+          + if season-idx < 10 { "0" } else { "" }
           + str(
-            season-num,
+            season-idx,
           )
       )
       let season-term = lookup-term(
@@ -327,9 +349,9 @@
         season-term
       } else {
         // Fallback
-        if season-num == 21 { "Spring" } else if season-num == 22 {
+        if season-idx == 1 { "Spring" } else if season-idx == 2 {
           "Summer"
-        } else if season-num == 23 { "Fall" } else if season-num == 24 {
+        } else if season-idx == 3 { "Autumn" } else if season-idx == 4 {
           "Winter"
         } else { "" }
       }
@@ -466,9 +488,193 @@
   if date-format != none {
     // Use locale-defined date format
     let format-parts = date-format.at("parts", default: ())
-    let result-parts = ()
+    let date-delimiter = date-format.at("delimiter", default: "")
     let override-dict = if overrides != none { overrides } else { (:) }
 
+    let has-end = (
+      fields != none
+        and (
+          fields.at("end-year", default: "") != ""
+            or fields.at("end-month", default: "") != ""
+            or fields.at("end-day", default: "") != ""
+        )
+    )
+
+    if has-end {
+      let end-fields = (
+        year: fields.at("end-year", default: ""),
+        month: fields.at("end-month", default: ""),
+        day: fields.at("end-day", default: ""),
+      )
+      let end-dt = parse-bibtex-date(end-fields)
+
+      if end-dt != none {
+        let start-parts = ()
+        let end-parts = ()
+        let meta = ()
+
+        for part in format-parts {
+          let part-name = part.at("name", default: "")
+
+          // Skip parts not in date-parts selection
+          if part-name not in parts-to-show {
+            continue
+          }
+
+          let has-start = (
+            fields == none or date-has-component(fields, part-name)
+          )
+          let has-end-part = date-has-component(end-fields, part-name)
+          if not has-start and not has-end-part {
+            continue
+          }
+
+          // Check for inline overrides from CSL
+          let override-attrs = override-dict.at(part-name, default: (:))
+
+          // CSL spec: month defaults to "long" for text form, day/year default to "numeric"
+          let default-form = if part-name == "month" {
+            if form == "text" { "long" } else { "numeric" }
+          } else {
+            "numeric"
+          }
+
+          // Priority: override > locale > default
+          let part-form = override-attrs.at("form", default: part.at(
+            "form",
+            default: "",
+          ))
+          if part-form == "" { part-form = default-form }
+
+          let part-prefix = override-attrs.at("prefix", default: part.at(
+            "prefix",
+            default: "",
+          ))
+          let part-suffix = override-attrs.at("suffix", default: part.at(
+            "suffix",
+            default: "",
+          ))
+          let part-text-case = override-attrs.at("text-case", default: part.at(
+            "text-case",
+            default: "",
+          ))
+          let part-range-delim = override-attrs.at(
+            "range-delimiter",
+            default: part.at("range-delimiter", default: "–"),
+          )
+
+          let start-core = if has-start {
+            let formatted = format-date-part(dt, part-name, part-form, ctx)
+            if formatted != "" and part-text-case != "" {
+              formatted = apply-text-case(
+                formatted,
+                (text-case: part-text-case),
+                ctx: ctx,
+              )
+            }
+            if formatted != "" { [#part-prefix#formatted] } else { "" }
+          } else { "" }
+          let start-content = if start-core != "" {
+            [#start-core#part-suffix]
+          } else { "" }
+
+          let end-core = if has-end-part {
+            let formatted-end = format-date-part(
+              end-dt,
+              part-name,
+              part-form,
+              ctx,
+            )
+            if formatted-end != "" and part-text-case != "" {
+              formatted-end = apply-text-case(
+                formatted-end,
+                (text-case: part-text-case),
+                ctx: ctx,
+              )
+            }
+            if formatted-end != "" { [#part-prefix#formatted-end] } else { "" }
+          } else { "" }
+          let end-content = if end-core != "" {
+            [#end-core#part-suffix]
+          } else { "" }
+
+          if start-content != "" {
+            start-parts.push(start-content)
+          }
+          if end-content != "" {
+            end-parts.push(end-content)
+          }
+
+          let start-val = if has-start {
+            fields.at(part-name, default: "")
+          } else { "" }
+          let end-val = if has-end-part {
+            end-fields.at(part-name, default: "")
+          } else { "" }
+          meta.push((
+            range-delimiter: part-range-delim,
+            start: start-val,
+            end: end-val,
+            start-core: start-core,
+            start-content: start-content,
+            end-core: end-core,
+            end-content: end-content,
+          ))
+        }
+
+        let diff-idx = none
+        for i in range(0, meta.len()) {
+          let m = meta.at(i)
+          if m.end != "" and m.start != m.end {
+            diff-idx = i
+          }
+        }
+
+        if diff-idx != none {
+          let range-delim = meta.at(diff-idx).range-delimiter
+          let start-prefix-parts = ()
+          let prefix-meta = meta.slice(0, diff-idx + 1)
+          for i in range(0, prefix-meta.len()) {
+            let m = prefix-meta.at(i)
+            let part = if i == diff-idx and m.start-core != "" {
+              m.start-core
+            } else {
+              m.start-content
+            }
+            if part != "" { start-prefix-parts.push(part) }
+          }
+          let start-prefix = start-prefix-parts.join(date-delimiter)
+          let end-prefix = meta
+            .slice(0, diff-idx + 1)
+            .map(m => m.end-content)
+            .filter(x => x != "")
+            .join(date-delimiter)
+          let suffix = meta
+            .slice(diff-idx + 1, meta.len())
+            .map(m => {
+              if m.start == m.end and m.start-content != "" {
+                m.start-content
+              } else if m.end-content != "" {
+                m.end-content
+              } else {
+                m.start-content
+              }
+            })
+            .filter(x => x != "")
+            .join(date-delimiter)
+          let end-combined = if suffix == "" {
+            end-prefix
+          } else if end-prefix == "" {
+            suffix
+          } else {
+            [#end-prefix#date-delimiter#suffix]
+          }
+          return [#start-prefix#range-delim#end-combined]
+        }
+      }
+    }
+
+    let result-parts = ()
     for part in format-parts {
       let part-name = part.at("name", default: "")
 
@@ -507,14 +713,25 @@
         "suffix",
         default: "",
       ))
+      let part-text-case = override-attrs.at("text-case", default: part.at(
+        "text-case",
+        default: "",
+      ))
 
       let formatted = format-date-part(dt, part-name, part-form, ctx)
+      if formatted != "" and part-text-case != "" {
+        formatted = apply-text-case(
+          formatted,
+          (text-case: part-text-case),
+          ctx: ctx,
+        )
+      }
       if formatted != "" {
         result-parts.push([#part-prefix#formatted#part-suffix])
       }
     }
 
-    result-parts.join()
+    result-parts.join(date-delimiter)
   } else {
     // Fallback to hardcoded default format
     // First, check which parts actually exist in the date data
