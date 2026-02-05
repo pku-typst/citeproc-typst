@@ -4,7 +4,7 @@
 #import "../../core/mod.typ": is-empty
 
 /// Format date from a CSL <date> element
-/// This is the hybrid adapter that calls the full interpreter implementation.
+/// Hybrid adapter: use interpreter implementation
 #let format-date-compiled(ctx, attrs, children) = {
   let node = (
     tag: "date",
@@ -14,8 +14,6 @@
 
   let content = _handle-date(node, ctx)
   let var-state = if is-empty(content) { "no-var" } else { "var" }
-  let ends = if type(content) == str { content.trim().ends-with(".") } else {
-    false
-  }
+  let ends = if type(content) == str { content.trim().ends-with(".") } else { false }
   (content, var-state, (), ends)
 }

@@ -6,6 +6,7 @@
 // as the stack-based interpreter.
 
 #import "../../data/variables.typ": get-variable
+#import "../plan/mod.typ": build-text-var-plan, build-term-plan, build-group-plan
 
 /// Escape a string for use in Typst string literals
 #let escape-string(s) = {
@@ -534,14 +535,56 @@
     if "variable" in attrs {
       // Call helper for variable lookup with full formatting support
       let attrs-str = serialize-dict(attrs)
+      let plan = build-text-var-plan(attrs)
+      if (
+        not plan.is-page-like
+          and plan.form == "long"
+          and not plan.has-quotes
+          and not plan.has-text-case
+          and not plan.has-affixes
+          and not plan.has-strip-periods
+          and not plan.has-formatting
+      ) {
+        let plan-str = serialize-dict(plan)
+        return indent + "get-text-variable-raw(ctx, " + attrs-str + ", " + plan-str + ")"
+      }
+      if (
+        plan.is-page-like
+          and plan.form == "long"
+          and not plan.has-quotes
+          and not plan.has-text-case
+      ) {
+        let plan-str = serialize-dict(plan)
+        return indent + "get-text-variable-planned(ctx, " + attrs-str + ", " + plan-str + ")"
+      }
       return indent + "get-text-variable(ctx, " + attrs-str + ")"
     } else if "value" in attrs {
       // Literal value - handle quotes/text-case via helper
       let attrs-str = serialize-dict(attrs)
+      let plan = build-text-var-plan(attrs)
+      if (
+        not plan.has-quotes
+          and not plan.has-text-case
+          and not plan.has-affixes
+          and not plan.has-strip-periods
+          and not plan.has-formatting
+      ) {
+        let plan-str = serialize-dict(plan)
+        return indent + "format-text-value-raw(ctx, " + attrs-str + ", " + plan-str + ")"
+      }
       return indent + "format-text-value(ctx, " + attrs-str + ")"
     } else if "term" in attrs {
       // Call helper for term lookup
       let attrs-str = serialize-dict(attrs)
+      let plan = build-term-plan(attrs)
+      if (
+        not plan.has-affixes
+          and not plan.has-strip-periods
+          and not plan.has-formatting
+      ) {
+        let plan-str = serialize-dict(plan)
+        return indent + "get-term-raw(ctx, " + attrs-str + ", " + plan-str + ")"
+      }
       return indent + "get-term(ctx, " + attrs-str + ")"
     } else if "macro" in attrs {
       let macro-name = attrs.macro
@@ -938,10 +981,8 @@
   // <date> element - calls format-date helper
   // ==========================================================================
   if tag == "date" {
-    // Serialize attrs and children for the helper call
     let attrs-str = serialize-dict(attrs)
     let children-str = serialize-array(children)
-
     return indent + "format-date(ctx, " + attrs-str + ", " + children-str + ")"
   }
 

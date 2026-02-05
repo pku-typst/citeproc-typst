@@ -13,8 +13,15 @@
   format-number-roman-compiled,
 )
 #import "label.typ": format-label-compiled
-#import "text.typ": format-text-content, format-text-value, get-text-variable
-#import "term.typ": get-term-compiled
+#import "text.typ": (
+  format-text-content,
+  format-text-value,
+  format-text-value-raw,
+  get-text-variable,
+  get-text-variable-raw,
+  get-text-variable-planned,
+)
+#import "term.typ": get-term-compiled, get-term-raw
 #import "conditions.typ": has-variable
 
 #import "../../core/mod.typ": finalize, is-empty
@@ -35,9 +42,13 @@
   format-number-roman: format-number-roman-compiled,
   format-label: format-label-compiled,
   get-text-variable: get-text-variable,
+  get-text-variable-raw: get-text-variable-raw,
+  get-text-variable-planned: get-text-variable-planned,
   format-text-content: format-text-content,
   format-text-value: format-text-value,
+  format-text-value-raw: format-text-value-raw,
   get-term: get-term-compiled,
+  get-term-raw: get-term-raw,
   has-variable: has-variable,
   get-variable: get-variable,
   check-type: check-type,

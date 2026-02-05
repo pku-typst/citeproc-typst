@@ -5,6 +5,148 @@
 #import "../../text/ranges.typ": format-page-range
 #import "../../data/variables.typ": get-variable
 
+/// Get raw text variable without formatting/affixes
+///
+/// - plan: Dictionary with cached fields (var, form)
+#let get-text-variable-raw(ctx, attrs, plan) = {
+  let var-name = plan.at("var", default: attrs.at("variable", default: ""))
+  let form = plan.at("form", default: attrs.at("form", default: "long"))
+
+  // Check if already rendered (done-vars quashing)
+  if var-name in ctx.at("done-vars", default: ()) {
+    return ([], "none", (), false)
+  }
+
+  // Special handling for year-suffix - it's in ctx, not ctx.fields
+  if var-name == "year-suffix" {
+    let suffix = ctx.at("year-suffix", default: none)
+    if suffix != none and suffix != "" {
+      import "../../data/collapsing.typ": num-to-suffix
+      let suffix-str = if type(suffix) == int {
+        num-to-suffix(suffix)
+      } else {
+        str(suffix)
+      }
+      let ends = suffix-str.ends-with(".")
+      return (suffix-str, "var", (), ends)
+    } else {
+      return ([], "no-var", (), false)
+    }
+  }
+
+  // CSL form="short": try variable-short first, fallback to variable
+  let val = if form == "short" {
+    let short-name = var-name + "-short"
+    let short-val = get-variable(ctx, short-name)
+    if short-val != "" { short-val } else { get-variable(ctx, var-name) }
+  } else {
+    get-variable(ctx, var-name)
+  }
+
+  if val != "" {
+    let ends = if type(val) == str { val.ends-with(".") } else { false }
+    (val, "var", (), ends)
+  } else {
+    ([], "no-var", (), false)
+  }
+}
+
+/// Get text variable value using a precomputed plan
+///
+/// - plan: Dictionary with cached fields (var, form, is-page-like, has-quotes)
+#let get-text-variable-planned(ctx, attrs, plan) = {
+  let var-name = plan.at("var", default: attrs.at("variable", default: ""))
+  let form = plan.at("form", default: attrs.at("form", default: "long"))
+  let is-page-like = plan.at("is-page-like", default: false)
+  let has-quotes = plan.at(
+    "has-quotes",
+    default: attrs.at("quotes", default: "false") == "true",
+  )
+
+  // Check if already rendered (done-vars quashing)
+  if var-name in ctx.at("done-vars", default: ()) {
+    return ([], "none", (), false)
+  }
+
+  // Special handling for year-suffix - it's in ctx, not ctx.fields
+  if var-name == "year-suffix" {
+    let suffix = ctx.at("year-suffix", default: none)
+    if suffix != none and suffix != "" {
+      import "../../data/collapsing.typ": num-to-suffix
+      let suffix-str = if type(suffix) == int {
+        num-to-suffix(suffix)
+      } else {
+        str(suffix)
+      }
+      let ends = suffix-str.ends-with(".")
+      let final-attrs = (..attrs, "_ends-with-period": ends)
+      return (finalize(suffix-str, final-attrs), "var", (), ends)
+    } else {
+      return ([], "no-var", (), false)
+    }
+  }
+
+  // CSL form="short": try variable-short first, fallback to variable
+  let val = if form == "short" {
+    let short-name = var-name + "-short"
+    let short-val = get-variable(ctx, short-name)
+    if short-val != "" { short-val } else { get-variable(ctx, var-name) }
+  } else {
+    // Get value using get-variable which handles field name mapping
+    get-variable(ctx, var-name)
+  }
+
+  if val != "" {
+    // Format page ranges for page, page-first, locator
+    let formatted = if is-page-like {
+      let page-format = if "style" in ctx {
+        ctx.style.at("page-range-format", default: none)
+      } else { none }
+      format-page-range(val, format: page-format, ctx: ctx)
+    } else { val }
+
+  // Apply text-case FIRST while content is still a string
+  let cased = if plan.at("has-text-case", default: false) {
+    apply-text-case(formatted, attrs, ctx: ctx)
+  } else {
+    formatted
+  }
+
+    // Handle quotes (CSL quote flipflopping)
+    let quote-level = ctx.at("quote-level", default: 0)
+
+    // Normalize embedded quotes in content (only if ctx.style is available)
+    let normalized = if type(cased) == str and "style" in ctx {
+      if has-quotes {
+        transform-quotes-at-level(cased, ctx, quote-level + 1)
+      } else {
+        transform-quotes-at-level(cased, ctx, quote-level)
+      }
+    } else { cased }
+
+    // Apply quotes if requested (only if ctx.style is available)
+    let quoted = if has-quotes and "style" in ctx {
+      apply-quotes(normalized, ctx, level: quote-level)
+    } else { normalized }
+
+    let ends = if type(quoted) == str { quoted.ends-with(".") } else { false }
+    let final-attrs = if type(quoted) == str {
+      (..attrs, "_ends-with-period": ends)
+    } else { attrs }
+    (finalize(quoted, final-attrs), "var", (), ends)
+  } else {
+    ([], "no-var", (), false)
+  }
+}
+
+/// Format <text value="..."> without formatting/affixes
+#let format-text-value-raw(ctx, attrs, plan) = {
+  let value = attrs.at("value", default: "")
+  if value == "" { return ([], "none", (), false) }
+  let ends = if type(value) == str { value.ends-with(".") } else { false }
+  (value, "none", (), ends)
+}
+
 /// Get text variable value
 ///
 /// - ctx: Context dictionary with fields and done-vars
