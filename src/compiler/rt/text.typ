@@ -30,7 +30,7 @@
       let ends = suffix-str.ends-with(".")
       return (suffix-str, "var", (), ends)
     } else {
-      return ([], "no-var", (), false)
+      return ([], "var", (), false)
     }
   }
 
@@ -82,7 +82,7 @@
       let final-attrs = (..attrs, "_ends-with-period": ends)
       return (finalize(suffix-str, final-attrs), "var", (), ends)
     } else {
-      return ([], "no-var", (), false)
+      return ([], "var", (), false)
     }
   }
 

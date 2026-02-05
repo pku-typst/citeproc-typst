@@ -2,7 +2,7 @@
 //
 // Uses Typst's native datetime for formatting
 
-#import "../core/mod.typ": apply-text-case, zero-pad
+#import "../core/mod.typ": apply-formatting, apply-text-case, zero-pad
 #import "../parsing/mod.typ": lookup-term
 
 // =============================================================================
@@ -562,6 +562,7 @@
             "range-delimiter",
             default: part.at("range-delimiter", default: "–"),
           )
+          let format-attrs = (..part, ..override-attrs, text-case: none)
 
           let start-core = if has-start {
             let formatted = format-date-part(dt, part-name, part-form, ctx)
@@ -571,6 +572,9 @@
                 (text-case: part-text-case),
                 ctx: ctx,
               )
+            }
+            if formatted != "" {
+              formatted = apply-formatting(formatted, format-attrs)
             }
             if formatted != "" { [#part-prefix#formatted] } else { "" }
           } else { "" }
@@ -591,6 +595,9 @@
                 (text-case: part-text-case),
                 ctx: ctx,
               )
+            }
+            if formatted-end != "" {
+              formatted-end = apply-formatting(formatted-end, format-attrs)
             }
             if formatted-end != "" { [#part-prefix#formatted-end] } else { "" }
           } else { "" }
@@ -717,6 +724,7 @@
         "text-case",
         default: "",
       ))
+      let format-attrs = (..part, ..override-attrs, text-case: none)
 
       let formatted = format-date-part(dt, part-name, part-form, ctx)
       if formatted != "" and part-text-case != "" {
@@ -725,6 +733,9 @@
           (text-case: part-text-case),
           ctx: ctx,
         )
+      }
+      if formatted != "" {
+        formatted = apply-formatting(formatted, format-attrs)
       }
       if formatted != "" {
         result-parts.push([#part-prefix#formatted#part-suffix])

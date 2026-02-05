@@ -115,6 +115,27 @@
     if not has-other {
       let var-list = escape-string(attrs.variable)
       let match-mode = escape-string(attrs.at("match", default: "all"))
+      if var-list == "issued" {
+        return (
+          "{\n"
+            + "  let has-issued = (\n"
+            + "    ctx.fields.at(\"year\", default: \"\") != \"\"\n"
+            + "      or ctx.fields.at(\"month\", default: \"\") != \"\"\n"
+            + "      or ctx.fields.at(\"day\", default: \"\") != \"\"\n"
+            + "      or ctx.fields.at(\"date\", default: \"\") != \"\"\n"
+            + "      or ctx.fields.at(\"season\", default: \"\") != \"\"\n"
+            + "      or ctx.fields.at(\"literal\", default: \"\") != \"\"\n"
+            + "  )\n"
+            + "  if \""
+            + match-mode
+            + "\" == \"none\" {\n"
+            + "    not has-issued\n"
+            + "  } else {\n"
+            + "    has-issued\n"
+            + "  }\n"
+            + "}"
+        )
+      }
       return (
         "{ let vars = \""
           + var-list

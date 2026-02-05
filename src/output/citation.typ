@@ -209,6 +209,20 @@
   let result = {
     let compiled = style.at("compiled", default: none)
     let use-compiler = sys.inputs.at("compiler", default: "true") == "true"
+    let missing-issued = (
+      ctx.fields.at("year", default: "") == ""
+        and ctx.fields.at("month", default: "") == ""
+        and ctx.fields.at("day", default: "") == ""
+        and ctx.fields.at("date", default: "") == ""
+        and ctx.fields.at("season", default: "") == ""
+        and ctx.fields.at("literal", default: "") == ""
+    )
+    if (
+      missing-issued
+        and citation.at("disambiguate-add-year-suffix", default: false) == true
+    ) {
+      use-compiler = false
+    }
     if compiled != none and use-compiler {
       // Add compiled macros to context for macro calls
       let ctx = (..ctx, compiled-macros: compiled.macros, done-vars: ())

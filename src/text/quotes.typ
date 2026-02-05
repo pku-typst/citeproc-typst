@@ -159,7 +159,10 @@
       } else if prev-is-letter and not next-is-letter {
         // After letter, not before letter: closing quote
         // e.g., friend' -> friend"
-        if use-inner {
+        // But treat trailing s' as possessive apostrophe (his', James')
+        if prev == "s" {
+          result += right-single
+        } else if use-inner {
           result += chars.close-inner-quote
         } else {
           result += chars.close-quote

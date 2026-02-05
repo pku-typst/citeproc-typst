@@ -46,6 +46,7 @@
   "number": "number",
   "genre": "type",
   "event-title": "eventtitle",
+  "event": "event",
   "collection-title": "series",
   "number-of-volumes": "volumes",
   // CSL-M legal variables
@@ -84,6 +85,24 @@
     if suffix == none or suffix == "" { return "" }
     if type(suffix) == int { return num-to-suffix(suffix) }
     return str(suffix) // Fallback for already-converted values
+  }
+
+  if name == "issued" {
+    let has-issued = (
+      fields.at("year", default: "") != ""
+        or fields.at("month", default: "") != ""
+        or fields.at("day", default: "") != ""
+        or fields.at("date", default: "") != ""
+        or fields.at("season", default: "") != ""
+        or fields.at("literal", default: "") != ""
+    )
+    if not has-issued {
+      return ""
+    }
+    let flag = fields.at("circa", default: "")
+    if flag == "true" {
+      return "circa"
+    }
   }
 
   if name == "citation-label" {

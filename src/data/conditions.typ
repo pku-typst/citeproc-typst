@@ -196,7 +196,7 @@
     let date-var = attrs.at("is-uncertain-date")
     let date-val = get-variable(ctx, date-var)
     let is-uncertain = if date-val != "" {
-      // Check for uncertainty markers
+      // Check for uncertainty markers in rendered date value
       let s = lower(str(date-val))
       (
         s.contains("circa")
@@ -207,6 +207,11 @@
           or s.contains("approximately")
       )
     } else { false }
+    if not is-uncertain {
+      // CSL-JSON explicit circa flag
+      let flag = ctx.fields.at("circa", default: "")
+      is-uncertain = flag == "true"
+    }
     conditions.push(is-uncertain)
   }
 

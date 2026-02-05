@@ -9,7 +9,9 @@
 #import "../parsing/mod.typ": detect-language
 #import "layout.typ": select-layout
 #import "punctuation.typ": collapse-punctuation, get-punctuation-in-quote
-#import "helpers.typ": node-uses-citation-number, style-uses-citation-number
+#import "helpers.typ": (
+  content-to-string, node-uses-citation-number, style-uses-citation-number,
+)
 
 // =============================================================================
 // Entry Rendering
@@ -212,6 +214,10 @@
 
   // Apply layout suffix (usually ".")
   let layout-suffix = layout.at("suffix", default: ".")
+  let result-str = content-to-string(result)
+  if result-str.trim().ends-with(".") and layout-suffix.starts-with(".") {
+    layout-suffix = layout-suffix.slice(1)
+  }
 
   // Apply punctuation collapsing to CSL output only
   collapse-punctuation(

@@ -13,11 +13,16 @@
   if is-empty(val) {
     ([], "no-var", (), false)
   } else {
-    let ends = if type(val) == str { val.ends-with(".") } else { false }
-    let final-attrs = if type(val) == str {
+    let rendered = if type(val) == str and val.contains("-") {
+      val.replace("-", "–")
+    } else { val }
+    let ends = if type(rendered) == str { rendered.ends-with(".") } else {
+      false
+    }
+    let final-attrs = if type(rendered) == str {
       (..attrs, "_ends-with-period": ends)
     } else { attrs }
-    (finalize(val, final-attrs), "var", (), ends)
+    (finalize(rendered, final-attrs), "var", (), ends)
   }
 }
 

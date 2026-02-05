@@ -910,6 +910,10 @@
       // Save current state before trying expansions
       let prev-states = states
       let prev-ambiguous-count = ambiguous.len()
+      let prev-ambiguous-total = 0
+      for (gk, gkeys) in ambiguous {
+        prev-ambiguous-total += gkeys.len()
+      }
 
       let ambiguous-keys = ambiguous.map(((k, v)) => v).flatten()
 
@@ -930,20 +934,19 @@
       let new-groups = group-by-citation-key(entries, states, style)
       ambiguous = get-ambiguous-groups(new-groups)
 
-      // If no progress was made (same number of ambiguous groups), revert
-      // This handles the case where entries have identical author lists
-      if ambiguous.len() >= prev-ambiguous-count {
-        // Check if we resolved at least some collisions
-        let resolved-some = false
-        for (group-key, group-keys) in ambiguous {
-          // Check if this group was smaller before expansion
-          // (meaning some entries were disambiguated)
-          let prev-group = prev-states
-          // Simple heuristic: if count didn't decrease, no progress
-        }
-        // If ambiguous count didn't decrease, the expansion didn't help
-        // However, we should check if any specific entries were resolved
-        // For now, continue trying if we made any expansion
+      // If no progress was made (no reduction in ambiguous entries), revert
+      let new-ambiguous-total = 0
+      for (gk, gkeys) in ambiguous {
+        new-ambiguous-total += gkeys.len()
+      }
+      if new-ambiguous-total >= prev-ambiguous-total {
+        states = prev-states
+        ambiguous = get-ambiguous-groups(group-by-citation-key(
+          entries,
+          states,
+          style,
+        ))
+        break
       }
     }
 
@@ -965,11 +968,13 @@
     }
     let initial-groups = group-by-citation-key(entries, initial-states, style)
 
-    // For each still-ambiguous group, check if it would be ambiguous without expansion
+    // For each still-ambiguous group, check if expansion actually helped
     for (group-key, group-keys) in final-ambiguous {
       // Check if all these entries were in the same initial group
       let initial-group-keys-set = (:)
+      let initial-group-sizes = (:)
       for (init-key, init-entries) in initial-groups.pairs() {
+        initial-group-sizes.insert(init-key, init-entries.len())
         for ek in init-entries {
           initial-group-keys-set.insert(ek, init-key)
         }
@@ -985,7 +990,13 @@
         initial-group-keys-set.at(k, default: "") == first-initial-group
       ))
 
-      if all-same-initial {
+      let initial-group-size = initial-group-sizes.at(
+        first-initial-group,
+        default: 0,
+      )
+      let reduced-group = group-keys.len() < initial-group-size
+
+      if all-same-initial and not reduced-group {
         // Expansion didn't help these entries - revert their expansion
         for key in group-keys {
           let state = states.at(key)

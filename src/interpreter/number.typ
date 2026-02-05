@@ -100,7 +100,11 @@
       } else { val }
     } else {
       // numeric (default)
-      val
+      if type(val) == str and val.contains("-") {
+        val.replace("-", "–")
+      } else {
+        val
+      }
     }
 
     finalize(result, attrs)

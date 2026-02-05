@@ -167,6 +167,7 @@
   "archive_location",
   "call-number",
   "event-title",
+  "event",
   "event-place",
   "genre",
   "medium",
@@ -363,6 +364,10 @@
   // Handle season
   if "season" in csl-date {
     result.insert("season", str(csl-date.season))
+  }
+  // Uncertain date markers (CSL-JSON)
+  if "circa" in csl-date and csl-date.circa == 1 {
+    result.insert("circa", "true")
   }
 
   result

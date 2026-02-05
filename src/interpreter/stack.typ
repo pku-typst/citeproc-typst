@@ -140,6 +140,8 @@
           false
         }
         (finalize(quoted, final-attrs), "var", (), ends) // Variable has output
+      } else if var-name == "year-suffix" {
+        ([], "var", (), false) // citeproc-js compat: year-suffix always counts
       } else {
         ([], "no-var", (), false) // Variable referenced but empty
       }
@@ -604,8 +606,9 @@
           let final-state = if merged-state == "none" { "var" } else {
             merged-state
           }
+          let final-attrs = (..meta.attrs, "_ends-with-period": end-flag)
           results.push((
-            [#prefix#joined#suffix],
+            finalize([#prefix#joined#suffix], final-attrs),
             final-state,
             merged-done-vars,
             end-flag,

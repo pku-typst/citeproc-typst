@@ -2,7 +2,7 @@
 //
 // Handles <date> CSL element.
 
-#import "../core/mod.typ": apply-text-case, finalize
+#import "../core/mod.typ": apply-formatting, apply-text-case, finalize
 #import "../data/collapsing.typ": num-to-suffix
 #import "../text/dates.typ": (
   date-has-component, format-date-part, format-date-with-form,
@@ -200,6 +200,7 @@
             continue
           }
 
+          let format-attrs = (..dp-attrs, text-case: none)
           let start-core = if has-start {
             let formatted = format-date-part(dt, dp-name, dp-form, ctx)
             if formatted != "" and dp-text-case != "" {
@@ -208,6 +209,9 @@
                 (text-case: dp-text-case),
                 ctx: ctx,
               )
+            }
+            if formatted != "" {
+              formatted = apply-formatting(formatted, format-attrs)
             }
             if formatted != "" { [#dp-prefix#formatted] } else { "" }
           } else { "" }
@@ -225,6 +229,9 @@
                 (text-case: dp-text-case),
                 ctx: ctx,
               )
+            }
+            if formatted-end != "" {
+              formatted-end = apply-formatting(formatted-end, format-attrs)
             }
             if formatted-end != "" { [#dp-prefix#formatted-end] } else { "" }
           } else { "" }
@@ -320,6 +327,7 @@
           continue
         }
 
+        let format-attrs = (..dp-attrs, text-case: none)
         let formatted = format-date-part(dt, dp-name, dp-form, ctx)
         if formatted != "" and dp-text-case != "" {
           formatted = apply-text-case(
@@ -327,6 +335,9 @@
             (text-case: dp-text-case),
             ctx: ctx,
           )
+        }
+        if formatted != "" {
+          formatted = apply-formatting(formatted, format-attrs)
         }
         if formatted != "" {
           // Auto-append year-suffix after the first year part
