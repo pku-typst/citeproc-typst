@@ -102,6 +102,319 @@
 /// Compile condition expression
 /// Instead of regenerating all condition logic, just call the interpreter's eval-condition
 #let compile-condition(attrs) = {
+  // Inline simple variable-only condition checks
+  if "variable" in attrs {
+    let has-other = false
+    for (key, val) in attrs {
+      if key != "variable" and key != "match" { has-other = true }
+    }
+
+    if not has-other {
+      let var-list = escape-string(attrs.variable)
+      let match-mode = escape-string(attrs.at("match", default: "all"))
+      return (
+        "{ let vars = \""
+          + var-list
+          + "\".split(\" \").filter(v => v != \"\")\n"
+          + "  if vars.len() == 0 { false } else if \""
+          + match-mode
+          + "\" == \"any\" {\n"
+          + "    vars.any(v => has-variable(ctx, v))\n"
+          + "  } else if \""
+          + match-mode
+          + "\" == \"none\" {\n"
+          + "    not vars.any(v => has-variable(ctx, v))\n"
+          + "  } else if \""
+          + match-mode
+          + "\" == \"nand\" {\n"
+          + "    not vars.all(v => has-variable(ctx, v))\n"
+          + "  } else {\n"
+          + "    vars.all(v => has-variable(ctx, v))\n"
+          + "  }\n"
+          + "}"
+      )
+    }
+  }
+
+  // Inline simple is-numeric condition checks
+  if "is-numeric" in attrs {
+    let has-other = false
+    for (key, val) in attrs {
+      if key != "is-numeric" and key != "match" { has-other = true }
+    }
+
+    if not has-other {
+      let var-name = escape-string(attrs.at("is-numeric"))
+      return (
+        "{ let val = get-variable(ctx, \""
+          + var-name
+          + "\")\n"
+          + "  if val == \"\" { false } else { val.starts-with(regex(\"\\\\d\")) }\n"
+          + "}"
+      )
+    }
+  }
+
+  // Inline simple locator condition checks
+  if "locator" in attrs {
+    let has-other = false
+    for (key, val) in attrs {
+      if key != "locator" and key != "match" { has-other = true }
+    }
+
+    if not has-other {
+      let locator-types = escape-string(attrs.at("locator"))
+      return (
+        "{ let locator-types = \""
+          + locator-types
+          + "\".split(\" \")\n"
+          + "  let current-label = ctx.at(\"locator-label\", default: \"page\")\n"
+          + "  let has-locator = ctx.fields.at(\"locator\", default: \"\") != \"\"\n"
+          + "  has-locator and locator-types.any(t => t == current-label)\n"
+          + "}"
+      )
+    }
+  }
+
+  // Inline simple disambiguate condition checks
+  if "disambiguate" in attrs {
+    let has-other = false
+    for (key, val) in attrs {
+      if key != "disambiguate" and key != "match" { has-other = true }
+    }
+
+    if not has-other {
+      let disambiguate-value = escape-string(attrs.at("disambiguate"))
+      return (
+        "{ let needs-disambig = ctx.at(\"disambiguate\", default: false)\n"
+          + "  \""
+          + disambiguate-value
+          + "\" == \"true\" and needs-disambig\n"
+          + "}"
+      )
+    }
+  }
+
+  // Inline simple position condition checks
+  if "position" in attrs {
+    let has-other = false
+    for (key, val) in attrs {
+      if key != "position" and key != "match" { has-other = true }
+    }
+
+    if not has-other {
+      let positions = escape-string(attrs.at("position"))
+      return (
+        "{ let positions = \""
+          + positions
+          + "\".split(\" \")\n"
+          + "  let current-pos = ctx.at(\"position\", default: \"first\")\n"
+          + "  let note-distance = if positions.any(p => p == \"near-note\" or p == \"far-note\") {\n"
+          + "    let last-note = ctx.at(\"last-note-number\", default: none)\n"
+          + "    let current-note = ctx.at(\"note-number\", default: none)\n"
+          + "    if last-note != none and current-note != none { current-note - last-note } else { none }\n"
+          + "  } else { none }\n"
+          + "  let near-note-threshold = ctx.style.at(\"near-note-distance\", default: 5)\n"
+          + "  positions.any(p => {\n"
+          + "    if p == current-pos {\n"
+          + "      true\n"
+          + "    } else if p == \"subsequent\" {\n"
+          + "      current-pos in (\"subsequent\", \"ibid\", \"ibid-with-locator\")\n"
+          + "    } else if p == \"near-note\" {\n"
+          + "      note-distance != none and note-distance <= near-note-threshold\n"
+          + "    } else if p == \"far-note\" {\n"
+          + "      note-distance == none or note-distance > near-note-threshold\n"
+          + "    } else {\n"
+          + "      false\n"
+          + "    }\n"
+          + "  })\n"
+          + "}"
+      )
+    }
+  }
+
+  // Inline simple context condition checks
+  if "context" in attrs {
+    let has-other = false
+    for (key, val) in attrs {
+      if key != "context" and key != "match" { has-other = true }
+    }
+
+    if not has-other {
+      let context-value = escape-string(attrs.at("context"))
+      return (
+        "{ let current-context = ctx.at(\"render-context\", default: \"bibliography\")\n"
+          + "  \""
+          + context-value
+          + "\" == current-context\n"
+          + "}"
+      )
+    }
+  }
+
+  // Inline simple genre condition checks
+  if "genre" in attrs {
+    let has-other = false
+    for (key, val) in attrs {
+      if key != "genre" and key != "match" { has-other = true }
+    }
+
+    if not has-other {
+      let genre-list = escape-string(attrs.at("genre"))
+      return (
+        "{ let genre-list = \""
+          + genre-list
+          + "\".split(\" \")\n"
+          + "  let entry-genre = get-variable(ctx, \"genre\")\n"
+          + "  genre-list.any(g => g == entry-genre)\n"
+          + "}"
+      )
+    }
+  }
+
+  // Inline simple is-multiple condition checks
+  if "is-multiple" in attrs {
+    let has-other = false
+    for (key, val) in attrs {
+      if key != "is-multiple" and key != "match" { has-other = true }
+    }
+
+    if not has-other {
+      let var-name = escape-string(attrs.at("is-multiple"))
+      return (
+        "{ let val = get-variable(ctx, \""
+          + var-name
+          + "\")\n"
+          + "  val != \"\" and val.contains(\" \")\n"
+          + "}"
+      )
+    }
+  }
+
+  // Inline simple has-year-only condition checks
+  if "has-year-only" in attrs {
+    let has-other = false
+    for (key, val) in attrs {
+      if key != "has-year-only" and key != "match" { has-other = true }
+    }
+
+    if not has-other {
+      let var-name = escape-string(attrs.at("has-year-only"))
+      return (
+        "{ let date-val = get-variable(ctx, \""
+          + var-name
+          + "\")\n"
+          + "  if date-val == \"\" { false } else {\n"
+          + "    let parts = date-val.split(\"-\")\n"
+          + "    parts.len() == 1 or (parts.len() >= 2 and parts.at(1, default: \"\") == \"\")\n"
+          + "  }\n"
+          + "}"
+      )
+    }
+  }
+
+  // Inline simple has-to-month-or-season condition checks
+  if "has-to-month-or-season" in attrs {
+    let has-other = false
+    for (key, val) in attrs {
+      if key != "has-to-month-or-season" and key != "match" { has-other = true }
+    }
+
+    if not has-other {
+      let var-name = escape-string(attrs.at("has-to-month-or-season"))
+      return (
+        "{ let date-val = get-variable(ctx, \""
+          + var-name
+          + "\")\n"
+          + "  if date-val == \"\" { false } else {\n"
+          + "    let parts = date-val.split(\"-\")\n"
+          + "    parts.len() >= 2 and parts.at(1, default: \"\") != \"\" and (parts.len() < 3 or parts.at(2, default: \"\") == \"\")\n"
+          + "  }\n"
+          + "}"
+      )
+    }
+  }
+
+  // Inline simple has-day condition checks
+  if "has-day" in attrs {
+    let has-other = false
+    for (key, val) in attrs {
+      if key != "has-day" and key != "match" { has-other = true }
+    }
+
+    if not has-other {
+      let var-name = escape-string(attrs.at("has-day"))
+      let match-mode = escape-string(attrs.at("match", default: "all"))
+      return (
+        "{ let date-val = get-variable(ctx, \""
+          + var-name
+          + "\")\n"
+          + "  let has-day-standard = if date-val != \"\" {\n"
+          + "    let iso-match = date-val.match(regex(\"^\\\\d{4}[-/]\\\\d{1,2}[-/]\\\\d{1,2}\"))\n"
+          + "    if iso-match != none { true } else {\n"
+          + "      let text-match = date-val.match(regex(\"[A-Za-z]+\\\\s+\\\\d{1,2},?\\\\s+\\\\d{4}\"))\n"
+          + "      text-match != none\n"
+          + "    }\n"
+          + "  } else { false }\n"
+          + "  let has-day-cslm = if date-val != \"\" {\n"
+          + "    let parts = date-val.split(\"-\")\n"
+          + "    parts.len() >= 3 and parts.at(2, default: \"\") != \"\"\n"
+          + "  } else { false }\n"
+          + "  if \""
+          + match-mode
+          + "\" == \"any\" {\n"
+          + "    has-day-standard or has-day-cslm\n"
+          + "  } else if \""
+          + match-mode
+          + "\" == \"none\" {\n"
+          + "    not (has-day-standard or has-day-cslm)\n"
+          + "  } else if \""
+          + match-mode
+          + "\" == \"nand\" {\n"
+          + "    not (has-day-standard and has-day-cslm)\n"
+          + "  } else {\n"
+          + "    has-day-standard and has-day-cslm\n"
+          + "  }\n"
+          + "}"
+      )
+    }
+  }
+
+  // Inline simple is-uncertain-date condition checks
+  if "is-uncertain-date" in attrs {
+    let has-other = false
+    for (key, val) in attrs {
+      if key != "is-uncertain-date" and key != "match" { has-other = true }
+    }
+
+    if not has-other {
+      let var-name = escape-string(attrs.at("is-uncertain-date"))
+      return (
+        "{ let date-val = get-variable(ctx, \""
+          + var-name
+          + "\")\n"
+          + "  if date-val == \"\" { false } else {\n"
+          + "    let s = lower(str(date-val))\n"
+          + "    s.contains(\"circa\") or s.contains(\"c.\") or s.contains(\"~\") or s.contains(\"?\") or s.contains(\"ca.\") or s.contains(\"approximately\")\n"
+          + "  }\n"
+          + "}"
+      )
+    }
+  }
+
+  // Inline simple type condition checks
+  if "type" in attrs {
+    let has-other = false
+    for (key, val) in attrs {
+      if key != "type" and key != "match" { has-other = true }
+    }
+
+    if not has-other {
+      let type-list = escape-string(attrs.at("type"))
+      return "check-type(ctx, \"" + type-list + "\")"
+    }
+  }
+
   // Serialize attrs dict as Typst code
   let parts = ()
   for (key, val) in attrs {

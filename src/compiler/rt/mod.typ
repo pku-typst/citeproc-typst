@@ -1,6 +1,6 @@
 // citrus - Compiler Runtime Helpers
 
-#import "../../data/conditions.typ": eval-condition
+#import "../../data/conditions.typ": check-type, eval-condition
 
 #import "names.typ": (
   format-names-compiled, format-names-multi-compiled,
@@ -40,6 +40,7 @@
   get-term: get-term-compiled,
   has-variable: has-variable,
   get-variable: get-variable,
+  check-type: check-type,
   eval-condition: eval-condition,
   finalize: finalize,
   is-empty: is-empty,
