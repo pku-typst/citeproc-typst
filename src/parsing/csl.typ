@@ -531,26 +531,37 @@
   let locales = (:)
   let merged-locale = base-locale
 
+  let langless-locales = ()
+  let lang-locales = ()
   for loc-node in inline-locale-nodes {
-    let parsed = parse-locale(loc-node)
     // XML parser converts xml:lang to lang
     let lang = loc-node.attrs.at("lang", default: none)
-
     if lang != none {
-      // Store language-specific locale (merge with built-in for that language)
-      let lang-base = create-fallback-locale(lang)
-      let lang-locale = merge-locales(lang-base, parsed)
-      locales.insert(lang, lang-locale)
-
-      // Only merge into default locale if lang matches default-locale prefix
-      // e.g., "en" matches "en-US", "es" matches "es-ES"
-      let default-prefix = default-locale.split("-").first()
-      let lang-prefix = lang.split("-").first()
-      if lang-prefix == default-prefix {
-        merged-locale = merge-locales(merged-locale, parsed)
-      }
+      lang-locales.push((lang: lang, node: loc-node))
     } else {
-      // Locale without lang applies to all (merge into default)
+      langless-locales.push(loc-node)
+    }
+  }
+
+  for loc-node in langless-locales {
+    let parsed = parse-locale(loc-node)
+    // Locale without lang applies to all (merge into default)
+    merged-locale = merge-locales(merged-locale, parsed)
+  }
+
+  for lang-entry in lang-locales {
+    let lang = lang-entry.lang
+    let parsed = parse-locale(lang-entry.node)
+    // Store language-specific locale (merge with built-in for that language)
+    let lang-base = create-fallback-locale(lang)
+    let lang-locale = merge-locales(lang-base, parsed)
+    locales.insert(lang, lang-locale)
+
+    // Only merge into default locale if lang matches default-locale prefix
+    // e.g., "en" matches "en-US", "es" matches "es-ES"
+    let default-prefix = default-locale.split("-").first()
+    let lang-prefix = lang.split("-").first()
+    if lang-prefix == default-prefix {
       merged-locale = merge-locales(merged-locale, parsed)
     }
   }

@@ -171,6 +171,18 @@
   // Handles: " (right double quote)
   // Note: We handle this conditionally by wrapping in another layer
   if punctuation-in-quote {
+    // If a question/exclamation mark is already inside the quote,
+    // drop a trailing period after the closing quote.
+    show regex("[?？][\u{201D}\"]\\."): it => it
+      .text
+      .clusters()
+      .slice(0, 2)
+      .join()
+    show regex("[!！][\u{201D}\"]\\."): it => it
+      .text
+      .clusters()
+      .slice(0, 2)
+      .join()
     // Right double quote + period/comma → swap them
     // Collapse duplicate period/comma before swapping
     show regex("[.。][\u{201D}\"][.。]"): it => it

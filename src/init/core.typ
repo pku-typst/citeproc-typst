@@ -13,6 +13,7 @@
 /// This is useful for HTML export which has convergence issues with footnotes
 #let _use-footnote = sys.inputs.at("use-footnote", default: "true") == "true"
 #import "../parsing/mod.typ": parse-csl, parse-locale-file
+#import "../data/disambiguation.typ": annotate-disambiguate-steps
 #import "../output/mod.typ": (
   collapse-punctuation, get-punctuation-in-quote, get-rendered-entries,
   process-entries, render-citation,
@@ -67,6 +68,7 @@
 
   let xml-tree = xml(bytes(csl-content))
   let style = parse-csl(xml-tree, external-locales: parsed-locales)
+  style = annotate-disambiguate-steps(style)
 
   // Compile style for faster rendering (check sys.inputs for override)
   let use-compiler = sys.inputs.at("compiler", default: "true") == "true"

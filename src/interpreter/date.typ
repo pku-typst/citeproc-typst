@@ -32,6 +32,8 @@
   if has-explicit { return false }
 
   // Check if we've already appended year-suffix in this render pass
+  let done-vars = ctx.at("done-vars", default: ())
+  if "__year-suffix-done" in done-vars { return false }
   let already-done = ctx.at("year-suffix-done", default: false)
   if already-done { return false }
 

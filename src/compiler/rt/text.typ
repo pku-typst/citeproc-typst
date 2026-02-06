@@ -213,7 +213,12 @@
 
     // Handle quotes (CSL quote flipflopping)
     let quote-level = ctx.at("quote-level", default: 0)
-    let has-quotes = attrs.at("quotes", default: "false") == "true"
+    let quotes-attr = attrs.at("quotes", default: "false")
+    let has-quotes = if type(quotes-attr) == bool {
+      quotes-attr
+    } else {
+      quotes-attr == "true"
+    }
 
     // Normalize embedded quotes in content (only if ctx.style is available)
     let normalized = if type(cased) == str and "style" in ctx {
@@ -244,7 +249,12 @@
   if is-empty(content) { return ([], false) }
 
   let quote-level = ctx.at("quote-level", default: 0)
-  let has-quotes = attrs.at("quotes", default: "false") == "true"
+  let quotes-attr = attrs.at("quotes", default: "false")
+  let has-quotes = if type(quotes-attr) == bool {
+    quotes-attr
+  } else {
+    quotes-attr == "true"
+  }
 
   let suffix = attrs.at("suffix", default: "")
   let punctuation-in-quote = if "style" in ctx {
@@ -257,7 +267,7 @@
     has-quotes
       and punctuation-in-quote
       and suffix.len() > 0
-      and suffix.first() in ("!", "?")
+      and suffix.first() in (".", ",", "!", "?")
   ) {
     suffix.first()
   } else { "" }
@@ -284,7 +294,11 @@
       apply-quotes(normalized, ctx, level: quote-level)
     } else { normalized }
   } else {
-    content
+    if has-quotes {
+      apply-quotes(content, ctx, level: quote-level)
+    } else {
+      content
+    }
   }
 
   let ends = if type(processed) == str { processed.ends-with(".") } else {

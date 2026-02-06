@@ -39,6 +39,7 @@
   "per",
   "till",
   "to",
+  "under",
   "up",
   "via",
   "with",
@@ -46,7 +47,6 @@
   "von",
   "van",
   "de",
-  "du",
   "la",
   "le",
   "der",
@@ -340,6 +340,13 @@
       // Non-English: don't apply title case
       return content
     }
+    if entry-lang == "" {
+      let style-locale = ctx.style.at("default-locale", default: "en-US")
+      if not style-locale.starts-with("en") {
+        // Non-English default locale: don't apply title case
+        return content
+      }
+    }
   }
 
   let result = content
@@ -440,7 +447,7 @@
   // CSL-M display attribute: "block" creates a new line
   let display = attrs.at("display", default: none)
   if display == "block" {
-    result = [#linebreak()#result]
+    result = [#linebreak()#result#linebreak()]
   } else if display == "indent" {
     result = [#h(2em)#result]
   } else if display == "left-margin" {

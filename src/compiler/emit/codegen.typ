@@ -85,7 +85,14 @@
 
   for child in children {
     code += indent + "{\n"
-    code += indent + "  let child-ctx = (..ctx, done-vars: " + done-name + ")\n"
+    code += (
+      indent
+        + "  let child-ctx = (..ctx, done-vars: "
+        + done-name
+        + ", year-suffix-done: \"__year-suffix-done\" in "
+        + done-name
+        + ")\n"
+    )
     code += indent + "  let (content, state, child-done, child-ends) = {\n"
     code += indent + "    let ctx = child-ctx\n"
     code += compile-fn(child, macros, depth: depth + 3) + "\n"
@@ -217,11 +224,23 @@
 
     if not has-other {
       let disambiguate-value = escape-string(attrs.at("disambiguate"))
+      let step = attrs.at("_disambiguate-step", default: "1")
+      let step-str = escape-string(step)
       return (
         "{ let needs-disambig = ctx.at(\"disambiguate\", default: false)\n"
-          + "  \""
+          + "  let step = \""
+          + step-str
+          + "\"\n"
+          + "  if type(needs-disambig) == int {\n"
+          + "    if type(step) == str { step = int(step) }\n"
+          + "    \""
+          + disambiguate-value
+          + "\" == \"true\" and step <= needs-disambig\n"
+          + "  } else {\n"
+          + "    \""
           + disambiguate-value
           + "\" == \"true\" and needs-disambig\n"
+          + "  }\n"
           + "}"
       )
     }
@@ -467,52 +486,80 @@
   raw: false,
   prefix: "",
   suffix: "",
+  use-cache: true,
+  shift-quote-level: false,
 ) = {
   let macro-key = escape-string(macro-name)
-  let cache-setup = (
-    indent
-      + "  let macro-cache = if \"compiled-macro-cache\" in ctx {\n"
-      + indent
-      + "    ctx.compiled-macro-cache\n"
-      + indent
-      + "  } else {\n"
-      + indent
-      + "    (:)\n"
-      + indent
-      + "  }\n"
-  )
-  let cache-fetch = (
-    indent
-      + "  let result = if \""
-      + macro-key
-      + "\" in macro-cache {\n"
-      + indent
-      + "    macro-cache.at(\""
-      + macro-key
-      + "\")\n"
-      + indent
-      + "  } else {\n"
-      + indent
-      + "    let computed = ctx.compiled-macros.at(\""
-      + macro-key
-      + "\")(ctx)\n"
-      + indent
-      + "    macro-cache.insert(\""
-      + macro-key
-      + "\", computed)\n"
-      + indent
-      + "    computed\n"
-      + indent
-      + "  }\n"
-  )
 
   let code = indent + "{\n"
-  code += cache-setup
-  code += cache-fetch
-  code += indent + "  let content = result.at(0)\n"
-  code += indent + "  let state = result.at(1, default: \"none\")\n"
-  code += indent + "  let done = result.at(2, default: ())\n"
-  code += indent + "  let ends = result.at(3, default: false)\n"
+  if use-cache {
+    let cache-setup = (
+      indent
+        + "  let macro-cache = if \"compiled-macro-cache\" in ctx {\n"
+        + indent
+        + "    ctx.compiled-macro-cache\n"
+        + indent
+        + "  } else {\n"
+        + indent
+        + "    (:)\n"
+        + indent
+        + "  }\n"
+    )
+    let cache-fetch = (
+      indent
+        + "  let result = if \""
+        + macro-key
+        + "\" in macro-cache {\n"
+        + indent
+        + "    macro-cache.at(\""
+        + macro-key
+        + "\")\n"
+        + indent
+        + "  } else {\n"
+        + indent
+        + "    let computed = ctx.compiled-macros.at(\""
+        + macro-key
+        + "\")(ctx)\n"
+        + indent
+        + "    macro-cache.insert(\""
+        + macro-key
+        + "\", computed)\n"
+        + indent
+        + "    computed\n"
+        + indent
+        + "  }\n"
+    )
+    code += cache-setup
+    code += cache-fetch
+    code += indent + "  let content = result.at(0)\n"
+    code += indent + "  let state = result.at(1, default: \"none\")\n"
+    code += indent + "  let done = result.at(2, default: ())\n"
+    code += indent + "  let ends = result.at(3, default: false)\n"
+  } else {
+    if shift-quote-level {
+      code += (
+        indent
+          + "  let macro-ctx = (..ctx, quote-level: ctx.at(\"quote-level\", default: 0) + 1)\n"
+      )
+      code += (
+        indent
+          + "  let result = ctx.compiled-macros.at(\""
+          + macro-key
+          + "\")(macro-ctx)\n"
+      )
+    } else {
+      code += (
+        indent
+          + "  let result = ctx.compiled-macros.at(\""
+          + macro-key
+          + "\")(ctx)\n"
+      )
+    }
+    code += indent + "  let content = result.at(0)\n"
+    code += indent + "  let state = result.at(1, default: \"none\")\n"
+    code += indent + "  let done = result.at(2, default: ())\n"
+    code += indent + "  let ends = result.at(3, default: false)\n"
+  }
   if raw {
     code += (
       indent + "  if content != [] and content != none and content != \"\" {\n"
@@ -623,8 +670,21 @@
       // Literal value - handle quotes/text-case via helper
       let attrs-str = serialize-dict(attrs)
       let plan = build-text-var-plan(attrs)
+      let value = attrs.at("value", default: "")
+      let has-quote-chars = (
+        type(value) == str
+          and (
+            value.contains("\"")
+              or value.contains("'")
+              or value.contains("\u{2018}")
+              or value.contains("\u{2019}")
+              or value.contains("\u{201C}")
+              or value.contains("\u{201D}")
+          )
+      )
       if (
-        not plan.has-quotes
+        not has-quote-chars
+          and not plan.has-quotes
           and not plan.has-text-case
           and not plan.has-affixes
           and not plan.has-strip-periods
@@ -690,6 +750,8 @@
         raw: raw,
         prefix: prefix,
         suffix: suffix,
+        use-cache: not has-quotes,
+        shift-quote-level: has-quotes,
       )
     } else {
       return indent + "([], \"none\", (), false)"

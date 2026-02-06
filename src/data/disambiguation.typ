@@ -11,6 +11,7 @@
 // Two citations are ambiguous if they render identically.
 
 #import "../core/state.typ": get-entry-year, get-first-author-family
+#import "variables.typ": get-variable
 
 // Module-level regex pattern
 #let _whitespace-pattern = regex("\\s+")
@@ -91,6 +92,206 @@
   layouts.any(l => _node-uses-date(l, macros))
 }
 
+#let _collect-date-vars(node, macros) = {
+  if type(node) != dictionary { return () }
+  let vars = ()
+  let tag = node.at("tag", default: "")
+
+  if tag == "date" {
+    let attrs = node.at("attrs", default: (:))
+    let variable = attrs.at("variable", default: "issued")
+    vars.push(variable)
+  }
+
+  if tag == "text" {
+    let attrs = node.at("attrs", default: (:))
+    let macro-name = attrs.at("macro", default: none)
+    if macro-name != none {
+      let macro-def = macros.at(macro-name, default: none)
+      if macro-def != none {
+        for child in macro-def.at("children", default: ()) {
+          vars = vars + _collect-date-vars(child, macros)
+        }
+      }
+    }
+  }
+
+  for child in node.at("children", default: ()) {
+    vars = vars + _collect-date-vars(child, macros)
+  }
+
+  vars
+}
+
+#let _collect-name-vars(node, macros) = {
+  if type(node) != dictionary { return () }
+  let vars = ()
+  let tag = node.at("tag", default: "")
+
+  if tag == "names" {
+    let attrs = node.at("attrs", default: (:))
+    let variable = attrs.at("variable", default: none)
+    if variable != none { vars.push(variable) }
+  }
+
+  if tag == "text" {
+    let attrs = node.at("attrs", default: (:))
+    let macro-name = attrs.at("macro", default: none)
+    if macro-name != none {
+      let macro-def = macros.at(macro-name, default: none)
+      if macro-def != none {
+        for child in macro-def.at("children", default: ()) {
+          vars = vars + _collect-name-vars(child, macros)
+        }
+      }
+    }
+  }
+
+  for child in node.at("children", default: ()) {
+    vars = vars + _collect-name-vars(child, macros)
+  }
+
+  vars
+}
+
+#let _collect-disambiguate-vars(node, macros) = {
+  if type(node) != dictionary { return () }
+  let vars = ()
+  let tag = node.at("tag", default: "")
+
+  if tag == "text" {
+    let attrs = node.at("attrs", default: (:))
+    let variable = attrs.at("variable", default: none)
+    if variable != none { vars.push(variable) }
+    let macro-name = attrs.at("macro", default: none)
+    if macro-name != none {
+      let macro-def = macros.at(macro-name, default: none)
+      if macro-def != none {
+        for child in macro-def.at("children", default: ()) {
+          vars = vars + _collect-disambiguate-vars(child, macros)
+        }
+      }
+    }
+  }
+
+  if tag == "number" or tag == "label" {
+    let attrs = node.at("attrs", default: (:))
+    let variable = attrs.at("variable", default: none)
+    if variable != none { vars.push(variable) }
+  }
+
+  for child in node.at("children", default: ()) {
+    vars = vars + _collect-disambiguate-vars(child, macros)
+  }
+
+  vars
+}
+
+#let _collect-disambiguate-step-vars-from-node(node, macros) = {
+  if type(node) != dictionary { return () }
+  let steps = ()
+  let tag = node.at("tag", default: "")
+  let attrs = node.at("attrs", default: (:))
+  let children = node.at("children", default: ())
+
+  if (tag == "if" or tag == "else-if") and "disambiguate" in attrs {
+    steps.push(_collect-disambiguate-vars(node, macros).dedup())
+  }
+
+  for child in children {
+    steps = steps + _collect-disambiguate-step-vars-from-node(child, macros)
+  }
+
+  steps
+}
+
+#let _collect-disambiguate-step-vars(style) = {
+  let citation = style.at("citation", default: none)
+  if citation == none { return () }
+  let layouts = citation.at("layouts", default: ())
+  let macros = style.at("macros", default: (:))
+  let steps = ()
+
+  for layout in layouts {
+    steps = steps + _collect-disambiguate-step-vars-from-node(layout, macros)
+  }
+
+  steps
+}
+
+#let _annotate-disambiguate-node(node, step) = {
+  if type(node) != dictionary { return (node, step) }
+  let tag = node.at("tag", default: "")
+  let attrs = node.at("attrs", default: (:))
+  let children = node.at("children", default: ())
+  let current-step = step
+
+  if (tag == "if" or tag == "else-if") and "disambiguate" in attrs {
+    current-step = current-step + 1
+    attrs = (..attrs, "_disambiguate-step": str(current-step))
+  }
+
+  let new-children = ()
+  for child in children {
+    let (updated, next-step) = _annotate-disambiguate-node(child, current-step)
+    current-step = next-step
+    new-children.push(updated)
+  }
+
+  ((..node, attrs: attrs, children: new-children), current-step)
+}
+
+#let annotate-disambiguate-steps(style) = {
+  let citation = style.at("citation", default: none)
+  if citation == none { return style }
+  let layouts = citation.at("layouts", default: ())
+  let updated-layouts = ()
+  let step = 0
+  for layout in layouts {
+    let (updated, next-step) = _annotate-disambiguate-node(layout, step)
+    step = next-step
+    updated-layouts.push(updated)
+  }
+  let new-citation = (..citation, layouts: updated-layouts)
+  (..style, citation: new-citation)
+}
+
+#let _get-disambiguate-value(entry, var, style) = {
+  let ctx = (
+    fields: entry.at("fields", default: (:)),
+    entry-type: entry.at("type", default: ""),
+    style: style,
+    names: entry.at("parsed_names", default: (:)),
+  )
+  let value = get-variable(ctx, var)
+  if value == none { "" } else { str(value) }
+}
+
+#let _citation-name-vars(style) = {
+  let citation = style.at("citation", default: none)
+  if citation == none { return () }
+  let layouts = citation.at("layouts", default: ())
+  let macros = style.at("macros", default: (:))
+  let vars = ()
+  for layout in layouts {
+    vars = vars + _collect-name-vars(layout, macros)
+  }
+  vars.dedup()
+}
+
+#let _citation-date-vars(style) = {
+  let citation = style.at("citation", default: none)
+  if citation == none { return () }
+  let layouts = citation.at("layouts", default: ())
+  let macros = style.at("macros", default: (:))
+  let vars = ()
+  for layout in layouts {
+    vars = vars + _collect-date-vars(layout, macros)
+  }
+  let allowed = ("issued", "original-date", "event-date")
+  vars.filter(v => v in allowed).dedup()
+}
+
 #let _find-first-names-node(node, macros) = {
   if type(node) != dictionary { return none }
   let tag = node.at("tag", default: "")
@@ -146,6 +347,62 @@
     return false
   }
   false
+}
+
+#let _citation-name-base-level(style) = {
+  let citation = style.at("citation", default: none)
+  if citation == none { return 0 }
+  let layouts = citation.at("layouts", default: ())
+  let macros = style.at("macros", default: (:))
+
+  for layout in layouts {
+    let names-node = _find-first-names-node(layout, macros)
+    if names-node == none { continue }
+    let names-attrs = names-node.at("attrs", default: (:))
+    let name-form = names-attrs.at("form", default: none)
+    let init = names-attrs.at("initialize", default: none)
+    let init-with = names-attrs.at("initialize-with", default: none)
+
+    for child in names-node.at("children", default: ()) {
+      if type(child) == dictionary and child.at("tag", default: "") == "name" {
+        let child-attrs = child.at("attrs", default: (:))
+        name-form = child-attrs.at("form", default: name-form)
+        init = child-attrs.at("initialize", default: init)
+        init-with = child-attrs.at("initialize-with", default: init-with)
+        break
+      }
+    }
+
+    if name-form == "short" { return 0 }
+    if init == "false" { return 2 }
+    if init-with != none { return 1 }
+    return 2
+  }
+
+  0
+}
+
+#let _date-year-from-field(value) = {
+  if value == none { return "" }
+  let s = str(value)
+  if s == "" { return "" }
+  let parts = s.split("-")
+  if parts.len() > 0 { parts.first() } else { s }
+}
+
+#let _get-entry-date-year(entry, variable) = {
+  let fields = entry.at("fields", default: (:))
+  if variable == "issued" {
+    get-entry-year(entry)
+  } else if variable == "original-date" {
+    _date-year-from-field(fields.at("origdate", default: ""))
+  } else if variable == "event-date" {
+    _date-year-from-field(fields.at("eventdate", default: ""))
+  } else if variable == "accessed" {
+    _date-year-from-field(fields.at("urldate", default: ""))
+  } else {
+    _date-year-from-field(fields.at(variable, default: ""))
+  }
 }
 
 #let _build-citation-label(entry) = {
@@ -285,11 +542,15 @@
 ///
 /// - entry: Entry from citegeist
 /// Returns: Array of name dicts with (family, given, literal)
-#let get-all-authors(entry) = {
+#let _get-entry-names(entry, variable) = {
   // Note: field name is parsed_names (underscore) from citegeist
   // CSL-JSON entries store authors directly in parsed_names, not in fields
   let parsed = entry.at("parsed_names", default: (:))
-  parsed.at("author", default: ())
+  parsed.at(variable, default: ())
+}
+
+#let get-all-authors(entry) = {
+  _get-entry-names(entry, "author")
 }
 
 /// Get initials from a given name
@@ -298,7 +559,7 @@
 /// Returns: Initials string (e.g., "J. M.")
 #let get-initials(given) = {
   if given == none or given == "" { return "" }
-  let parts = given.split(_whitespace-pattern)
+  let parts = given.split(regex("[\\s\\.]+"))
   parts
     .filter(p => p.len() > 0)
     .map(p => {
@@ -383,6 +644,10 @@
     }
   }
 
+  if use-et-al and show-count < names.len() {
+    parts.push("et-al")
+  }
+
   lower(parts.join("; "))
 }
 
@@ -413,6 +678,21 @@
 
   let et-al-min = citation.at("et-al-min", default: none)
   let et-al-use-first = citation.at("et-al-use-first", default: none)
+  let et-al-sub-min = citation.at("et-al-subsequent-min", default: none)
+  let et-al-sub-use-first = citation.at(
+    "et-al-subsequent-use-first",
+    default: none,
+  )
+  let et-al-sub-min = citation.at("et-al-subsequent-min", default: none)
+  let et-al-sub-use-first = citation.at(
+    "et-al-subsequent-use-first",
+    default: none,
+  )
+  let et-al-sub-min = citation.at("et-al-subsequent-min", default: none)
+  let et-al-sub-use-first = citation.at(
+    "et-al-subsequent-use-first",
+    default: none,
+  )
   // Handle none values (when not specified in citation element)
   if et-al-min == none { et-al-min = 4 }
   if et-al-use-first == none { et-al-use-first = 1 }
@@ -420,6 +700,41 @@
   // Convert to integers if needed
   if type(et-al-min) == str { et-al-min = int(et-al-min) }
   if type(et-al-use-first) == str { et-al-use-first = int(et-al-use-first) }
+  if type(et-al-sub-min) == str { et-al-sub-min = int(et-al-sub-min) }
+  if type(et-al-sub-use-first) == str {
+    et-al-sub-use-first = int(et-al-sub-use-first)
+  }
+
+  if et-al-sub-min != none {
+    et-al-min = calc.min(et-al-min, et-al-sub-min)
+  }
+  if et-al-sub-use-first != none {
+    et-al-use-first = calc.min(et-al-use-first, et-al-sub-use-first)
+  }
+  if type(et-al-sub-min) == str { et-al-sub-min = int(et-al-sub-min) }
+  if type(et-al-sub-use-first) == str {
+    et-al-sub-use-first = int(et-al-sub-use-first)
+  }
+
+  // Use the most collapsed et-al settings for disambiguation keys
+  if et-al-sub-min != none {
+    et-al-min = calc.min(et-al-min, et-al-sub-min)
+  }
+  if et-al-sub-use-first != none {
+    et-al-use-first = calc.min(et-al-use-first, et-al-sub-use-first)
+  }
+  if type(et-al-sub-min) == str { et-al-sub-min = int(et-al-sub-min) }
+  if type(et-al-sub-use-first) == str {
+    et-al-sub-use-first = int(et-al-sub-use-first)
+  }
+
+  // Use the most collapsed et-al settings for disambiguation keys
+  if et-al-sub-min != none {
+    et-al-min = calc.min(et-al-min, et-al-sub-min)
+  }
+  if et-al-sub-use-first != none {
+    et-al-use-first = calc.min(et-al-use-first, et-al-sub-use-first)
+  }
 
   // Determine max givenname level based on rule
   // Level 0 = none, 1 = initials, 2 = full given name
@@ -834,7 +1149,7 @@
 /// - state: Current disambiguation state for this entry
 /// - style: Parsed CSL style
 /// Returns: String key for comparison
-#let build-citation-key(entry, state, style, include-year: true) = {
+#let build-citation-key(entry, state, style, date-vars: (), name-vars: ()) = {
   let citation = style.at("citation", default: none)
   if citation == none { return "" }
 
@@ -850,26 +1165,55 @@
   if type(et-al-min) == str { et-al-min = int(et-al-min) }
   if type(et-al-use-first) == str { et-al-use-first = int(et-al-use-first) }
 
-  // Get authors
-  let authors = get-all-authors(entry)
-  if authors.len() == 0 { return "?" }
+  // Get names used in citation (author/editor/etc.)
+  let authors = if name-vars.len() > 0 {
+    let selected = ()
+    for var in name-vars {
+      let names = _get-entry-names(entry, var)
+      if names.len() > 0 {
+        selected = names
+        break
+      }
+    }
+    selected
+  } else { () }
+
+  let base-givenname-level = _citation-name-base-level(style)
 
   // Apply names-expanded to et-al-use-first
   let effective-use-first = et-al-use-first + state.names-expanded
 
   // Build author key with current disambiguation state
-  let author-key = build-author-key(
-    authors,
-    effective-use-first,
-    et-al-min: et-al-min,
-    expand-names: 0, // Already included in effective-use-first
-    givenname-level: state.givenname-level,
-    givenname-levels: state.givenname-levels,
-  )
+  let author-key = if authors.len() > 0 {
+    let effective-givenname-level = if (
+      state.givenname-level == 0
+        and (
+          state.givenname-levels == none or state.givenname-levels.len() == 0
+        )
+    ) {
+      base-givenname-level
+    } else {
+      state.givenname-level
+    }
+    build-author-key(
+      authors,
+      effective-use-first,
+      et-al-min: et-al-min,
+      expand-names: 0, // Already included in effective-use-first
+      givenname-level: effective-givenname-level,
+      givenname-levels: state.givenname-levels,
+    )
+  } else { "" }
 
-  if include-year {
-    let year = get-entry-year(entry)
-    author-key + "|" + str(year)
+  let date-key = if date-vars.len() > 0 {
+    date-vars.map(v => _get-entry-date-year(entry, v)).join("|")
+  } else {
+    ""
+  }
+  if date-key != "" and author-key != "" {
+    author-key + "|" + date-key
+  } else if date-key != "" {
+    date-key
   } else {
     author-key
   }
@@ -881,7 +1225,13 @@
 /// - states: Dictionary of key -> disambiguation state
 /// - style: Parsed CSL style
 /// Returns: Dictionary of citation_key -> [entry_key, ...]
-#let group-by-citation-key(entries, states, style, include-year: true) = {
+#let group-by-citation-key(
+  entries,
+  states,
+  style,
+  date-vars: (),
+  name-vars: (),
+) = {
   let groups = (:)
 
   for e in entries {
@@ -890,7 +1240,8 @@
       e.entry,
       state,
       style,
-      include-year: include-year,
+      date-vars: date-vars,
+      name-vars: name-vars,
     )
 
     if citation-key not in groups {
@@ -1001,8 +1352,10 @@
 
   let max-show = if allow-full {
     authors.len()
+  } else if et-al-min != none {
+    calc.min(authors.len(), et-al-min)
   } else {
-    calc.min(authors.len(), et-al-min - 1)
+    authors.len()
   }
   let next-show = et-al-use-first + state.names-expanded + 1
   if next-show <= max-show {
@@ -1119,7 +1472,8 @@
   // Initialize disambiguation state for each entry
   let states = (:)
   let entry-map = (:) // key -> entry for quick lookup
-  let include-year = _citation-uses-date(style)
+  let date-vars = _citation-date-vars(style)
+  let name-vars = _citation-name-vars(style)
 
   for e in entries {
     states.insert(e.key, (
@@ -1301,7 +1655,8 @@
     entries,
     states,
     style,
-    include-year: include-year,
+    date-vars: date-vars,
+    name-vars: name-vars,
   )
   let ambiguous = get-ambiguous-groups(groups)
 
@@ -1395,7 +1750,8 @@
         entries,
         states,
         style,
-        include-year: include-year,
+        date-vars: date-vars,
+        name-vars: name-vars,
       )
       ambiguous = get-ambiguous-groups(new-groups)
 
@@ -1477,7 +1833,7 @@
             entry-map,
             et-al-use-first,
             et-al-min,
-            allow-full: true,
+            allow-full: false,
           )
           if result.can-expand {
             any-expanded = true
@@ -1495,7 +1851,8 @@
         entries,
         states,
         style,
-        include-year: include-year,
+        date-vars: date-vars,
+        name-vars: name-vars,
       )
       ambiguous = get-ambiguous-groups(new-groups)
 
@@ -1585,7 +1942,8 @@
             entries,
             states,
             style,
-            include-year: include-year,
+            date-vars: date-vars,
+            name-vars: name-vars,
           )
           ambiguous = get-ambiguous-groups(newer-groups)
           if ambiguous.len() == 0 or not changed { break }
@@ -1654,7 +2012,8 @@
         entries,
         states,
         style,
-        include-year: include-year,
+        date-vars: date-vars,
+        name-vars: name-vars,
       )
       let final-ambiguous = get-ambiguous-groups(final-groups)
 
@@ -1673,7 +2032,8 @@
         entries,
         initial-states,
         style,
-        include-year: include-year,
+        date-vars: date-vars,
+        name-vars: name-vars,
       )
 
       // For each still-ambiguous group, check if expansion actually helped
@@ -1718,7 +2078,8 @@
         entries,
         states,
         style,
-        include-year: include-year,
+        date-vars: date-vars,
+        name-vars: name-vars,
       ))
     }
   }
@@ -1810,7 +2171,8 @@
         entries,
         states,
         style,
-        include-year: include-year,
+        date-vars: date-vars,
+        name-vars: name-vars,
       )
       ambiguous = get-ambiguous-groups(new-groups)
       if ambiguous.len() == 0 or not changed { break }
@@ -1822,24 +2184,165 @@
   // ==========================================================================
   // Mark remaining ambiguous entries for the disambiguate condition
   if ambiguous.len() > 0 {
-    let ambiguous-keys = ambiguous.map(((k, v)) => v).flatten()
-    for key in ambiguous-keys {
-      let state = states.at(key)
-      states.insert(key, (
-        ..state,
-        needs-disambiguate: true,
-      ))
+    let step-vars = _collect-disambiguate-step-vars(style)
+    if step-vars.len() == 0 {
+      let ambiguous-keys = ambiguous.map(((k, v)) => v).flatten()
+      for key in ambiguous-keys {
+        let state = states.at(key)
+        states.insert(key, (
+          ..state,
+          needs-disambiguate: true,
+        ))
+      }
+    } else {
+      // Build base citation keys (without disambiguate extras)
+      let base-keys = (:)
+      for e in entries {
+        let state = states.at(e.key)
+        base-keys.insert(e.key, build-citation-key(
+          e.entry,
+          state,
+          style,
+          date-vars: date-vars,
+          name-vars: name-vars,
+        ))
+      }
+
+      let remaining = ambiguous
+      let levels = (:)
+      let accumulated = ()
+
+      for (idx, vars) in step-vars.enumerate() {
+        accumulated = (accumulated + vars).dedup()
+        let groups = (:)
+        for e in entries {
+          let base = base-keys.at(e.key, default: "")
+          let extra = accumulated
+            .map(v => _get-disambiguate-value(e.entry, v, style))
+            .join("|")
+          let key = if extra != "" { base + "|" + extra } else { base }
+          if key not in groups { groups.insert(key, ()) }
+          groups.at(key).push(e.key)
+        }
+
+        let new-ambiguous = get-ambiguous-groups(groups)
+        let new-ambig-keys = new-ambiguous.map(((k, v)) => v).flatten()
+        let remaining-keys = remaining.map(((k, v)) => v).flatten()
+        for key in remaining-keys {
+          if key not in new-ambig-keys and levels.at(key, default: 0) == 0 {
+            levels.insert(key, idx + 1)
+          }
+        }
+        remaining = new-ambiguous
+        if remaining.len() == 0 { break }
+      }
+
+      // Anything still ambiguous gets the max level
+      let remaining-keys = remaining.map(((k, v)) => v).flatten()
+      for key in remaining-keys {
+        if levels.at(key, default: 0) == 0 {
+          levels.insert(key, step-vars.len())
+        }
+      }
+
+      for (key, level) in levels.pairs() {
+        let state = states.at(key)
+        states.insert(key, (
+          ..state,
+          needs-disambiguate: level,
+        ))
+      }
     }
-    // Note: We don't re-group here because we can't easily simulate
-    // what the disambiguate condition would render. This is left to
-    // the style author's judgment.
   }
 
   // ==========================================================================
   // Method 4: disambiguate-add-year-suffix
   // ==========================================================================
-  if add-year-suffix and ambiguous.len() > 0 {
-    states = _assign-year-suffixes(ambiguous, entries, states)
+  if add-year-suffix {
+    if ambiguous.len() > 0 {
+      states = _assign-year-suffixes(ambiguous, entries, states)
+    } else {
+      let citation = style.at("citation", default: none)
+      if citation != none {
+        let et-al-sub-min = citation.at("et-al-subsequent-min", default: none)
+        let et-al-sub-use-first = citation.at(
+          "et-al-subsequent-use-first",
+          default: none,
+        )
+        if et-al-sub-min != none or et-al-sub-use-first != none {
+          if et-al-sub-min == none {
+            et-al-sub-min = citation.at("et-al-min", default: none)
+          }
+          if et-al-sub-use-first == none {
+            et-al-sub-use-first = citation.at("et-al-use-first", default: none)
+          }
+          if type(et-al-sub-min) == str { et-al-sub-min = int(et-al-sub-min) }
+          if type(et-al-sub-use-first) == str {
+            et-al-sub-use-first = int(et-al-sub-use-first)
+          }
+
+          let base-givenname-level = _citation-name-base-level(style)
+          let alt-groups = (:)
+          for e in entries {
+            let state = states.at(e.key)
+            let authors = if name-vars.len() > 0 {
+              let selected = ()
+              for var in name-vars {
+                let names = _get-entry-names(e.entry, var)
+                if names.len() > 0 {
+                  selected = names
+                  break
+                }
+              }
+              selected
+            } else { () }
+
+            let effective-use-first = et-al-sub-use-first + state.names-expanded
+            let effective-givenname-level = if (
+              state.givenname-level == 0
+                and (
+                  state.givenname-levels == none
+                    or state.givenname-levels.len() == 0
+                )
+            ) {
+              base-givenname-level
+            } else {
+              state.givenname-level
+            }
+
+            let author-key = if authors.len() > 0 {
+              build-author-key(
+                authors,
+                effective-use-first,
+                et-al-min: et-al-sub-min,
+                expand-names: 0,
+                givenname-level: effective-givenname-level,
+                givenname-levels: state.givenname-levels,
+              )
+            } else { "" }
+
+            let date-key = if date-vars.len() > 0 {
+              date-vars.map(v => _get-entry-date-year(e.entry, v)).join("|")
+            } else { "" }
+            let key = if date-key != "" and author-key != "" {
+              author-key + "|" + date-key
+            } else if date-key != "" {
+              date-key
+            } else {
+              author-key
+            }
+
+            if key not in alt-groups { alt-groups.insert(key, ()) }
+            alt-groups.at(key).push(e.key)
+          }
+
+          let alt-ambiguous = get-ambiguous-groups(alt-groups)
+          if alt-ambiguous.len() > 0 {
+            states = _assign-year-suffixes(alt-ambiguous, entries, states)
+          }
+        }
+      }
+    }
   }
 
   if add-givenname and primary-only {

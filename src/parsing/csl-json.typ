@@ -599,13 +599,29 @@
             if is-institution and literal == "" {
               literal = family
             }
+            let suffix = n.at("suffix", default: "")
+            let comma-suffix = n.at("comma-suffix", default: false)
+            if suffix == "" and given.contains(",") {
+              let parts = given
+                .split(",")
+                .map(p => p.trim())
+                .filter(p => p != "")
+              if parts.len() > 1 {
+                given = parts.first()
+                suffix = parts.slice(1).join(", ")
+                if suffix.starts-with("!") {
+                  comma-suffix = true
+                  suffix = suffix.slice(1).trim()
+                }
+              }
+            }
             (
               family: family,
               given: given,
-              suffix: n.at("suffix", default: ""),
+              suffix: suffix,
               prefix: prefix,
               dropping-prefix: dropping-prefix,
-              comma-suffix: n.at("comma-suffix", default: false),
+              comma-suffix: comma-suffix,
               literal: literal,
               is-institution: is-institution,
             )

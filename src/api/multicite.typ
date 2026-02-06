@@ -243,10 +243,11 @@
         has-year-suffix,
       )
       // cite-group-delimiter defaults to ", " except for year-suffix modes
-      // If year-suffix delimiter is not set, CSL tests expect layout delimiter
-      // between year groups unless cite-group-delimiter is explicitly provided.
+      // Note styles with year collapse use layout delimiter for year groups.
       let cite-group-delim = if raw-cite-group-delim != none {
         raw-cite-group-delim
+      } else if is-note-style and effective-collapse-mode == COLLAPSE.year {
+        layout.at("delimiter", default: "; ")
       } else if (
         effective-collapse-mode
           in (COLLAPSE.year-suffix, COLLAPSE.year-suffix-ranged)
@@ -559,8 +560,19 @@
             // Use after-collapse-delimiter after items with locators
             let group-parts = ()
             let prev-had-locator = false
+            let same-year = (
+              items.len() > 1 and items.map(it => it.year).dedup().len() == 1
+            )
+            let has-suffixes = items.all(it => (
+              suffixes.at(it.key, default: none) != none
+            ))
+            let ordered-items = if same-year and has-suffixes {
+              items.sorted(key: it => suffixes.at(it.key, default: 0))
+            } else {
+              items
+            }
 
-            for (i, item) in items.enumerate() {
+            for (i, item) in ordered-items.enumerate() {
               let do-suppress-author = i > 0
 
               let rendered = render-cite(

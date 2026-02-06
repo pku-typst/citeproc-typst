@@ -22,5 +22,15 @@
   let ends = if type(content) == str { content.trim().ends-with(".") } else {
     false
   }
-  (content, var-state, (), ends)
+  let suffix = ctx.at("year-suffix", default: none)
+  let has-explicit = ctx.at("has-explicit-year-suffix", default: false)
+  let done-vars = ctx.at("done-vars", default: ())
+  let mark-suffix = (
+    suffix != none
+      and suffix != ""
+      and not has-explicit
+      and "__year-suffix-done" not in done-vars
+  )
+  let date-done = if mark-suffix { ("__year-suffix-done",) } else { () }
+  (content, var-state, date-done, ends)
 }

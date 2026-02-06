@@ -904,12 +904,7 @@
   let et-al-use-first = et-al.et-al-use-first
   let et-al-use-last = et-al.et-al-use-last
 
-  // CSL-M: names explicitly marked with isInstitution don't count toward et-al thresholds
-  // Only skip names that have the explicit is-institution flag from CSL-JSON
-  let explicit-institutions = names
-    .filter(n => n.at("is-institution", default: false) == true)
-    .len()
-  let personal-count = names.len() - explicit-institutions
+  let personal-count = names.len()
 
   // Determine how many names to show
   // CSL spec: et-al is only used when the name list is TRUNCATED

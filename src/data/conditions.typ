@@ -115,7 +115,7 @@
   }
 
   // Split type list and check
-  let types = type-list.split(" ")
+  let types = type-list.split(" ").filter(t => t != "")
   types.any(t => t == csl-type)
 }
 
@@ -295,7 +295,13 @@
   if "disambiguate" in attrs {
     let disambiguate-value = attrs.at("disambiguate")
     let needs-disambig = ctx.at("disambiguate", default: false)
-    conditions.push(disambiguate-value == "true" and needs-disambig)
+    if type(needs-disambig) == int {
+      let step = attrs.at("_disambiguate-step", default: 1)
+      if type(step) == str { step = int(step) }
+      conditions.push(disambiguate-value == "true" and step <= needs-disambig)
+    } else {
+      conditions.push(disambiguate-value == "true" and needs-disambig)
+    }
   }
 
   // =========================================================================

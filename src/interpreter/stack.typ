@@ -24,6 +24,8 @@
 //   - Subsequent references to those variables produce no output
 
 #import "../core/mod.typ": apply-text-case, finalize, is-empty
+
+#let _attr-true(val) = if type(val) == bool { val } else { val == "true" }
 #import "../data/conditions.typ": eval-condition
 #import "../data/variables.typ": get-variable
 #import "../parsing/mod.typ": lookup-term
@@ -118,7 +120,7 @@
         let normalized = if type(cased) == str {
           // Always normalize quotes, even without quotes="true"
           // The target level depends on whether we're adding outer quotes
-          let has-quotes = attrs.at("quotes", default: "false") == "true"
+          let has-quotes = _attr-true(attrs.at("quotes", default: "false"))
           if has-quotes {
             // Will add outer quotes, so embedded quotes go to level+1
             transform-quotes-at-level(cased, ctx, quote-level + 1)
@@ -129,19 +131,71 @@
         } else { cased }
 
         // Apply quotes if requested (after normalization)
-        let quoted = if attrs.at("quotes", default: "false") == "true" {
+        let quoted = if _attr-true(attrs.at("quotes", default: "false")) {
           apply-quotes(normalized, ctx, level: quote-level)
         } else { normalized }
 
-        let final-attrs = if type(quoted) == str {
-          (..attrs, "_ends-with-period": quoted.ends-with("."))
+        // punctuation-in-quote: move period/comma inside quotes
+        let suffix = attrs.at("suffix", default: "")
+        let piq = if "style" in ctx {
+          let options = ctx
+            .style
+            .at("locale", default: (:))
+            .at("options", default: (:))
+          options.at("punctuation-in-quote", default: false)
+        } else { false }
+        let adjusted-attrs = if (
+          _attr-true(attrs.at("quotes", default: "false"))
+            and piq
+            and suffix.len() > 0
+            and suffix.first() in (".", ",")
+            and type(quoted) == str
+        ) {
+          if not quoted.ends-with(suffix.first()) {
+            quoted = quoted + suffix.first()
+          }
+          (..attrs, suffix: suffix.slice(1))
         } else { attrs }
+
+        let final-attrs = if type(quoted) == str {
+          (..adjusted-attrs, "_ends-with-period": quoted.ends-with("."))
+        } else { adjusted-attrs }
         let ends = if type(quoted) == str { quoted.ends-with(".") } else {
           false
         }
         (finalize(quoted, final-attrs), "var", (), ends) // Variable has output
       } else if var-name == "year-suffix" {
-        ([], "var", (), false) // citeproc-js compat: year-suffix always counts
+        let suffix = ctx.at("year-suffix", default: none)
+        if suffix != none and suffix != "" {
+          import "../data/collapsing.typ": num-to-suffix
+          let suffix-str = if type(suffix) == int {
+            num-to-suffix(suffix)
+          } else {
+            str(suffix)
+          }
+          let cased = apply-text-case(suffix-str, attrs, ctx: ctx)
+          let quote-level = ctx.at("quote-level", default: 0)
+          let normalized = if type(cased) == str {
+            let has-quotes = _attr-true(attrs.at("quotes", default: "false"))
+            if has-quotes {
+              transform-quotes-at-level(cased, ctx, quote-level + 1)
+            } else {
+              transform-quotes-at-level(cased, ctx, quote-level)
+            }
+          } else { cased }
+          let quoted = if _attr-true(attrs.at("quotes", default: "false")) {
+            apply-quotes(normalized, ctx, level: quote-level)
+          } else { normalized }
+          let final-attrs = if type(quoted) == str {
+            (..attrs, "_ends-with-period": quoted.ends-with("."))
+          } else { attrs }
+          let ends = if type(quoted) == str { quoted.ends-with(".") } else {
+            false
+          }
+          (finalize(quoted, final-attrs), "var", (), ends)
+        } else {
+          ([], "var", (), false) // citeproc-js compat: year-suffix always counts
+        }
       } else {
         ([], "no-var", (), false) // Variable referenced but empty
       }
@@ -150,7 +204,7 @@
       let quote-level = ctx.at("quote-level", default: 0)
 
       // Normalize embedded quotes in value (same as variables)
-      let has-quotes = attrs.at("quotes", default: "false") == "true"
+      let has-quotes = _attr-true(attrs.at("quotes", default: "false"))
       let normalized = if type(result) == str and not is-empty(result) {
         if has-quotes {
           transform-quotes-at-level(result, ctx, quote-level + 1)
@@ -162,9 +216,32 @@
       let quoted = if has-quotes and not is-empty(normalized) {
         apply-quotes(normalized, ctx, level: quote-level)
       } else { normalized }
-      let final-attrs = if type(quoted) == str {
-        (..attrs, "_ends-with-period": quoted.ends-with("."))
+
+      // punctuation-in-quote for literal values
+      let suffix = attrs.at("suffix", default: "")
+      let piq = if "style" in ctx {
+        let options = ctx
+          .style
+          .at("locale", default: (:))
+          .at("options", default: (:))
+        options.at("punctuation-in-quote", default: false)
+      } else { false }
+      let adjusted-attrs = if (
+        has-quotes
+          and piq
+          and suffix.len() > 0
+          and suffix.first() in (".", ",")
+          and type(quoted) == str
+      ) {
+        if not quoted.ends-with(suffix.first()) {
+          quoted = quoted + suffix.first()
+        }
+        (..attrs, suffix: suffix.slice(1))
       } else { attrs }
+
+      let final-attrs = if type(quoted) == str {
+        (..adjusted-attrs, "_ends-with-period": quoted.ends-with("."))
+      } else { adjusted-attrs }
       let ends = if type(quoted) == str { quoted.ends-with(".") } else { false }
       (finalize(quoted, final-attrs), "none", (), ends) // Literal value, no variable reference
     } else if "term" in attrs {
@@ -263,7 +340,16 @@
       ([], "no-var", (), false) // Date variable referenced but empty
     } else {
       let ends = if type(result) == str { result.ends-with(".") } else { false }
-      (result, "var", (), ends) // Date variable has output
+      let suffix = ctx.at("year-suffix", default: none)
+      let has-explicit = ctx.at("has-explicit-year-suffix", default: false)
+      let mark-suffix = (
+        suffix != none
+          and suffix != ""
+          and not has-explicit
+          and "__year-suffix-done" not in done-vars
+      )
+      let date-done = if mark-suffix { ("__year-suffix-done",) } else { () }
+      (result, "var", date-done, ends) // Date variable has output
     }
   } else {
     ([], "none", (), false)
@@ -339,7 +425,7 @@
           let cached-done-vars = cached.at(2, default: ())
           let cached-ends = cached.at(3, default: false)
           let quote-level = ctx.at("quote-level", default: 0)
-          let has-quotes = attrs.at("quotes", default: "false") == "true"
+          let has-quotes = _attr-true(attrs.at("quotes", default: "false"))
           let macro-content = cached.at(0)
           let normalized = if type(macro-content) == str {
             // Apply text-case + quote normalization on string content
@@ -459,7 +545,11 @@
       } else {
         // Leaf node - process immediately
         // Pass current accumulated done-vars in context
-        let leaf-ctx = (..ctx, done-vars: accumulated-done-vars)
+        let leaf-ctx = (
+          ..ctx,
+          done-vars: accumulated-done-vars,
+          year-suffix-done: "__year-suffix-done" in accumulated-done-vars,
+        )
         let leaf-result = process-leaf(node, leaf-ctx)
         // Accumulate any new done-vars from the leaf
         let new-done-vars = leaf-result.at(2, default: ())
@@ -506,7 +596,7 @@
           }
         }
         let quote-level = ctx.at("quote-level", default: 0)
-        let has-quotes = meta.attrs.at("quotes", default: "false") == "true"
+        let has-quotes = _attr-true(meta.attrs.at("quotes", default: "false"))
         let normalized = if type(joined) == str {
           let cased = apply-text-case(joined, meta.attrs, ctx: ctx)
           if has-quotes {
