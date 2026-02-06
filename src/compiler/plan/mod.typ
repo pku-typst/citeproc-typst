@@ -6,7 +6,13 @@
 #let build-text-var-plan(attrs) = {
   let var-name = attrs.at("variable", default: "")
   let form = attrs.at("form", default: "long")
-  let has-quotes = "quotes" in attrs and attrs.at("quotes") == "true"
+  let quotes-attr = attrs.at("quotes", default: "false")
+  let has-quotes = (
+    "quotes" in attrs
+      and (
+        quotes-attr == "true" or quotes-attr == true
+      )
+  )
   let has-text-case = "text-case" in attrs
   let has-affixes = (
     attrs.at("prefix", default: "") != ""
@@ -40,7 +46,13 @@
   let term-name = attrs.at("term", default: "")
   let form = attrs.at("form", default: "long")
   let plural = attrs.at("plural", default: "false") == "true"
-  let has-quotes = "quotes" in attrs and attrs.at("quotes") == "true"
+  let quotes-attr = attrs.at("quotes", default: "false")
+  let has-quotes = (
+    "quotes" in attrs
+      and (
+        quotes-attr == "true" or quotes-attr == true
+      )
+  )
   let has-text-case = "text-case" in attrs
   let has-affixes = (
     attrs.at("prefix", default: "") != ""

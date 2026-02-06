@@ -68,6 +68,16 @@
         default: none,
       ),
     )
+  } else {
+    let bib = style.at("bibliography", default: (:))
+    if type(bib) == dictionary {
+      ctx = (
+        ..ctx,
+        citation-et-al-min: bib.at("et-al-min", default: none),
+        citation-et-al-use-first: bib.at("et-al-use-first", default: none),
+        citation-et-al-use-last: bib.at("et-al-use-last", default: none),
+      )
+    }
   }
 
   let name-sort-key = (var-name, initialize-with: none) => {
@@ -344,6 +354,10 @@
     let vb = kb.value
 
     if va != vb {
+      // Missing values always sort last regardless of direction
+      if va.starts-with("~missing") { return 1 }
+      if vb.starts-with("~missing") { return -1 }
+
       let cmp = if va < vb { -1 } else { 1 }
       // Reverse for descending order
       if ka.order == "descending" { return -cmp }
@@ -389,30 +403,40 @@
 ///
 /// - entries: Array of entry IRs with sort-keys populated
 /// Returns: Sorted array of entry IRs
+#let _merge-sorted(left, right) = {
+  let result = ()
+  let i = 0
+  let j = 0
+
+  while i < left.len() or j < right.len() {
+    if i >= left.len() {
+      result.push(right.at(j))
+      j += 1
+    } else if j >= right.len() {
+      result.push(left.at(i))
+      i += 1
+    } else {
+      let cmp = compare-entries(left.at(i), right.at(j))
+      if cmp <= 0 {
+        result.push(left.at(i))
+        i += 1
+      } else {
+        result.push(right.at(j))
+        j += 1
+      }
+    }
+  }
+
+  result
+}
+
 #let sort-entries(entries) = {
   if entries.len() <= 1 { return entries }
 
-  // Typst's sorted() with a key function
-  // For multi-key sorting, we create a compound key
-  entries.sorted(key: e => {
-    e
-      .sort-keys
-      .map(k => {
-        // Special handling for missing values (marked with ~missing~)
-        // These should always sort last regardless of direction
-        if k.value.starts-with("~missing") {
-          // Use "2" prefix to ensure missing values sort after both
-          // ascending ("0" prefix) and descending ("1" prefix) values
-          "2" + k.value
-        } else if k.order == "descending" {
-          // For descending order, invert the value so string comparison works
-          "1" + invert-for-descending(k.value)
-        } else {
-          "0" + k.value
-        }
-      })
-      .join("\x00") // Use null byte as separator (won't appear in text)
-  })
+  let mid = calc.floor(entries.len() / 2)
+  let left = sort-entries(entries.slice(0, mid))
+  let right = sort-entries(entries.slice(mid))
+  _merge-sorted(left, right)
 }
 
 /// Sort entries for bibliography output

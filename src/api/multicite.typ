@@ -10,8 +10,9 @@
 )
 #import "../core/formatting.typ": apply-formatting
 #import "../output/mod.typ": (
-  collapse-punctuation, get-punctuation-in-quote, render-citation,
-  render-names-for-citation-display, render-names-for-grouping, select-layout,
+  collapse-punctuation, content-to-string, get-punctuation-in-quote,
+  render-citation, render-names-for-citation-display, render-names-for-grouping,
+  select-layout,
 )
 #import "../parsing/mod.typ": detect-language
 #import "../data/mod.typ": (
@@ -55,6 +56,24 @@
 
   // Apply font formatting (font-weight, font-style, etc.)
   apply-formatting(with-valign, layout)
+}
+
+#let _join-cite-parts(parts, delimiter) = {
+  let joined = ()
+  for i in range(parts.len()) {
+    if i > 0 {
+      let next = parts.at(i)
+      let text = if type(next) == str { next } else {
+        content-to-string(next)
+      }
+      let trimmed = text.trim()
+      if not trimmed.starts-with(",") {
+        joined.push(delimiter)
+      }
+    }
+    joined.push(parts.at(i))
+  }
+  joined.join()
 }
 
 /// Create a reference link to the first cited key
@@ -670,7 +689,7 @@
             ),
           )
         })
-        parts.join(delimiter)
+        _join-cite-parts(parts, delimiter)
       }
 
       // Apply formatting and link
@@ -714,7 +733,8 @@
         )
       })
 
-      let joined = cite-parts.filter(p => p != []).join(delimiter)
+      let filtered = cite-parts.filter(p => p != [])
+      let joined = _join-cite-parts(filtered, delimiter)
 
       // Apply affixes and layout formatting
       let result = if is-multicite {
@@ -822,7 +842,7 @@
             all-parts += parts
           }
         }
-        all-parts.join(delimiter)
+        _join-cite-parts(all-parts, delimiter)
       } else {
         // No collapse - render each citation fully
         let parts = cite-items.map(item => {
@@ -834,7 +854,7 @@
             suppress-affixes: normalized.len() > 1,
           )
         })
-        parts.join(delimiter)
+        _join-cite-parts(parts, delimiter)
       }
 
       // Apply formatting and link

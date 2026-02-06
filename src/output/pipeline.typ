@@ -285,6 +285,7 @@
         e.entry,
         style,
         cite-number: e.order,
+        year-suffix: e.disambig.at("year-suffix", default: none),
       ),
       label: label(make-cite-ref-label(e.key)),
     ))

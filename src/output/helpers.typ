@@ -148,12 +148,44 @@
   )
 }
 
+/// Check if a node uses citation-label variable (for filtering)
+#let node-uses-citation-label(node) = {
+  if type(node) != dictionary { return false }
+  if node.at("tag", default: "") != "text" { return false }
+
+  let attrs = node.at("attrs", default: (:))
+  (
+    attrs.at("variable", default: "") == "citation-label"
+      or attrs.at(
+        "macro",
+        default: "",
+      )
+        == "citation-label"
+  )
+}
+
 /// Check if any child in a list uses citation-number
 #let _children-use-citation-number(children) = {
   let stack = children
   while stack.len() > 0 {
     let node = stack.pop()
     if node-uses-citation-number(node) { return true }
+    if type(node) == dictionary {
+      let kids = node.at("children", default: ())
+      if kids.len() > 0 {
+        for c in kids { stack.push(c) }
+      }
+    }
+  }
+  false
+}
+
+/// Check if any child in a list uses citation-label
+#let _children-use-citation-label(children) = {
+  let stack = children
+  while stack.len() > 0 {
+    let node = stack.pop()
+    if node-uses-citation-label(node) { return true }
     if type(node) == dictionary {
       let kids = node.at("children", default: ())
       if kids.len() > 0 {

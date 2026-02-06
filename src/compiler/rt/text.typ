@@ -2,7 +2,7 @@
 
 #import "../../core/mod.typ": apply-text-case, finalize, is-empty
 #import "../../text/quotes.typ": apply-quotes, transform-quotes-at-level
-#import "../../text/ranges.typ": format-page-range
+#import "../../text/ranges.typ": format-number-range, format-page-range
 #import "../../data/variables.typ": get-variable
 
 /// Get raw text variable without formatting/affixes
@@ -206,6 +206,8 @@
         ctx.style.at("page-range-format", default: none)
       } else { none }
       format-page-range(val, format: page-format, ctx: ctx)
+    } else if var-name == "issue" {
+      format-number-range(val, ctx: ctx)
     } else { val }
 
     // Apply text-case FIRST while content is still a string

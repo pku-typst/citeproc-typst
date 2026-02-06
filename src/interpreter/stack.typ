@@ -29,7 +29,7 @@
 #import "../data/conditions.typ": eval-condition
 #import "../data/variables.typ": get-variable
 #import "../parsing/mod.typ": lookup-term
-#import "../text/ranges.typ": format-page-range
+#import "../text/ranges.typ": format-number-range, format-page-range
 #import "../text/quotes.typ": apply-quotes, transform-quotes-at-level
 #import "../text/names.typ": _resolve-et-al-settings, names-end-flag
 #import "names.typ": handle-names
@@ -105,6 +105,8 @@
         ) {
           let page-format = ctx.style.at("page-range-format", default: none)
           format-page-range(val, format: page-format, ctx: ctx)
+        } else if var-name == "issue" {
+          format-number-range(val, ctx: ctx)
         } else { val }
 
         // Apply text-case FIRST while content is still a string

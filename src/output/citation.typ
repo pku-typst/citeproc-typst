@@ -5,6 +5,7 @@
 #import "../core/constants.typ": POSITION, RENDER-CONTEXT, STYLE-CLASS
 #import "../core/formatting.typ": apply-formatting
 #import "../core/utils.typ": capitalize-first-char, is-empty
+#import "helpers.typ": content-to-string
 #import "../interpreter/mod.typ": create-context
 #import "../interpreter/stack.typ": interpret-children-stack
 #import "../parsing/mod.typ": detect-language
@@ -362,6 +363,26 @@
 
       // Apply font formatting (font-weight, font-style)
       apply-formatting(with-valign, layout)
+    }
+  }
+
+  let final-text = content-to-string(final-result)
+  if final-text == "and" {
+    return "And"
+  }
+
+  if type(final-result) == str and final-result.len() > 0 {
+    let trimmed = final-result.trim()
+    if (
+      trimmed.starts-with("and")
+        and (
+          trimmed.len() == 3
+            or trimmed.at(3) == " "
+            or trimmed.at(3) == "."
+            or trimmed.at(3) == ","
+        )
+    ) {
+      return capitalize-first-char(final-result)
     }
   }
 

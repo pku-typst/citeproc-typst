@@ -10,7 +10,8 @@
 #import "layout.typ": select-layout
 #import "punctuation.typ": collapse-punctuation, get-punctuation-in-quote
 #import "helpers.typ": (
-  content-to-string, node-uses-citation-number, style-uses-citation-number,
+  _children-use-citation-label, content-to-string, node-uses-citation-label,
+  node-uses-citation-number, style-uses-citation-number,
 )
 
 // =============================================================================
@@ -22,11 +23,21 @@
 /// - entry: Bibliography entry from citegeist
 /// - style: Parsed CSL style
 /// - cite-number: Citation number for numeric styles
+/// - year-suffix: Year suffix for disambiguation
 /// Returns: Typst content (just the formatted number, e.g., "〔1〕")
-#let render-citation-number(entry, style, cite-number: none) = {
+#let render-citation-number(
+  entry,
+  style,
+  cite-number: none,
+  year-suffix: none,
+) = {
   let ctx = create-context(style, entry, cite-number: cite-number)
   // CSL-M: Set render-context (citation-number is used in bibliography)
-  let ctx = (..ctx, render-context: RENDER-CONTEXT.bibliography)
+  let ctx = (
+    ..ctx,
+    render-context: RENDER-CONTEXT.bibliography,
+    year-suffix: year-suffix,
+  )
   let entry-lang = detect-language(entry.at("fields", default: (:)))
 
   let bib = style.at("bibliography", default: none)
@@ -47,8 +58,15 @@
       rendered
     }
   } else {
-    // Fallback: simple bracketed number
-    [[#cite-number]]
+    // Fallback: try citation-label, otherwise simple bracketed number
+    let label-nodes = layout.children.filter(node => node-uses-citation-label(
+      node,
+    ))
+    if label-nodes.len() > 0 {
+      interpret-children-stack(label-nodes, ctx)
+    } else {
+      [[#cite-number]]
+    }
   }
 }
 
@@ -141,6 +159,13 @@
     return text(fill: red, "[No bibliography layout defined]")
   }
 
+  let uses-label = _children-use-citation-label(
+    layout.at("children", default: ()),
+  )
+  if uses-label and ctx.at("year-suffix", default: none) != none {
+    ctx = (..ctx, has-explicit-year-suffix: true)
+  }
+
   // CSL-M: Switch locale if layout has explicit locale attribute
   let layout-locale = layout.at("locale", default: none)
   if layout-locale != none {
@@ -160,11 +185,13 @@
   }
   // Fallback layout (no locale attr) uses style's default-locale (ctx.locale unchanged)
 
-  // Filter out citation-number nodes if requested
+  // Filter out citation-number/label nodes if requested
   let children = if include-number {
     layout.children
   } else {
-    layout.children.filter(node => not node-uses-citation-number(node))
+    layout.children.filter(node => (
+      not node-uses-citation-number(node) and not node-uses-citation-label(node)
+    ))
   }
 
   // Render bibliography layout

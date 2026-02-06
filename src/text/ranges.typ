@@ -38,13 +38,15 @@
     return delimiter
   }
 
-  // CSL 1.0.1: For French and Portuguese, default to hyphen (not en-dash)
-  // citeproc-js uses non-breaking hyphen U+2011 for fr locales
-  let lang = locale.at("lang", default: "")
-  if type(lang) == str and lang.len() >= 2 {
-    let lang-prefix = lower(lang.slice(0, 2))
-    if lang-prefix in ("fr", "pt") {
-      return "-"
+  if range-type != "number" {
+    // CSL 1.0.1: For French and Portuguese, default to hyphen (not en-dash)
+    // citeproc-js uses non-breaking hyphen U+2011 for fr locales
+    let lang = locale.at("lang", default: "")
+    if type(lang) == str and lang.len() >= 2 {
+      let lang-prefix = lower(lang.slice(0, 2))
+      if lang-prefix in ("fr", "pt") {
+        return "-"
+      }
     }
   }
 
@@ -437,6 +439,31 @@
     // Unknown format, use expanded
     format-range-expanded(start, end, delimiter)
   }
+}
+
+/// Format a numeric range (e.g., issue numbers)
+///
+/// - num-str: Numeric string (may be a range like "3-4")
+/// - ctx: Context for locale lookup
+/// Returns: Formatted string with range delimiter
+#let format-number-range(num-str, ctx: none) = {
+  if num-str == none or num-str == "" { return num-str }
+
+  let delimiter = get-range-delimiter(ctx, range-type: "number")
+  let range = parse-range(num-str)
+
+  if range == none {
+    return localize-separators(str(num-str), ctx)
+  }
+
+  let start = range.start
+  let end-raw = range.end
+  if not is-numeric-string(start) or not is-numeric-string(end-raw) {
+    return str(num-str)
+  }
+
+  let end = expand-range-end(start, end-raw)
+  format-range-expanded(start, end, delimiter)
 }
 
 /// Format a year range according to CSL year-range-format
