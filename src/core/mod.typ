@@ -11,7 +11,9 @@
   safe-int, strip-periods-from-str, zero-pad,
 )
 
-#import "formatting.typ": apply-formatting, apply-text-case, finalize
+#import "formatting.typ": (
+  apply-formatting, apply-text-case, finalize, fold-superscripts,
+)
 
 #import "context.typ": (
   create-context, with-author-substitute, with-citation-et-al,

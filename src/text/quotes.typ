@@ -16,24 +16,6 @@
 /// - ctx: Context with locale info
 /// - level: Nesting level (0 = outer quotes, 1 = inner quotes, etc.)
 /// Returns: Quoted text
-#let apply-quotes(text, ctx, level: 0) = {
-  if text == none or text == "" or text == [] { return text }
-
-  let lang = ctx.style.at("default-locale", default: "en")
-  let chars = get-quote-chars(lang)
-
-  // Alternate between outer and inner quotes based on level
-  let is-inner = calc.rem(level, 2) == 1
-
-  let open = if is-inner { chars.open-inner-quote } else { chars.open-quote }
-  let close = if is-inner { chars.close-inner-quote } else { chars.close-quote }
-
-  if type(text) == str {
-    open + text + close
-  } else {
-    [#open#text#close]
-  }
-}
 
 /// Count quote nesting level in a string
 ///
@@ -193,4 +175,93 @@
   }
 
   result
+}
+
+#let _is-plain-text(content) = {
+  if content == none or content == [] { return true }
+  if type(content) == str { return true }
+  let func = content.func()
+  let fields = content.fields()
+  if func == text {
+    let body = fields.at("body", default: fields.at("text", default: ""))
+    return _is-plain-text(body)
+  }
+  if "children" in fields {
+    return fields.children.all(_is-plain-text)
+  }
+  false
+}
+
+#let _content-to-string(content) = {
+  if content == none or content == [] { return "" }
+  if type(content) == str { return content }
+  let func = content.func()
+  let fields = content.fields()
+  if func == text {
+    let body = fields.at("body", default: fields.at("text", default: ""))
+    return _content-to-string(body)
+  }
+  if "children" in fields {
+    return fields.children.map(_content-to-string).join("")
+  }
+  if "body" in fields { return _content-to-string(fields.body) }
+  if "text" in fields { return _content-to-string(fields.text) }
+  ""
+}
+
+/// Apply quotes to text content
+///
+/// - text: The text to quote
+/// - ctx: Context with locale info
+/// - level: Nesting level (0 = outer quotes, 1 = inner quotes, etc.)
+/// Returns: Quoted text
+#let apply-quotes(text, ctx, level: 0) = {
+  if text == none or text == "" or text == [] { return text }
+
+  let lang = ctx.style.at("default-locale", default: "en")
+  let chars = get-quote-chars(lang)
+
+  // Alternate between outer and inner quotes based on level
+  let is-inner = calc.rem(level, 2) == 1
+  let has-inner = if type(text) == str {
+    text.match(regex("[\"\u{201C}\u{201D}]")) != none
+  } else {
+    _content-to-string(text).match(regex("[\"\u{201C}\u{201D}]")) != none
+  }
+  if is-inner and not has-inner { is-inner = false }
+
+  let open = if is-inner { chars.open-inner-quote } else { chars.open-quote }
+  let close = if is-inner { chars.close-inner-quote } else { chars.close-quote }
+
+  if type(text) == str {
+    let normalized = transform-quotes-at-level(text, ctx, 1)
+    normalized = normalized
+      .replace(chars.open-quote, chars.open-inner-quote)
+      .replace(chars.close-quote, chars.close-inner-quote)
+    open + normalized + close
+  } else {
+    if text.func() == text {
+      let fields = text.fields()
+      let body = fields.at("text", default: fields.at("body", default: none))
+      if type(body) == str {
+        let normalized = transform-quotes-at-level(body, ctx, 1)
+        normalized = normalized
+          .replace(chars.open-quote, chars.open-inner-quote)
+          .replace(chars.close-quote, chars.close-inner-quote)
+        return text(open + normalized + close)
+      }
+    }
+    if _is-plain-text(text) {
+      let normalized = transform-quotes-at-level(
+        _content-to-string(text),
+        ctx,
+        1,
+      )
+      normalized = normalized
+        .replace(chars.open-quote, chars.open-inner-quote)
+        .replace(chars.close-quote, chars.close-inner-quote)
+      return [#open#normalized#close]
+    }
+    [#open#text#close]
+  }
 }

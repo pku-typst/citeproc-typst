@@ -1,7 +1,9 @@
 // citrus - Compiler Runtime: Number
 
 #import "../../interpreter/number.typ": handle-number as _handle-number
-#import "../../core/mod.typ": finalize, is-empty, safe-int, zero-pad
+#import "../../core/mod.typ": (
+  finalize, fold-superscripts, is-empty, safe-int, zero-pad,
+)
 #import "../../parsing/mod.typ": lookup-term
 #import "../../text/number.typ": get-ordinal-suffix
 #import "../../data/variables.typ": get-variable
@@ -36,11 +38,14 @@
     let result = if num != none {
       str(num) + get-ordinal-suffix(num, ctx)
     } else { val }
-    let ends = if type(result) == str { result.ends-with(".") } else { false }
+    let folded = if type(result) == str { fold-superscripts(result) } else {
+      result
+    }
+    let ends = if type(folded) == str { folded.ends-with(".") } else { false }
     let final-attrs = if type(result) == str {
       (..attrs, "_ends-with-period": ends)
     } else { attrs }
-    (finalize(result, final-attrs), "var", (), ends)
+    (finalize(folded, final-attrs), "var", (), ends)
   }
 }
 
@@ -70,11 +75,14 @@
     } else if num != none {
       str(num) + get-ordinal-suffix(num, ctx)
     } else { val }
-    let ends = if type(result) == str { result.ends-with(".") } else { false }
+    let folded = if type(result) == str { fold-superscripts(result) } else {
+      result
+    }
+    let ends = if type(folded) == str { folded.ends-with(".") } else { false }
     let final-attrs = if type(result) == str {
       (..attrs, "_ends-with-period": ends)
     } else { attrs }
-    (finalize(result, final-attrs), "var", (), ends)
+    (finalize(folded, final-attrs), "var", (), ends)
   }
 }
 

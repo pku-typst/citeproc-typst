@@ -3,6 +3,7 @@
 // Handles <names> CSL element.
 
 #import "../core/mod.typ": finalize, is-empty
+#import "../output/helpers.typ": content-to-string
 
 #let _collect-vars(node, macros) = {
   if type(node) != dictionary { return () }
@@ -596,8 +597,13 @@
 
     // Combine with label
     let label-ends = if label-content != [] {
-      if type(label-content) == str {
-        label-content.trim().ends-with(".")
+      let label-str = if type(label-content) == str {
+        label-content
+      } else {
+        content-to-string(label-content)
+      }
+      if label-str.trim() != "" {
+        label-str.trim().ends-with(".")
       } else {
         (
           term.trim().ends-with(".")

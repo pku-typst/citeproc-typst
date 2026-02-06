@@ -1,6 +1,7 @@
 // citrus - Compiler Runtime Helpers
 
 #import "../../data/conditions.typ": check-type, eval-condition
+#import "../../output/helpers.typ": content-to-string
 
 #import "names.typ": (
   format-names-compiled, format-names-multi-compiled,
@@ -41,6 +42,7 @@
 /// All helpers bundled for passing to eval()
 #let compiler-helpers = (
   normalize-content: normalize-content,
+  content-to-string: content-to-string,
   format-names: format-names-compiled,
   format-names-single: format-names-single-compiled,
   format-names-multi: format-names-multi-compiled,

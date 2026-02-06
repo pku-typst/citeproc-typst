@@ -23,7 +23,9 @@
 //   - Variables rendered through <substitute> are added to done-vars
 //   - Subsequent references to those variables produce no output
 
-#import "../core/mod.typ": apply-text-case, finalize, is-empty
+#import "../core/mod.typ": (
+  apply-text-case, finalize, fold-superscripts, is-empty,
+)
 
 #let _attr-true(val) = if type(val) == bool { val } else { val == "true" }
 #import "../data/conditions.typ": eval-condition
@@ -31,7 +33,27 @@
 #import "../parsing/mod.typ": lookup-term
 #import "../text/ranges.typ": format-number-range, format-page-range
 #import "../text/quotes.typ": apply-quotes, transform-quotes-at-level
+
+#let _fix-inner-quotes(text, ctx, quote-level, has-quotes) = {
+  if not has-quotes { return text }
+  if type(text) != str {
+    let fields = text.fields()
+    if text.func() == text {
+      let body = fields.at("text", default: fields.at("body", default: none))
+      if (
+        type(body) == str and body.match(regex("[\"\u{201C}\u{201D}]")) != none
+      ) {
+        let normalized = transform-quotes-at-level(body, ctx, 1)
+        return text(normalized)
+      }
+    }
+    return text
+  }
+  if text.match(regex("[\"\u{201C}\u{201D}]")) == none { return text }
+  transform-quotes-at-level(text, ctx, 1)
+}
 #import "../text/names.typ": _resolve-et-al-settings, names-end-flag
+#import "../output/helpers.typ": content-to-string
 #import "names.typ": handle-names
 #import "date.typ": handle-date
 #import "number.typ": handle-label, handle-number
@@ -113,29 +135,32 @@
         // CSL spec: text-case transformation happens before quotes are added
         // CSL spec: title case only applies to English content
         let cased = apply-text-case(result, attrs, ctx: ctx)
+        let folded = fold-superscripts(cased)
 
         // Normalize embedded quotes in content
         // CSL spec: quotes in field content should be normalized to proper level
         // - At level 0 (not inside quotes): single quotes -> double quotes
         // - At level 1 (inside outer quotes): double quotes -> single quotes
         let quote-level = ctx.at("quote-level", default: 0)
-        let normalized = if type(cased) == str {
+        let normalized = if type(folded) == str {
           // Always normalize quotes, even without quotes="true"
           // The target level depends on whether we're adding outer quotes
           let has-quotes = _attr-true(attrs.at("quotes", default: "false"))
           if has-quotes {
             // Will add outer quotes, so embedded quotes go to level+1
-            transform-quotes-at-level(cased, ctx, quote-level + 1)
+            transform-quotes-at-level(folded, ctx, quote-level + 1)
           } else {
             // No outer quotes, normalize to current level
-            transform-quotes-at-level(cased, ctx, quote-level)
+            transform-quotes-at-level(folded, ctx, quote-level)
           }
-        } else { cased }
+        } else { folded }
 
         // Apply quotes if requested (after normalization)
-        let quoted = if _attr-true(attrs.at("quotes", default: "false")) {
-          apply-quotes(normalized, ctx, level: quote-level)
-        } else { normalized }
+        let has-quotes = _attr-true(attrs.at("quotes", default: "false"))
+        let fixed = _fix-inner-quotes(normalized, ctx, quote-level, has-quotes)
+        let quoted = if has-quotes {
+          apply-quotes(fixed, ctx, level: quote-level)
+        } else { fixed }
 
         // punctuation-in-quote: move period/comma inside quotes
         let suffix = attrs.at("suffix", default: "")
@@ -185,9 +210,16 @@
               transform-quotes-at-level(cased, ctx, quote-level)
             }
           } else { cased }
-          let quoted = if _attr-true(attrs.at("quotes", default: "false")) {
-            apply-quotes(normalized, ctx, level: quote-level)
-          } else { normalized }
+          let has-quotes = _attr-true(attrs.at("quotes", default: "false"))
+          let fixed = _fix-inner-quotes(
+            normalized,
+            ctx,
+            quote-level,
+            has-quotes,
+          )
+          let quoted = if has-quotes {
+            apply-quotes(fixed, ctx, level: quote-level)
+          } else { fixed }
           let final-attrs = if type(quoted) == str {
             (..attrs, "_ends-with-period": quoted.ends-with("."))
           } else { attrs }
@@ -207,17 +239,21 @@
 
       // Normalize embedded quotes in value (same as variables)
       let has-quotes = _attr-true(attrs.at("quotes", default: "false"))
-      let normalized = if type(result) == str and not is-empty(result) {
+      let folded = fold-superscripts(result)
+      let normalized = if type(folded) == str and not is-empty(folded) {
         if has-quotes {
-          transform-quotes-at-level(result, ctx, quote-level + 1)
+          transform-quotes-at-level(folded, ctx, quote-level + 1)
         } else {
-          transform-quotes-at-level(result, ctx, quote-level)
+          transform-quotes-at-level(folded, ctx, quote-level)
         }
-      } else { result }
+      } else { folded }
 
-      let quoted = if has-quotes and not is-empty(normalized) {
-        apply-quotes(normalized, ctx, level: quote-level)
-      } else { normalized }
+      let fixed = _fix-inner-quotes(normalized, ctx, quote-level, has-quotes)
+      let quoted = if (
+        has-quotes and not is-empty(fixed) and type(fixed) == str
+      ) {
+        apply-quotes(fixed, ctx, level: quote-level)
+      } else { fixed }
 
       // punctuation-in-quote for literal values
       let suffix = attrs.at("suffix", default: "")
@@ -438,9 +474,15 @@
               transform-quotes-at-level(cased, ctx, quote-level)
             }
           } else { macro-content }
+          let fixed = _fix-inner-quotes(
+            normalized,
+            ctx,
+            quote-level,
+            has-quotes,
+          )
           let quoted = if has-quotes {
-            apply-quotes(normalized, ctx, level: quote-level)
-          } else { normalized }
+            apply-quotes(fixed, ctx, level: quote-level)
+          } else { fixed }
           let ends = if type(quoted) == str { quoted.ends-with(".") } else {
             cached-ends
           }
@@ -607,9 +649,10 @@
             transform-quotes-at-level(cased, ctx, quote-level)
           }
         } else { joined }
+        let fixed = _fix-inner-quotes(normalized, ctx, quote-level, has-quotes)
         let quoted = if has-quotes {
-          apply-quotes(normalized, ctx, level: quote-level)
-        } else { normalized }
+          apply-quotes(fixed, ctx, level: quote-level)
+        } else { fixed }
         let end-flag = if type(quoted) == str { quoted.ends-with(".") } else {
           end-flag
         }
@@ -659,11 +702,16 @@
           let joined = ()
           for i in range(parts.len()) {
             if i > 0 {
-              let prev-ends = part-results.at(i - 1).at(3, default: false)
+              let prev-content = part-results.at(i - 1).at(0)
+              let prev-ends = (
+                part-results.at(i - 1).at(3, default: false)
+                  or content-to-string(prev-content).trim().ends-with(".")
+              )
               let delim = if (
                 group-delimiter.len() > 0
                   and group-delimiter.first() == "."
                   and prev-ends
+                  and group-delimiter.trim() == "."
               ) {
                 group-delimiter.slice(1)
               } else {

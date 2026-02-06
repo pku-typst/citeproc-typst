@@ -838,7 +838,11 @@
       code += indent + "        if i > 0 {\n"
       code += (
         indent
-          + "          let prev-ends = parts.at(i - 1).at(1, default: false)\n"
+          + "          let prev-content = parts.at(i - 1).at(0)\n"
+          + "          let prev-ends = (\n"
+          + "            parts.at(i - 1).at(1, default: false)\n"
+          + "              or content-to-string(prev-content).trim().ends-with(\".\")\n"
+          + "          )\n"
       )
       code += (
         indent
@@ -846,7 +850,9 @@
           + escaped
           + "\".len() > 0 and \""
           + escaped
-          + "\".first() == \".\" and prev-ends) { \""
+          + "\".first() == \".\" and prev-ends and \""
+          + escaped
+          + "\".trim() == \".\") { \""
           + escaped
           + "\".slice(1) } else { \""
           + escaped

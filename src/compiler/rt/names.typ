@@ -2,6 +2,7 @@
 
 #import "../../interpreter/names.typ": handle-names as _handle-names
 #import "../../core/mod.typ": finalize, is-empty
+#import "../../output/helpers.typ": content-to-string
 
 #let _collect-vars(node, macros) = {
   if type(node) != dictionary { return () }
@@ -216,8 +217,13 @@
 
   let label-ends = false
   if plan.at("has-label", default: false) and label-content != [] {
-    label-ends = if type(label-content) == str {
-      label-content.trim().ends-with(".")
+    let label-str = if type(label-content) == str {
+      label-content
+    } else {
+      content-to-string(label-content)
+    }
+    label-ends = if label-str.trim() != "" {
+      label-str.trim().ends-with(".")
     } else {
       (
         term.ends-with(".")

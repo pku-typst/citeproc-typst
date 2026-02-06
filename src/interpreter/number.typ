@@ -2,7 +2,9 @@
 //
 // Handles <number> and <label> CSL elements.
 
-#import "../core/mod.typ": finalize, is-empty, safe-int, zero-pad
+#import "../core/mod.typ": (
+  finalize, fold-superscripts, is-empty, safe-int, zero-pad,
+)
 #import "../data/variables.typ": get-variable
 #import "../parsing/mod.typ": lookup-term
 #import "../text/number.typ": get-ordinal-suffix
@@ -107,7 +109,10 @@
       }
     }
 
-    finalize(result, attrs)
+    let folded = if type(result) == str { fold-superscripts(result) } else {
+      result
+    }
+    finalize(folded, attrs)
   } else { [] }
 }
 

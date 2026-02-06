@@ -1,7 +1,28 @@
 // citrus - Compiler Runtime: Text/Variable
 
-#import "../../core/mod.typ": apply-text-case, finalize, is-empty
+#import "../../core/mod.typ": (
+  apply-text-case, finalize, fold-superscripts, is-empty,
+)
 #import "../../text/quotes.typ": apply-quotes, transform-quotes-at-level
+
+#let _fix-inner-quotes(text, ctx, quote-level, has-quotes) = {
+  if not has-quotes { return text }
+  if type(text) != str {
+    let fields = text.fields()
+    if text.func() == text {
+      let body = fields.at("text", default: fields.at("body", default: none))
+      if (
+        type(body) == str and body.match(regex("[\"\u{201C}\u{201D}]")) != none
+      ) {
+        let normalized = transform-quotes-at-level(body, ctx, 1)
+        return text(normalized)
+      }
+    }
+    return text
+  }
+  if text.match(regex("[\"\u{201C}\u{201D}]")) == none { return text }
+  transform-quotes-at-level(text, ctx, 1)
+}
 #import "../../text/ranges.typ": format-number-range, format-page-range
 #import "../../data/variables.typ": get-variable
 
@@ -124,10 +145,11 @@
       }
     } else { cased }
 
+    let fixed = _fix-inner-quotes(normalized, ctx, quote-level, has-quotes)
     // Apply quotes if requested (only if ctx.style is available)
     let quoted = if has-quotes and "style" in ctx {
-      apply-quotes(normalized, ctx, level: quote-level)
-    } else { normalized }
+      apply-quotes(fixed, ctx, level: quote-level)
+    } else { fixed }
 
     let ends = if type(quoted) == str { quoted.ends-with(".") } else { false }
     if (
@@ -151,8 +173,12 @@
 #let format-text-value-raw(ctx, attrs, plan) = {
   let value = attrs.at("value", default: "")
   if value == "" { return ([], "none", (), false) }
-  let ends = if type(value) == str { value.ends-with(".") } else { false }
-  (value, "none", (), ends)
+  let folded = fold-superscripts(value)
+  if type(folded) != str {
+    return (folded, "none", (), false)
+  }
+  let ends = if type(folded) == str { folded.ends-with(".") } else { false }
+  (folded, "none", (), ends)
 }
 
 /// Get text variable value
@@ -212,6 +238,7 @@
 
     // Apply text-case FIRST while content is still a string
     let cased = apply-text-case(formatted, attrs, ctx: ctx)
+    let folded = fold-superscripts(cased)
 
     // Handle quotes (CSL quote flipflopping)
     let quote-level = ctx.at("quote-level", default: 0)
@@ -223,6 +250,11 @@
     }
 
     // Normalize embedded quotes in content (only if ctx.style is available)
+    if type(folded) != str {
+      let final-attrs = attrs
+      return (finalize(folded, final-attrs), "var", (), false)
+    }
+
     let normalized = if type(cased) == str and "style" in ctx {
       if has-quotes {
         transform-quotes-at-level(cased, ctx, quote-level + 1)
@@ -231,10 +263,11 @@
       }
     } else { cased }
 
+    let fixed = _fix-inner-quotes(normalized, ctx, quote-level, has-quotes)
     // Apply quotes if requested (only if ctx.style is available)
     let quoted = if has-quotes and "style" in ctx {
-      apply-quotes(normalized, ctx, level: quote-level)
-    } else { normalized }
+      apply-quotes(fixed, ctx, level: quote-level)
+    } else { fixed }
 
     let ends = if type(quoted) == str { quoted.ends-with(".") } else { false }
     let final-attrs = if type(quoted) == str {
@@ -287,14 +320,19 @@
       content + quote-punct
     } else { content }
     let cased = apply-text-case(value, adjusted-attrs, ctx: ctx)
-    let normalized = if has-quotes {
-      transform-quotes-at-level(cased, ctx, quote-level + 1)
+    let folded = fold-superscripts(cased)
+    let normalized = if type(folded) == str and has-quotes {
+      transform-quotes-at-level(folded, ctx, quote-level + 1)
+    } else if type(folded) == str {
+      transform-quotes-at-level(folded, ctx, quote-level)
     } else {
-      transform-quotes-at-level(cased, ctx, quote-level)
+      folded
     }
-    if has-quotes {
-      apply-quotes(normalized, ctx, level: quote-level)
-    } else { normalized }
+    let fixed = _fix-inner-quotes(normalized, ctx, quote-level, has-quotes)
+    let quoted = if has-quotes and type(fixed) == str {
+      apply-quotes(fixed, ctx, level: quote-level)
+    } else { fixed }
+    quoted
   } else {
     if has-quotes {
       apply-quotes(content, ctx, level: quote-level)
