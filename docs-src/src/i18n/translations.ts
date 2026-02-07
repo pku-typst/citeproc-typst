@@ -19,13 +19,20 @@ export const translations = {
       errors: "编译错误",
       failed: "编译失败",
       passRate: "通过率",
+      mismatches: "不匹配",
+      excluded: "排除",
     },
     sections: {
-      citeproc: {
-        title: "citeproc-js 测试套件",
-        description:
-          "使用 citeproc-js 测试套件中的 CSL 样式和数据进行编译测试。",
-        note: "编译通过仅表示 citrus 能够处理该测试用例，不保证输出结果与 citeproc-js 完全一致。",
+      testSuite: {
+        title: "CSL 测试套件",
+        description: "使用 CSL 官方测试套件对比期望输出与实际输出。",
+        note: "通过表示输出与期望一致；排除项为 citeproc-js 特有行为或不适用项。",
+        failuresTitle: "失败用例",
+        excludedTitle: "排除用例",
+        expected: "期望输出",
+        actual: "实际输出",
+        noMismatches: "没有不匹配用例",
+        noExcluded: "没有排除用例",
       },
       csl: {
         title: "CSL 样式兼容性",
@@ -89,13 +96,21 @@ export const translations = {
       errors: "Errors",
       failed: "Failed",
       passRate: "Pass Rate",
+      mismatches: "Mismatches",
+      excluded: "Excluded",
     },
     sections: {
-      citeproc: {
-        title: "citeproc-js Test Suite",
+      testSuite: {
+        title: "CSL Test Suite",
         description:
-          "Compile tests using CSL styles and data from the citeproc-js test suite.",
-        note: "Compilation success only indicates citrus can process the test case, not that output matches citeproc-js exactly.",
+          "Compare expected output with our actual output using the official CSL test suite.",
+        note: "Pass means output matches expected; exclusions cover citeproc-js-specific or non-applicable cases.",
+        failuresTitle: "Failures",
+        excludedTitle: "Excluded Tests",
+        expected: "Expected",
+        actual: "Actual",
+        noMismatches: "No mismatches.",
+        noExcluded: "No excluded tests.",
       },
       csl: {
         title: "CSL Style Compatibility",

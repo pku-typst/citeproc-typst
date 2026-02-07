@@ -176,7 +176,9 @@
 
   if not use-inner {
     result = result.replace(
-      regex("(^|[\\s\\(\\[])[\u{2018}\u{2019}']([^'\u{2018}\u{2019}]+)[\u{2018}\u{2019}']"),
+      regex(
+        "(^|[\\s\\(\\[])[\u{2018}\u{2019}']([^'\u{2018}\u{2019}]+)[\u{2018}\u{2019}']",
+      ),
       m => (
         m.captures.at(0) + target-open + m.captures.at(1) + target-close
       ),

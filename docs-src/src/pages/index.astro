@@ -4,7 +4,6 @@ import Hero from "../components/Hero.astro";
 import Section from "../components/Section.astro";
 import StatsCard from "../components/StatsCard.astro";
 import StatsGrid from "../components/StatsGrid.astro";
-import CategoryGrid from "../components/CategoryGrid.astro";
 import StyleGrid from "../components/StyleGrid.svelte";
 import TrendChart from "../components/TrendChart.svelte";
 import type { PageData } from "../types";
@@ -24,15 +23,17 @@ try {
   data = {
     csl: { total: 0, passed: 0, failed: 0, styles: [] },
     citeproc: { total: 0, compiled: 0, errors: 0, categories: [] },
+    testSuite: {
+      summary: { total: 0, pass: 0, mismatch: 0, excluded: 0, error: 0 },
+      byCategory: [],
+      mismatches: [],
+      excluded: [],
+      errors: [],
+    },
     benchmark: { runs: [], styles: [] },
     buildTime: new Date().toISOString(),
   };
 }
-
-const citeprocRate =
-  data.citeproc.total > 0
-    ? ((data.citeproc.compiled / data.citeproc.total) * 100).toFixed(1)
-    : "0";
 
 const cslRate =
   data.csl.total > 0
@@ -43,10 +44,13 @@ const heroStats = [
   { label: t.stats.cslStyles, value: `${data.csl.passed}/${data.csl.total}` },
   {
     label: t.stats.testCases,
-    value: `${data.citeproc.compiled}/${data.citeproc.total}`,
+    value: `${data.testSuite.summary.pass}/${data.testSuite.summary.total}`,
   },
   { label: t.stats.benchmarkStyles, value: String(data.benchmark.styles.length) },
 ];
+
+const mismatches = data.testSuite.mismatches;
+const excluded = data.testSuite.excluded;
 ---
 
 <Layout title={t.meta.title} lang={t.meta.lang} locale={locale}>
@@ -57,40 +61,89 @@ const heroStats = [
     stats={heroStats}
   />
 
-  <!-- citeproc-js Test Suite Section -->
+  <!-- CSL Test Suite Section -->
   <Section
-    title={t.sections.citeproc.title}
-    icon="📋"
-    note={t.sections.citeproc.note}
+    title={t.sections.testSuite.title}
+    icon="🧪"
+    note={t.sections.testSuite.note}
   >
     <p slot="description" class="text-muted-foreground text-sm mb-4">
-      {t.sections.citeproc.description}
-      <a
-        href="https://github.com/Juris-M/citeproc-js"
-        class="text-primary hover:underline"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        citeproc-js
-      </a>
+      {t.sections.testSuite.description}
     </p>
 
     <StatsGrid>
-      <StatsCard value={data.citeproc.total} label={t.stats.total} />
+      <StatsCard value={data.testSuite.summary.total} label={t.stats.total} />
       <StatsCard
-        value={data.citeproc.compiled}
+        value={data.testSuite.summary.pass}
         label={t.stats.compiled}
         variant="success"
       />
       <StatsCard
-        value={data.citeproc.errors}
-        label={t.stats.errors}
+        value={data.testSuite.summary.mismatch}
+        label={t.stats.mismatches}
         variant="warning"
       />
-      <StatsCard value={`${citeprocRate}%`} label={t.stats.passRate} />
+      <StatsCard value={data.testSuite.summary.excluded} label={t.stats.excluded} />
     </StatsGrid>
 
-    <CategoryGrid locale={locale} categories={data.citeproc.categories} />
+    <div class="flex flex-col gap-6">
+      <div>
+        <div class="text-sm font-medium mb-2">
+          {t.sections.testSuite.failuresTitle}
+        </div>
+        {data.testSuite.mismatches.length === 0 && (
+          <p class="text-sm text-muted-foreground">
+            {t.sections.testSuite.noMismatches}
+          </p>
+        )}
+        <div class="max-h-[480px] overflow-auto pr-1">
+        {mismatches.map((item) => (
+          <div class="rounded-xl border border-border bg-card p-4 mb-3">
+            <div class="text-sm font-medium text-primary">{item.name}</div>
+            <div class="grid gap-4 md:grid-cols-2 mt-3">
+              <div>
+                <div class="text-xs uppercase tracking-wide text-muted-foreground">
+                  {t.sections.testSuite.expected}
+                </div>
+                <pre class="mt-2 whitespace-pre-wrap rounded-lg border border-border bg-background p-3 text-xs">
+                  {item.expected || ""}
+                </pre>
+              </div>
+              <div>
+                <div class="text-xs uppercase tracking-wide text-muted-foreground">
+                  {t.sections.testSuite.actual}
+                </div>
+                <pre class="mt-2 whitespace-pre-wrap rounded-lg border border-border bg-background p-3 text-xs">
+                  {item.actual || ""}
+                </pre>
+              </div>
+            </div>
+          </div>
+        ))}
+        </div>
+      </div>
+
+      <div>
+        <div class="text-sm font-medium mb-2">
+          {t.sections.testSuite.excludedTitle}
+        </div>
+        {data.testSuite.excluded.length === 0 && (
+          <p class="text-sm text-muted-foreground">
+            {t.sections.testSuite.noExcluded}
+          </p>
+        )}
+        <div class="max-h-[360px] overflow-auto pr-1">
+          <ul class="space-y-2 text-sm">
+            {excluded.map((item) => (
+              <li class="rounded-lg border border-border bg-card p-3">
+                <div class="font-medium text-primary">{item.name}</div>
+                <div class="text-muted-foreground">{item.reason}</div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
   </Section>
 
   <!-- CSL Styles Section -->

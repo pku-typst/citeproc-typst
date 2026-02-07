@@ -17,80 +17,37 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  # citeproc-js test suite compatibility
-  citeproc-tests:
+  # CSL test-suite compatibility (fixtures)
+  test-suite:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Clone citeproc-js
+      - name: Clone CSL test-suite
         run: |
           mkdir -p references
-          git clone --depth 1 https://github.com/Juris-M/citeproc-js.git references/citeproc-js
+          git clone --depth 1 https://github.com/citation-style-language/test-suite.git references/test-suite
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
       - name: Setup Typst
         uses: typst-community/setup-typst@v4
 
-      - name: Run citeproc-js tests
-        id: citeproc-test
+      - name: Run CSL test-suite
         run: |
-          python scripts/run-citeproc-tests.py
+          python scripts/run-test-suite.py --compare
 
-          # Parse results from markdown report
-          TOTAL=$(grep -oP 'Total Tests:\*\* \K\d+' build/citeproc-compatibility-report.md || echo "0")
-          COMPILED=$(grep -oP '\| compiled \| \K\d+' build/citeproc-compatibility-report.md || echo "0")
-          ERRORS=$(grep -oP '\| error \| \K\d+' build/citeproc-compatibility-report.md || echo "0")
-
-          echo "total=$TOTAL" >> $GITHUB_OUTPUT
-          echo "compiled=$COMPILED" >> $GITHUB_OUTPUT
-          echo "errors=$ERRORS" >> $GITHUB_OUTPUT
-
-          # Extract category breakdown as JSON
-          python3 -c "
-          import re
-          import json
-
-          with open('build/citeproc-compatibility-report.md') as f:
-              content = f.read()
-
-          # Find category table
-          pattern = r'\| (\w+) \| (\d+) \| (\d+) \| (\d+) \| (\d+) \|'
-          categories = []
-          for match in re.finditer(pattern, content):
-              categories.append({
-                  'name': match.group(1),
-                  'total': int(match.group(2)),
-                  'compiled': int(match.group(3))
-              })
-
-          with open('build/citeproc-categories.json', 'w') as f:
-              json.dump(categories, f)
-          "
-
-      - name: Upload compatibility report
-        uses: actions/upload-artifact@v4
+      - name: Upload test-suite report
+        uses: actions/upload-artifact@v7
         with:
-          name: citeproc-compatibility-report
+          name: test-suite-report
           path: |
-            build/citeproc-compatibility-report.md
-            build/citeproc-categories.json
-
-      - name: Create job summary
-        run: |
-          echo "## citeproc-js Test Suite Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          cat build/citeproc-compatibility-report.md >> $GITHUB_STEP_SUMMARY
-
-    outputs:
-      total: ${{ steps.citeproc-test.outputs.total }}
-      compiled: ${{ steps.citeproc-test.outputs.compiled }}
-      errors: ${{ steps.citeproc-test.outputs.errors }}
+            build/test-suite-report.md
+            build/test-suite-report.json
 
   # CSL compatibility test with all zotero-chinese/styles
   csl-compatibility:
@@ -201,26 +158,26 @@ jobs:
 
   # Generate GitHub Pages
   generate-pages:
-    needs: [citeproc-tests, csl-compatibility, benchmark]
+    needs: [test-suite, csl-compatibility, benchmark]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Download citeproc results
-        uses: actions/download-artifact@v4
+      - name: Download test-suite report
+        uses: actions/download-artifact@v7
         with:
-          name: citeproc-compatibility-report
+          name: test-suite-report
           path: build/
 
       - name: Download CSL test results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: csl-test-results
           path: docs-src/public/results/
 
       - name: Download benchmark results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: benchmark-results
           path: build/
@@ -238,7 +195,7 @@ jobs:
           fi
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -248,13 +205,10 @@ jobs:
             --csl-total ${{ needs.csl-compatibility.outputs.total }} \
             --csl-passed ${{ needs.csl-compatibility.outputs.passed }} \
             --csl-failed ${{ needs.csl-compatibility.outputs.failed }} \
-            --citeproc-total ${{ needs.citeproc-tests.outputs.total }} \
-            --citeproc-compiled ${{ needs.citeproc-tests.outputs.compiled }} \
-            --citeproc-errors ${{ needs.citeproc-tests.outputs.errors }} \
             --results-dir docs-src/public/results \
-            --categories-file build/citeproc-categories.json \
             --benchmark-file build/benchmark-results.json \
             --history-file docs-src/public/history.json \
+            --test-suite-file build/test-suite-report.json \
             --output docs-src/public/data.json
 
       - name: Setup Bun

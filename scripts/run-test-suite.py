@@ -917,6 +917,68 @@ def generate_report(results: List[Dict[str, Any]], output_path: Path, compare: b
     print(f'Report written to {output_path}')
 
 
+def generate_json_report(results: List[Dict[str, Any]], output_path: Path, compare: bool = False):
+    """Generate a JSON report for the docs site."""
+    by_category = defaultdict(list)
+    for r in results:
+        category = r['name'].split('_')[0]
+        by_category[category].append(r)
+
+    status_counts = defaultdict(int)
+    for r in results:
+        status_counts[r['status']] += 1
+
+    total = len(results)
+    summary = {
+        "total": total,
+        "pass": status_counts.get("pass", 0),
+        "mismatch": status_counts.get("mismatch", 0),
+        "excluded": status_counts.get("excluded", 0),
+        "error": status_counts.get("error", 0),
+    }
+
+    categories = []
+    for category in sorted(by_category.keys()):
+        cat_results = by_category[category]
+        categories.append({
+            "category": category,
+            "total": len(cat_results),
+            "pass": sum(1 for r in cat_results if r['status'] == 'pass'),
+            "mismatch": sum(1 for r in cat_results if r['status'] == 'mismatch'),
+            "excluded": sum(1 for r in cat_results if r['status'] == 'excluded'),
+            "error": sum(1 for r in cat_results if r['status'] == 'error'),
+        })
+
+    report = {
+        "compare": compare,
+        "summary": summary,
+        "byCategory": categories,
+        "mismatches": [
+            {
+                "name": r["name"],
+                "mode": r.get("mode"),
+                "expected": r.get("expected"),
+                "actual": r.get("actual"),
+            }
+            for r in results
+            if r["status"] == "mismatch"
+        ],
+        "excluded": [
+            {"name": r["name"], "reason": r.get("error", "")}
+            for r in results
+            if r["status"] == "excluded"
+        ],
+        "errors": [
+            {"name": r["name"], "error": r.get("error", "")}
+            for r in results
+            if r["status"] == "error"
+        ],
+    }
+
+    output_path.write_text(json.dumps(report, indent=2), encoding='utf-8')
+    print(f'JSON report written to {output_path}')
+
+
 # =============================================================================
 # Main
 # =============================================================================
@@ -935,6 +997,8 @@ def main():
                         help='Disable compiled CSL (use interpreter only)')
     parser.add_argument('--output', '-o', type=str,
                         help='Output report path (default: build/test-suite-report.md)')
+    parser.add_argument('--json-output', type=str,
+                        help='Output JSON report path (default: build/test-suite-report.json)')
     args = parser.parse_args()
 
     project_dir = Path(__file__).parent.parent.resolve()
@@ -997,6 +1061,13 @@ def main():
         report_path = project_dir / 'build' / 'test-suite-report.md'
     report_path.parent.mkdir(exist_ok=True)
     generate_report(results, report_path, compare=args.compare)
+
+    if args.json_output:
+        json_path = Path(args.json_output)
+    else:
+        json_path = project_dir / 'build' / 'test-suite-report.json'
+    json_path.parent.mkdir(exist_ok=True)
+    generate_json_report(results, json_path, compare=args.compare)
 
     # Print summary
     print()

@@ -24,10 +24,7 @@
 // Normalize name parts for sort comparison (strip bracketed chars, leading quotes)
 #let _normalize-name-sort-part(part) = {
   if part == none or type(part) != str { return "" }
-  part
-    .replace("[", "")
-    .replace("]", "")
-    .replace(regex("^['\u{2019}]+"), "")
+  part.replace("[", "").replace("]", "").replace(regex("^['\u{2019}]+"), "")
 }
 
 // Normalize date-like strings for lexicographic sorting

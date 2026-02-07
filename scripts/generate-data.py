@@ -21,7 +21,7 @@ Usage:
 import argparse
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -40,7 +40,7 @@ def update_history(history: dict, benchmark: dict, max_runs: int = 50) -> dict:
 
     # Add new run
     history["runs"].append({
-        "date": benchmark.get("date", datetime.utcnow().isoformat() + "Z"),
+        "date": benchmark.get("date", datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")),
         "commit": benchmark.get("commit", "unknown")[:7],
         "results": benchmark["results"]
     })
@@ -76,16 +76,13 @@ def main():
     parser.add_argument("--csl-failed", type=int, default=0)
     parser.add_argument("--results-dir", type=Path, default=Path("docs-src/public/results"))
 
-    # citeproc-js args
-    parser.add_argument("--citeproc-total", type=int, default=0)
-    parser.add_argument("--citeproc-compiled", type=int, default=0)
-    parser.add_argument("--citeproc-errors", type=int, default=0)
-    parser.add_argument("--categories-file", type=Path, default=Path("build/citeproc-categories.json"))
-
     # Benchmark args
     parser.add_argument("--benchmark-file", type=Path, default=Path("build/benchmark-results.json"))
     parser.add_argument("--history-file", type=Path, default=Path("docs-src/public/history.json"))
     parser.add_argument("--max-history", type=int, default=50)
+
+    # Test suite report
+    parser.add_argument("--test-suite-file", type=Path, default=Path("build/test-suite-report.json"))
 
     # Output
     parser.add_argument("--output", type=Path, default=Path("docs-src/public/data.json"))
@@ -106,8 +103,14 @@ def main():
     with open(args.history_file, "w") as f:
         json.dump(history, f, indent=2)
 
-    # Load categories
-    categories = load_json(args.categories_file, [])
+    # Load test-suite report
+    test_suite = load_json(args.test_suite_file, {
+        "summary": {"total": 0, "pass": 0, "mismatch": 0, "excluded": 0, "error": 0},
+        "byCategory": [],
+        "mismatches": [],
+        "excluded": [],
+        "errors": [],
+    })
 
     # Get styles list from results
     styles = get_styles_from_results(args.results_dir)
@@ -120,14 +123,9 @@ def main():
             "failed": args.csl_failed,
             "styles": styles
         },
-        "citeproc": {
-            "total": args.citeproc_total,
-            "compiled": args.citeproc_compiled,
-            "errors": args.citeproc_errors,
-            "categories": categories
-        },
+        "testSuite": test_suite,
         "benchmark": history,
-        "buildTime": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+        "buildTime": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     }
 
     # Write output

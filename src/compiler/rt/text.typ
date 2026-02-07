@@ -70,7 +70,9 @@
       let quote-level = ctx.at("quote-level", default: 0)
       let fixed = transform-quotes-at-level(val, ctx, quote-level)
       fixed.replace(
-        regex("(^|[\\s\\(\\[])[\u{2018}\u{2019}']([^'\u{2018}\u{2019}]+)[\u{2018}\u{2019}']"),
+        regex(
+          "(^|[\\s\\(\\[])[\u{2018}\u{2019}']([^'\u{2018}\u{2019}]+)[\u{2018}\u{2019}']",
+        ),
         m => (
           m.captures.at(0) + "\"" + m.captures.at(1) + "\""
         ),
@@ -157,10 +159,7 @@
     let has-single = cased.match(regex("[\u{2018}\u{2019}']")) != none
     let has-double = cased.match(regex("[\u{201C}\u{201D}\"]")) != none
     let effective-level = if (
-      not has-quotes
-        and quote-level == 1
-        and has-single
-        and not has-double
+      not has-quotes and quote-level == 1 and has-single and not has-double
     ) { 0 } else { quote-level }
 
     // Normalize embedded quotes in content (only if ctx.style is available)
@@ -173,7 +172,9 @@
     } else { cased }
     let normalized = if type(normalized) == str {
       normalized.replace(
-        regex("(^|[\\s\\(\\[])[\u{2018}\u{2019}']([^'\u{2018}\u{2019}]+)[\u{2018}\u{2019}']"),
+        regex(
+          "(^|[\\s\\(\\[])[\u{2018}\u{2019}']([^'\u{2018}\u{2019}]+)[\u{2018}\u{2019}']",
+        ),
         m => (
           m.captures.at(0) + "\"" + m.captures.at(1) + "\""
         ),

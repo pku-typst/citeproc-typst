@@ -331,117 +331,117 @@
       if names != none and names.len() > 0 {
         // Fall through to normal rendering with substitute-done-vars
       } else {
-      // CSL spec: "cs:names elements in cs:substitute inherit any name and label
-      // elements from the parent cs:names element."
-      // Extract parent's name and label elements for inheritance
-      let parent-name-node = children.find(c => (
-        type(c) == dictionary and c.at("tag", default: "") == "name"
-      ))
-      let parent-label-node = children.find(c => (
-        type(c) == dictionary and c.at("tag", default: "") == "label"
-      ))
+        // CSL spec: "cs:names elements in cs:substitute inherit any name and label
+        // elements from the parent cs:names element."
+        // Extract parent's name and label elements for inheritance
+        let parent-name-node = children.find(c => (
+          type(c) == dictionary and c.at("tag", default: "") == "name"
+        ))
+        let parent-label-node = children.find(c => (
+          type(c) == dictionary and c.at("tag", default: "") == "label"
+        ))
 
-      let sub-result = []
-      let sub-done-vars = ()
-      for sub-child in substitute.at("children", default: ()) {
-        // Track which variable this substitute child will render
-        let child-var = if type(sub-child) == dictionary {
-          let child-tag = sub-child.at("tag", default: "")
-          let child-attrs = sub-child.at("attrs", default: (:))
-          if child-tag == "text" and "variable" in child-attrs {
-            // <text variable="..."/> - track this variable
-            (child-attrs.variable,)
-          } else if child-tag == "text" and "macro" in child-attrs {
-            _collect-vars(sub-child, ctx.macros)
-          } else if child-tag == "names" and "variable" in child-attrs {
-            // <names variable="..."/> - track all name variables
-            child-attrs.variable.split(" ")
+        let sub-result = []
+        let sub-done-vars = ()
+        for sub-child in substitute.at("children", default: ()) {
+          // Track which variable this substitute child will render
+          let child-var = if type(sub-child) == dictionary {
+            let child-tag = sub-child.at("tag", default: "")
+            let child-attrs = sub-child.at("attrs", default: (:))
+            if child-tag == "text" and "variable" in child-attrs {
+              // <text variable="..."/> - track this variable
+              (child-attrs.variable,)
+            } else if child-tag == "text" and "macro" in child-attrs {
+              _collect-vars(sub-child, ctx.macros)
+            } else if child-tag == "names" and "variable" in child-attrs {
+              // <names variable="..."/> - track all name variables
+              child-attrs.variable.split(" ")
+            } else {
+              ()
+            }
           } else {
             ()
           }
-        } else {
-          ()
-        }
 
-        // For names elements, inject parent's name/label if not present
-        let child-to-render = if (
-          type(sub-child) == dictionary
-            and sub-child.at("tag", default: "") == "names"
-        ) {
-          let sub-children = sub-child.at("children", default: ())
-          let has-name = sub-children.any(c => (
-            type(c) == dictionary and c.at("tag", default: "") == "name"
-          ))
-          let has-label = sub-children.any(c => (
-            type(c) == dictionary and c.at("tag", default: "") == "label"
-          ))
+          // For names elements, inject parent's name/label if not present
+          let child-to-render = if (
+            type(sub-child) == dictionary
+              and sub-child.at("tag", default: "") == "names"
+          ) {
+            let sub-children = sub-child.at("children", default: ())
+            let has-name = sub-children.any(c => (
+              type(c) == dictionary and c.at("tag", default: "") == "name"
+            ))
+            let has-label = sub-children.any(c => (
+              type(c) == dictionary and c.at("tag", default: "") == "label"
+            ))
 
-          // Build new children list with inherited elements
-          let new-children = sub-children
-          if not has-name and parent-name-node != none {
-            new-children = (parent-name-node,) + new-children
-          }
-          if not has-label and parent-label-node != none {
-            new-children = new-children + (parent-label-node,)
-          }
-
-          // Create modified node with inherited children
-          let modified = sub-child
-          modified.insert("children", new-children)
-          modified
-        } else {
-          sub-child
-        }
-
-        // Special handling for <text term="..."/>: CSL spec says "Fallback stops once
-        // a localizable unit has been found. For terms, this even is the case when
-        // they are defined as empty strings"
-        let is-term-element = (
-          type(sub-child) == dictionary
-            and sub-child.at("tag", default: "") == "text"
-            and "term" in sub-child.at("attrs", default: (:))
-        )
-
-        if is-term-element {
-          // Check if term is defined (even if empty)
-          let term-name = sub-child
-            .at("attrs", default: (:))
-            .at("term", default: "")
-          let form = sub-child
-            .at("attrs", default: (:))
-            .at("form", default: "long")
-          let term-value = lookup-term(
-            ctx,
-            term-name,
-            form: form,
-            plural: false,
-          )
-          if term-value != none {
-            // Term is defined (even if empty) - use it and stop
-            let rendered = interpret-children-stack((child-to-render,), ctx)
-            sub-result = rendered
-            if term-value == "" {
-              sub-done-vars = child-var + ("__substitute-term__",)
-            } else {
-              sub-done-vars = child-var
+            // Build new children list with inherited elements
+            let new-children = sub-children
+            if not has-name and parent-name-node != none {
+              new-children = (parent-name-node,) + new-children
             }
-            break
+            if not has-label and parent-label-node != none {
+              new-children = new-children + (parent-label-node,)
+            }
+
+            // Create modified node with inherited children
+            let modified = sub-child
+            modified.insert("children", new-children)
+            modified
+          } else {
+            sub-child
           }
-          // Term is undefined - continue to next substitute child
-        } else {
-          let rendered = interpret-children-stack((child-to-render,), ctx)
-          if not is-empty(rendered) {
-            sub-result = rendered
-            // CSL Substitute Quashing: mark rendered variables as "done"
-            sub-done-vars = child-var
-            break // Use first non-empty result only
+
+          // Special handling for <text term="..."/>: CSL spec says "Fallback stops once
+          // a localizable unit has been found. For terms, this even is the case when
+          // they are defined as empty strings"
+          let is-term-element = (
+            type(sub-child) == dictionary
+              and sub-child.at("tag", default: "") == "text"
+              and "term" in sub-child.at("attrs", default: (:))
+          )
+
+          if is-term-element {
+            // Check if term is defined (even if empty)
+            let term-name = sub-child
+              .at("attrs", default: (:))
+              .at("term", default: "")
+            let form = sub-child
+              .at("attrs", default: (:))
+              .at("form", default: "long")
+            let term-value = lookup-term(
+              ctx,
+              term-name,
+              form: form,
+              plural: false,
+            )
+            if term-value != none {
+              // Term is defined (even if empty) - use it and stop
+              let rendered = interpret-children-stack((child-to-render,), ctx)
+              sub-result = rendered
+              if term-value == "" {
+                sub-done-vars = child-var + ("__substitute-term__",)
+              } else {
+                sub-done-vars = child-var
+              }
+              break
+            }
+            // Term is undefined - continue to next substitute child
+          } else {
+            let rendered = interpret-children-stack((child-to-render,), ctx)
+            if not is-empty(rendered) {
+              sub-result = rendered
+              // CSL Substitute Quashing: mark rendered variables as "done"
+              sub-done-vars = child-var
+              break // Use first non-empty result only
+            }
           }
         }
+        // CSL spec: substitute output should still have parent <names> element's
+        // prefix/suffix applied (not formatting - that's on the substitute child)
+        return (finalize(sub-result, attrs), sub-done-vars)
       }
-      // CSL spec: substitute output should still have parent <names> element's
-      // prefix/suffix applied (not formatting - that's on the substitute child)
-      return (finalize(sub-result, attrs), sub-done-vars)
-    }
     } else { ([], ()) }
   }
 
@@ -449,259 +449,259 @@
     return ([], ())
   }
 
-    // Check for subsequent-author-substitute (bibliography grouping)
-    // CSL spec: "Substitution is limited to the names of the first cs:names element rendered"
-    //
-    // IMPLEMENTATION NOTE:
-    // We identify the "first cs:names" by matching variable names from the structurally
-    // first cs:names node in the bibliography layout (stored in ctx.substitute-vars).
-    //
-    // KNOWN LIMITATION:
-    // If a layout contains multiple cs:names elements with the SAME variable attribute
-    // (e.g., two separate `<names variable="author">` elements), this implementation
-    // will substitute ALL of them, not just the first. However, this edge case is
-    // extremely rare in real CSL styles - typically each variable appears in only one
-    // cs:names element per layout.
-    //
-    // A fully spec-compliant fix would require mutable state to track "have we already
-    // rendered the first cs:names?", which Typst's functional model doesn't support
-    // without restructuring to two-pass rendering.
-    let author-substitute = ctx.at("author-substitute", default: none)
-    let substitute-vars = ctx.at("substitute-vars", default: "author")
+  // Check for subsequent-author-substitute (bibliography grouping)
+  // CSL spec: "Substitution is limited to the names of the first cs:names element rendered"
+  //
+  // IMPLEMENTATION NOTE:
+  // We identify the "first cs:names" by matching variable names from the structurally
+  // first cs:names node in the bibliography layout (stored in ctx.substitute-vars).
+  //
+  // KNOWN LIMITATION:
+  // If a layout contains multiple cs:names elements with the SAME variable attribute
+  // (e.g., two separate `<names variable="author">` elements), this implementation
+  // will substitute ALL of them, not just the first. However, this edge case is
+  // extremely rare in real CSL styles - typically each variable appears in only one
+  // cs:names element per layout.
+  //
+  // A fully spec-compliant fix would require mutable state to track "have we already
+  // rendered the first cs:names?", which Typst's functional model doesn't support
+  // without restructuring to two-pass rendering.
+  let author-substitute = ctx.at("author-substitute", default: none)
+  let substitute-vars = ctx.at("substitute-vars", default: "author")
 
-    // Check if current variable matches the first cs:names element's variables
-    let target-vars = substitute-vars.split(" ")
-    let original-vars = attrs.at("variable", default: "author").split(" ")
-    let is-target-element = original-vars.any(v => target-vars.contains(v))
+  // Check if current variable matches the first cs:names element's variables
+  let target-vars = substitute-vars.split(" ")
+  let original-vars = attrs.at("variable", default: "author").split(" ")
+  let is-target-element = original-vars.any(v => target-vars.contains(v))
 
-    // Determine substitution parameters for format-names
-    // These will be passed to format-names to handle inline substitution
-    let substitute-string-to-use = none
-    let substitute-count-to-use = 0
+  // Determine substitution parameters for format-names
+  // These will be passed to format-names to handle inline substitution
+  let substitute-string-to-use = none
+  let substitute-count-to-use = 0
 
-    if author-substitute != none and is-target-element {
-      // CSL spec: "replaces the entire name list (including punctuation and terms
-      // like 'et al' and 'and'), except for the affixes set on the cs:names element"
-      let substitute-rule = ctx.at(
-        "author-substitute-rule",
-        default: "complete-all",
-      )
-      let substitute-count = ctx.at("author-substitute-count", default: 0)
+  if author-substitute != none and is-target-element {
+    // CSL spec: "replaces the entire name list (including punctuation and terms
+    // like 'et al' and 'and'), except for the affixes set on the cs:names element"
+    let substitute-rule = ctx.at(
+      "author-substitute-rule",
+      default: "complete-all",
+    )
+    let substitute-count = ctx.at("author-substitute-count", default: 0)
 
-      if substitute-rule == "complete-all" {
-        // Replace entire name list with substitute string (preserve labels)
+    if substitute-rule == "complete-all" {
+      // Replace entire name list with substitute string (preserve labels)
+      substitute-string-to-use = author-substitute
+      substitute-count-to-use = -1
+    } else if substitute-rule == "complete-each" {
+      // All names match: substitute each name inline
+      substitute-string-to-use = author-substitute
+      substitute-count-to-use = substitute-count
+    } else if substitute-rule == "partial-each" {
+      // Substitute matching names from start inline
+      substitute-string-to-use = author-substitute
+      substitute-count-to-use = substitute-count
+    } else if substitute-rule == "partial-first" {
+      // Substitute only first name inline
+      if substitute-count > 0 {
         substitute-string-to-use = author-substitute
-        substitute-count-to-use = -1
-      } else if substitute-rule == "complete-each" {
-        // All names match: substitute each name inline
-        substitute-string-to-use = author-substitute
-        substitute-count-to-use = substitute-count
-      } else if substitute-rule == "partial-each" {
-        // Substitute matching names from start inline
-        substitute-string-to-use = author-substitute
-        substitute-count-to-use = substitute-count
-      } else if substitute-rule == "partial-first" {
-        // Substitute only first name inline
-        if substitute-count > 0 {
-          substitute-string-to-use = author-substitute
-          substitute-count-to-use = 1
+        substitute-count-to-use = 1
+      }
+    }
+  }
+
+  // Find name formatting options
+  let name-node = children.find(c => (
+    type(c) == dictionary and c.at("tag", default: "") == "name"
+  ))
+  let name-attrs = if name-node != none {
+    name-node.at("attrs", default: (:))
+  } else { (:) }
+
+  // Parse <name-part> children from <name> element
+  // CSL spec: <name-part name="family"> and <name-part name="given"> control formatting
+  let name-parts = (:)
+  if name-node != none {
+    let name-children = name-node.at("children", default: ())
+    for child in name-children {
+      if (
+        type(child) == dictionary
+          and child.at("tag", default: "") == "name-part"
+      ) {
+        let part-attrs = child.at("attrs", default: (:))
+        let part-name = part-attrs.at("name", default: "")
+        if part-name in ("family", "given") {
+          name-parts.insert(part-name, part-attrs)
         }
       }
     }
+  }
 
-    // Find name formatting options
-    let name-node = children.find(c => (
-      type(c) == dictionary and c.at("tag", default: "") == "name"
-    ))
-    let name-attrs = if name-node != none {
-      name-node.at("attrs", default: (:))
-    } else { (:) }
+  // Find institution formatting options (CSL-M extension)
+  let institution-node = children.find(c => (
+    type(c) == dictionary and c.at("tag", default: "") == "institution"
+  ))
+  let institution-attrs = if institution-node != none {
+    institution-node.at("attrs", default: (:))
+  } else { none }
 
-    // Parse <name-part> children from <name> element
-    // CSL spec: <name-part name="family"> and <name-part name="given"> control formatting
-    let name-parts = (:)
-    if name-node != none {
-      let name-children = name-node.at("children", default: ())
-      for child in name-children {
-        if (
-          type(child) == dictionary
-            and child.at("tag", default: "") == "name-part"
-        ) {
-          let part-attrs = child.at("attrs", default: (:))
-          let part-name = part-attrs.at("name", default: "")
-          if part-name in ("family", "given") {
-            name-parts.insert(part-name, part-attrs)
-          }
-        }
-      }
-    }
+  // Find et-al element if present (CSL spec: can override term with term="...")
+  // Also extract formatting attributes (font-style, font-weight, etc.)
+  let et-al-node = children.find(c => (
+    type(c) == dictionary and c.at("tag", default: "") == "et-al"
+  ))
+  let et-al-attrs = if et-al-node != none {
+    et-al-node.at("attrs", default: (:))
+  } else { (:) }
+  let et-al-term = et-al-attrs.at("term", default: "et-al")
+  let et-al = _resolve-et-al-settings(name-attrs, ctx)
 
-    // Find institution formatting options (CSL-M extension)
-    let institution-node = children.find(c => (
-      type(c) == dictionary and c.at("tag", default: "") == "institution"
-    ))
-    let institution-attrs = if institution-node != none {
-      institution-node.at("attrs", default: (:))
-    } else { none }
-
-    // Find et-al element if present (CSL spec: can override term with term="...")
-    // Also extract formatting attributes (font-style, font-weight, etc.)
-    let et-al-node = children.find(c => (
-      type(c) == dictionary and c.at("tag", default: "") == "et-al"
-    ))
-    let et-al-attrs = if et-al-node != none {
-      et-al-node.at("attrs", default: (:))
-    } else { (:) }
-    let et-al-term = et-al-attrs.at("term", default: "et-al")
-    let et-al = _resolve-et-al-settings(name-attrs, ctx)
-
-    // Find label if present
-    let label-node = children.find(c => (
-      type(c) == dictionary and c.at("tag", default: "") == "label"
-    ))
-    let term = ""
-    let label-attrs = if label-node != none {
-      label-node.at("attrs", default: (:))
-    } else { (:) }
-    let label-position = "after"
-    let label-content = if label-node != none {
-      let form = label-attrs.at("form", default: "long")
-      let plural-attr = label-attrs.at("plural", default: "contextual")
-      let plural = if plural-attr == "always" {
-        true
-      } else if plural-attr == "never" {
-        false
-      } else {
-        names.len() > 1
-      }
-      // Use common term (e.g., "editortranslator") if available, otherwise use variable name
-      let term-name = if common-term != none { common-term } else { used-var }
-      term = lookup-term(ctx, term-name, form: form, plural: plural)
-      // Only apply formatting if term is defined and non-empty (to avoid prefix/suffix on empty content)
-      if term == none or term == "" {
-        []
-      } else {
-        let term-ends = (
-          term.ends-with(".")
-            or label-attrs.at("suffix", default: "").ends-with(".")
-        )
-        let final-label-attrs = (..label-attrs, "_ends-with-period": term-ends)
-        finalize(term, final-label-attrs)
-      }
-    } else { [] }
-
-    // Format names (with institution support if cs:institution is present)
-    // Pass substitute parameters for inline substitution
-    let names-content = if institution-attrs != none {
-      format-names-with-institutions(
-        names,
-        name-attrs,
-        institution-attrs,
-        ctx,
-        name-parts: name-parts,
-        substitute-string: substitute-string-to-use,
-        substitute-count: substitute-count-to-use,
-        et-al-term: et-al-term,
-        et-al-attrs: et-al-attrs,
-      )
+  // Find label if present
+  let label-node = children.find(c => (
+    type(c) == dictionary and c.at("tag", default: "") == "label"
+  ))
+  let term = ""
+  let label-attrs = if label-node != none {
+    label-node.at("attrs", default: (:))
+  } else { (:) }
+  let label-position = "after"
+  let label-content = if label-node != none {
+    let form = label-attrs.at("form", default: "long")
+    let plural-attr = label-attrs.at("plural", default: "contextual")
+    let plural = if plural-attr == "always" {
+      true
+    } else if plural-attr == "never" {
+      false
     } else {
-      format-names(
-        names,
-        name-attrs,
-        ctx,
-        name-parts: name-parts,
-        substitute-string: substitute-string-to-use,
-        substitute-count: substitute-count-to-use,
-        et-al-term: et-al-term,
-        et-al-attrs: et-al-attrs,
-      )
+      names.len() > 1
     }
-
-    let raw-name-ends = if type(names-content) == str {
-      names-content.trim().ends-with(".")
+    // Use common term (e.g., "editortranslator") if available, otherwise use variable name
+    let term-name = if common-term != none { common-term } else { used-var }
+    term = lookup-term(ctx, term-name, form: form, plural: plural)
+    // Only apply formatting if term is defined and non-empty (to avoid prefix/suffix on empty content)
+    if term == none or term == "" {
+      []
     } else {
-      names-end-flag(
-        names,
-        name-attrs,
-        name-parts,
-        ctx,
-        et-al-term,
-        et-al,
+      let term-ends = (
+        term.ends-with(".")
+          or label-attrs.at("suffix", default: "").ends-with(".")
+      )
+      let final-label-attrs = (..label-attrs, "_ends-with-period": term-ends)
+      finalize(term, final-label-attrs)
+    }
+  } else { [] }
+
+  // Format names (with institution support if cs:institution is present)
+  // Pass substitute parameters for inline substitution
+  let names-content = if institution-attrs != none {
+    format-names-with-institutions(
+      names,
+      name-attrs,
+      institution-attrs,
+      ctx,
+      name-parts: name-parts,
+      substitute-string: substitute-string-to-use,
+      substitute-count: substitute-count-to-use,
+      et-al-term: et-al-term,
+      et-al-attrs: et-al-attrs,
+    )
+  } else {
+    format-names(
+      names,
+      name-attrs,
+      ctx,
+      name-parts: name-parts,
+      substitute-string: substitute-string-to-use,
+      substitute-count: substitute-count-to-use,
+      et-al-term: et-al-term,
+      et-al-attrs: et-al-attrs,
+    )
+  }
+
+  let raw-name-ends = if type(names-content) == str {
+    names-content.trim().ends-with(".")
+  } else {
+    names-end-flag(
+      names,
+      name-attrs,
+      name-parts,
+      ctx,
+      et-al-term,
+      et-al,
+    )
+  }
+
+  // Apply name-level formatting (font-weight, font-style, etc.)
+  // CSL spec: <name> element can have formatting attributes that apply to all rendered names
+  names-content = apply-name-formatting(names-content, name-attrs)
+
+  // CSL spec: <name> element's prefix/suffix wrap the formatted name list
+  // This is SEPARATE from <names> element's prefix/suffix (applied via finalize later)
+  let name-prefix = name-attrs.at("prefix", default: "")
+  let name-suffix = name-attrs.at("suffix", default: "")
+  if (
+    (name-prefix != "" or name-suffix != "") and not is-empty(names-content)
+  ) {
+    names-content = [#name-prefix#names-content#name-suffix]
+  }
+
+  // Combine with label
+  let label-ends = if label-content != [] {
+    let label-str = if type(label-content) == str {
+      label-content
+    } else {
+      content-to-string(label-content)
+    }
+    if label-str.trim() != "" {
+      label-str.trim().ends-with(".")
+    } else {
+      (
+        term.trim().ends-with(".")
+          or label-attrs.at("suffix", default: "").ends-with(".")
       )
     }
+  } else { false }
 
-    // Apply name-level formatting (font-weight, font-style, etc.)
-    // CSL spec: <name> element can have formatting attributes that apply to all rendered names
-    names-content = apply-name-formatting(names-content, name-attrs)
-
-    // CSL spec: <name> element's prefix/suffix wrap the formatted name list
-    // This is SEPARATE from <names> element's prefix/suffix (applied via finalize later)
-    let name-prefix = name-attrs.at("prefix", default: "")
-    let name-suffix = name-attrs.at("suffix", default: "")
-    if (
-      (name-prefix != "" or name-suffix != "") and not is-empty(names-content)
-    ) {
-      names-content = [#name-prefix#names-content#name-suffix]
-    }
-
-    // Combine with label
-    let label-ends = if label-content != [] {
-      let label-str = if type(label-content) == str {
-        label-content
-      } else {
-        content-to-string(label-content)
-      }
-      if label-str.trim() != "" {
-        label-str.trim().ends-with(".")
-      } else {
-        (
-          term.trim().ends-with(".")
-            or label-attrs.at("suffix", default: "").ends-with(".")
-        )
-      }
-    } else { false }
-
-    let result = if label-content != [] {
-      label-position = if label-node != none {
-        let label-idx = children.position(c => (
-          type(c) == dictionary and c.at("tag", default: "") == "label"
-        ))
-        let name-idx = children.position(c => (
-          type(c) == dictionary and c.at("tag", default: "") == "name"
-        ))
-        if label-idx != none and name-idx != none and label-idx < name-idx {
-          "before"
-        } else { "after" }
+  let result = if label-content != [] {
+    label-position = if label-node != none {
+      let label-idx = children.position(c => (
+        type(c) == dictionary and c.at("tag", default: "") == "label"
+      ))
+      let name-idx = children.position(c => (
+        type(c) == dictionary and c.at("tag", default: "") == "name"
+      ))
+      if label-idx != none and name-idx != none and label-idx < name-idx {
+        "before"
       } else { "after" }
+    } else { "after" }
 
-      // If label has its own prefix, use it directly; otherwise use names delimiter
-      let label-has-prefix = label-attrs.at("prefix", default: "") != ""
+    // If label has its own prefix, use it directly; otherwise use names delimiter
+    let label-has-prefix = label-attrs.at("prefix", default: "") != ""
 
-      if label-position == "before" {
-        [#label-content #names-content]
-      } else {
-        // CSL spec: label follows names directly without additional delimiter
-        // Label's own prefix/suffix controls spacing
-        [#names-content#label-content]
-      }
-    } else { names-content }
-
-    let name-ends = raw-name-ends
-    if name-suffix.ends-with(".") { name-ends = true }
-
-    let final-ends = if label-content != [] and label-position == "after" {
-      label-ends
+    if label-position == "before" {
+      [#label-content #names-content]
     } else {
-      name-ends
+      // CSL spec: label follows names directly without additional delimiter
+      // Label's own prefix/suffix controls spacing
+      [#names-content#label-content]
     }
+  } else { names-content }
 
-    let suffix = attrs.at("suffix", default: "")
-    let final-attrs = if final-ends and suffix.starts-with(".") {
-      (..attrs, suffix: suffix.slice(1), "_ends-with-period": final-ends)
-    } else {
-      (..attrs, "_ends-with-period": final-ends)
-    }
+  let name-ends = raw-name-ends
+  if name-suffix.ends-with(".") { name-ends = true }
 
-    // Normal names rendering - no substitute quashing needed
-    (finalize(result, final-attrs), substitute-done-vars)
+  let final-ends = if label-content != [] and label-position == "after" {
+    label-ends
+  } else {
+    name-ends
+  }
+
+  let suffix = attrs.at("suffix", default: "")
+  let final-attrs = if final-ends and suffix.starts-with(".") {
+    (..attrs, suffix: suffix.slice(1), "_ends-with-period": final-ends)
+  } else {
+    (..attrs, "_ends-with-period": final-ends)
+  }
+
+  // Normal names rendering - no substitute quashing needed
+  (finalize(result, final-attrs), substitute-done-vars)
 }

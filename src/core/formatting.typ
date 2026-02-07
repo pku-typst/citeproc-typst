@@ -476,20 +476,22 @@
   let upper-locale = s => if not is-turkish {
     upper(s)
   } else {
-    s.clusters().map(c => (
-      if c == "i" { "İ" }
-      else if c == "ı" { "I" }
-      else { upper(c) }
-    )).join()
+    s
+      .clusters()
+      .map(c => (
+        if c == "i" { "İ" } else if c == "ı" { "I" } else { upper(c) }
+      ))
+      .join()
   }
   let lower-locale = s => if not is-turkish {
     lower(s)
   } else {
-    s.clusters().map(c => (
-      if c == "I" { "ı" }
-      else if c == "İ" { "i" }
-      else { lower(c) }
-    )).join()
+    s
+      .clusters()
+      .map(c => (
+        if c == "I" { "ı" } else if c == "İ" { "i" } else { lower(c) }
+      ))
+      .join()
   }
 
   // CSL spec: title case only applies to English

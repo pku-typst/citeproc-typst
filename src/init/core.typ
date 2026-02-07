@@ -16,8 +16,8 @@
 #import "../data/disambiguation.typ": annotate-disambiguate-steps
 #import "../output/mod.typ": (
   collapse-punctuation, get-punctuation-in-quote, get-rendered-entries,
-  process-entries, render-citation, style-uses-citation-number,
-  style-uses-citation-label,
+  process-entries, render-citation, style-uses-citation-label,
+  style-uses-citation-number,
 )
 #import "../parsing/mod.typ": detect-language
 #import "../core/mod.typ": (
