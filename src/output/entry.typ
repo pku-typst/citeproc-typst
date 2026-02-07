@@ -229,6 +229,11 @@
   }
 
   if is-empty(result) {
+    if ctx.render-context == RENDER-CONTEXT.bibliography {
+      if not style-uses-citation-number(style) {
+        return []
+      }
+    }
     let error = "[CSL STYLE ERROR: reference with no printed form.]"
     if include-number and style-uses-citation-number(style) {
       let number-content = if cite-number != none { str(cite-number) } else {

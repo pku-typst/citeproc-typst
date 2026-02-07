@@ -47,6 +47,9 @@
   "genre": "type",
   "event-title": "eventtitle",
   "event": "event",
+  "original-title": "original-title",
+  "part-title": "part-title",
+  "reviewed-title": "reviewed-title",
   "collection-title": "series",
   "number-of-volumes": "volumes",
   // CSL-M legal variables
@@ -276,6 +279,8 @@
   // CSL-M original-* variables (for bilingual entries)
   // These map to BibTeX fields with -en suffix
   if name == "original-title" {
+    let direct = fields.at("original-title", default: "")
+    if direct != "" { return direct }
     return fields.at("title-en", default: "")
   }
 

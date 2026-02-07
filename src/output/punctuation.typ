@@ -631,7 +631,7 @@
             and curr-full != none
             and prev-text.trim().ends-with(",")
             and curr-full.trim().starts-with("(")
-            and prev-text.trim().match(regex("\\d$")) != none
+            and prev-text.trim().match(regex("\\d,\\s*$")) != none
         ) {
           let cleaned = prev-text.replace(regex(",\\s*$"), " ")
           if cleaned != prev-text {
@@ -769,8 +769,8 @@
   // Rule 0: Multiple spaces collapse to single space
   // This handles cases like delimiter ". " + prefix " (" → ". (" not ".  ("
   show regex(" {2,}"): " "
-  // Rule 0b: Drop comma before parenthetical
-  show regex(",\\s*\\("): " ("
+  // Rule 0b: Drop comma before parenthetical after a number
+  show regex("(\\d),\\s*\\("): "$1 ("
 
   // Rule 1: Duplicate punctuation collapses (keeps first character)
   show regex("[.。]{2,}"): it => it.text.first()

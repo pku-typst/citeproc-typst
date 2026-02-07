@@ -102,7 +102,8 @@
   if author-substitute != none {
     let substitute-vars = ctx.at("substitute-vars", default: "author")
     let target-vars = substitute-vars.split(" ")
-    let is-target-element = target-vars.contains(var-name)
+    let element-vars = attrs.at("variable", default: var-name).split(" ")
+    let is-target-element = element-vars.any(v => target-vars.contains(v))
     if is-target-element {
       let substitute-rule = ctx.at(
         "author-substitute-rule",
@@ -110,11 +111,8 @@
       )
       let substitute-count = ctx.at("author-substitute-count", default: 0)
       if substitute-rule == "complete-all" {
-        let end-flag = author-substitute.trim().ends-with(".")
-        let final-attrs = (..attrs, "_ends-with-period": end-flag)
-        let content = finalize(author-substitute, final-attrs)
-        let var-state = if is-empty(content) { "no-var" } else { "var" }
-        return (content, var-state, end-flag)
+        substitute-string-to-use = author-substitute
+        substitute-count-to-use = -1
       } else if substitute-rule == "complete-each" {
         substitute-string-to-use = author-substitute
         substitute-count-to-use = substitute-count
@@ -378,9 +376,11 @@
   }
 
   let done-vars = ctx.at("done-vars", default: ())
-  if var-names.all(v => v in done-vars) {
+  let active-vars = var-names.filter(v => v not in done-vars)
+  if active-vars.len() == 0 {
     return ([], "none", (), false)
   }
+  var-names = active-vars
 
   let name-attrs = plan.at("name-attrs", default: (:))
   let name-form = name-attrs.at("form", default: "long")
@@ -510,10 +510,45 @@
     return (content, var-state, (), ends)
   }
 
+  let substitute-children = plan.at("substitute-children", default: ())
+  if substitute-children.len() == 0 {
+    return ([], "no-var", (), false)
+  }
+
   let author-substitute = ctx.at("author-substitute", default: none)
   let substitute-vars = ctx.at("substitute-vars", default: "author")
   let target-vars = substitute-vars.split(" ")
   let is-target-element = var-names.any(v => target-vars.contains(v))
+
+  if author-substitute != none and is-target-element {
+    // If substitute provides names, use them to allow labels and author-substitute
+    let done-vars = ctx.at("done-vars", default: ())
+    for sub-child in substitute-children {
+      if (
+        type(sub-child) == dictionary
+          and sub-child.at("tag", default: "") == "names"
+      ) {
+        let child-attrs = sub-child.at("attrs", default: (:))
+        if "variable" in child-attrs {
+          let child-vars = child-attrs.variable.split(" ")
+          for v in child-vars {
+            if v in done-vars { continue }
+            let candidate = ctx.parsed-names.at(v, default: ())
+            if candidate.len() > 0 {
+              let (content, var-state, ends) = _render-names-plan(
+                ctx,
+                attrs,
+                plan,
+                v,
+                candidate,
+              )
+              return (content, var-state, (v,), ends)
+            }
+          }
+        }
+      }
+    }
+  }
 
   if author-substitute != none and is-target-element {
     let substitute-rule = ctx.at(
@@ -536,11 +571,6 @@
         return (finalize(author-substitute, final-attrs), "var", (), end-flag)
       }
     }
-  }
-
-  let substitute-children = plan.at("substitute-children", default: ())
-  if substitute-children.len() == 0 {
-    return ([], "no-var", (), false)
   }
 
   let parent-name-node = plan.at("parent-name-node", default: none)
@@ -612,7 +642,11 @@
       if term-value != none {
         let rendered = interpret-children-stack((child-to-render,), ctx)
         sub-result = rendered
-        sub-done-vars = child-var
+        if term-value == "" {
+          sub-done-vars = child-var + ("__substitute-term__",)
+        } else {
+          sub-done-vars = child-var
+        }
         break
       }
     } else {
@@ -626,6 +660,8 @@
   }
 
   let content = finalize(sub-result, (..attrs, "_ends-with-period": false))
-  let var-state = if is-empty(content) { "no-var" } else { "var" }
+  let var-state = if is-empty(content) {
+    if sub-done-vars.contains("__substitute-term__") { "var" } else { "no-var" }
+  } else { "var" }
   (content, var-state, sub-done-vars, false)
 }

@@ -7,6 +7,7 @@
 #import "helpers.typ": (
   content-to-string, find-first-names-macro, find-first-names-node,
   node-uses-citation-number, style-uses-citation-number,
+  style-uses-citation-label,
 )
 #import "names-render.typ": (
   get-first-bib-names-node, render-names-for-bibliography,

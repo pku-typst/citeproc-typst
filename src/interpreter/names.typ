@@ -140,12 +140,12 @@
   let attrs = node.at("attrs", default: (:))
   let children = node.at("children", default: ())
   let var-names = attrs.at("variable", default: "author").split(" ")
-  if (
-    var-names.len() == 1
-      and var-names.first() in ctx.at("done-vars", default: ())
-  ) {
+  let done-vars = ctx.at("done-vars", default: ())
+  let active-vars = var-names.filter(v => not done-vars.contains(v))
+  if active-vars.len() == 0 {
     return ([], ())
   }
+  var-names = active-vars
 
   // Check for merged editor-translator pattern first
   // CSL spec: When variable="editor translator" and both have identical names,
@@ -264,6 +264,7 @@
     }
   }
 
+  let substitute-done-vars = ()
   if names == none or names.len() == 0 {
     // Check for subsequent-author-substitute BEFORE trying substitute
     // CSL spec: subsequent-author-substitute applies to the ENTIRE output of the
@@ -303,6 +304,33 @@
       type(c) == dictionary and c.at("tag", default: "") == "substitute"
     ))
     if substitute != none {
+      if author-substitute != none and is-target-element {
+        // If substitute provides names, use them to allow label + author-substitute
+        for sub-child in substitute.at("children", default: ()) {
+          if (
+            type(sub-child) == dictionary
+              and sub-child.at("tag", default: "") == "names"
+          ) {
+            let child-attrs = sub-child.at("attrs", default: (:))
+            if "variable" in child-attrs {
+              let child-vars = child-attrs.variable.split(" ")
+              for v in child-vars {
+                let candidate = ctx.parsed-names.at(v, default: ())
+                if candidate.len() > 0 {
+                  names = candidate
+                  used-var = v
+                  substitute-done-vars = (v,)
+                  break
+                }
+              }
+            }
+          }
+          if names != none and names.len() > 0 { break }
+        }
+      }
+      if names != none and names.len() > 0 {
+        // Fall through to normal rendering with substitute-done-vars
+      } else {
       // CSL spec: "cs:names elements in cs:substitute inherit any name and label
       // elements from the parent cs:names element."
       // Extract parent's name and label elements for inheritance
@@ -392,7 +420,11 @@
             // Term is defined (even if empty) - use it and stop
             let rendered = interpret-children-stack((child-to-render,), ctx)
             sub-result = rendered
-            sub-done-vars = child-var
+            if term-value == "" {
+              sub-done-vars = child-var + ("__substitute-term__",)
+            } else {
+              sub-done-vars = child-var
+            }
             break
           }
           // Term is undefined - continue to next substitute child
@@ -408,9 +440,15 @@
       }
       // CSL spec: substitute output should still have parent <names> element's
       // prefix/suffix applied (not formatting - that's on the substitute child)
-      (finalize(sub-result, attrs), sub-done-vars)
+      return (finalize(sub-result, attrs), sub-done-vars)
+    }
     } else { ([], ()) }
-  } else {
+  }
+
+  if names == none or names.len() == 0 {
+    return ([], ())
+  }
+
     // Check for subsequent-author-substitute (bibliography grouping)
     // CSL spec: "Substitution is limited to the names of the first cs:names element rendered"
     //
@@ -433,7 +471,8 @@
 
     // Check if current variable matches the first cs:names element's variables
     let target-vars = substitute-vars.split(" ")
-    let is-target-element = target-vars.contains(used-var)
+    let original-vars = attrs.at("variable", default: "author").split(" ")
+    let is-target-element = original-vars.any(v => target-vars.contains(v))
 
     // Determine substitution parameters for format-names
     // These will be passed to format-names to handle inline substitution
@@ -450,8 +489,9 @@
       let substitute-count = ctx.at("author-substitute-count", default: 0)
 
       if substitute-rule == "complete-all" {
-        // Replace entire name list with substitute string (no inline substitution)
-        return (finalize(author-substitute, attrs), ())
+        // Replace entire name list with substitute string (preserve labels)
+        substitute-string-to-use = author-substitute
+        substitute-count-to-use = -1
       } else if substitute-rule == "complete-each" {
         // All names match: substitute each name inline
         substitute-string-to-use = author-substitute
@@ -663,6 +703,5 @@
     }
 
     // Normal names rendering - no substitute quashing needed
-    (finalize(result, final-attrs), ())
-  }
+    (finalize(result, final-attrs), substitute-done-vars)
 }

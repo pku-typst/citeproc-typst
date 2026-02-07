@@ -519,7 +519,9 @@
     )
     let cache-fetch = (
       indent
-        + "  let result = if \""
+        + "  let can-use-cache = (\"done-vars\" not in ctx or ctx.done-vars.len() == 0)\n"
+        + indent
+        + "  let result = if can-use-cache and \""
         + macro-key
         + "\" in macro-cache {\n"
         + indent

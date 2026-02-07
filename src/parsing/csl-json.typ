@@ -172,6 +172,7 @@
   "genre",
   "medium",
   "original-title",
+  "part-title",
   "original-publisher",
   "original-publisher-place",
   "references",

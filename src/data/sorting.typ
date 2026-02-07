@@ -21,6 +21,15 @@
     .join(" ")
 }
 
+// Normalize name parts for sort comparison (strip bracketed chars, leading quotes)
+#let _normalize-name-sort-part(part) = {
+  if part == none or type(part) != str { return "" }
+  part
+    .replace("[", "")
+    .replace("]", "")
+    .replace(regex("^['\u{2019}]+"), "")
+}
+
 // Normalize date-like strings for lexicographic sorting
 #let _normalize-date-sort-key(text) = {
   if type(text) != str { return text }
@@ -38,6 +47,16 @@
   if month.len() == 1 { month = "0" + month }
   if day.len() == 1 { day = "0" + day }
   year + "-" + month + "-" + day
+}
+
+// Remove quote characters from sort keys
+#let _strip-sort-quotes(text) = {
+  if type(text) != str { return text }
+  text
+    .replace("\"", "")
+    .replace("\u{201C}", "")
+    .replace("\u{201D}", "")
+    .replace(regex("[,.;:!?]"), "")
 }
 
 // =============================================================================
@@ -99,7 +118,7 @@
     }
   }
 
-  let name-sort-key = (var-name, initialize-with: none) => {
+  let name-sort-key = (var-name, initialize-with: none, form: none) => {
     let parsed-names = ctx.at("parsed-names", default: (:))
     let names-list = parsed-names.at(var-name, default: ())
     if names-list.len() > 0 {
@@ -134,19 +153,52 @@
       // For literal names: use literal value
       // For structured names: "family given" for each name, joined by space
       let use-initials = initialize-with != none
+      let demote = ctx.style.demote-non-dropping-particle
       names-list
         .map(name => {
           if name.at("literal", default: "") != "" {
-            name.literal
+            _normalize-name-sort-part(name.literal)
           } else {
             let family = name.at("family", default: "")
             let given = name.at("given", default: "")
-            let prefix = name.at("prefix", default: "") // non-dropping particle
-            if use-initials {
+            let prefix = name.at("prefix", default: "") // non-dropping
+            let dropping-prefix = name.at(
+              "dropping-prefix",
+              default: "",
+            ) // dropping
+            let suffix = name.at("suffix", default: "")
+            if form == "short" {
+              given = ""
+            } else if use-initials {
               given = _get-initials(given)
             }
-            // CSL sort order: family prefix given
-            (family, prefix, given).filter(p => p != "").join(" ")
+            family = _normalize-name-sort-part(family)
+            given = _normalize-name-sort-part(given)
+            prefix = _normalize-name-sort-part(prefix)
+            dropping-prefix = _normalize-name-sort-part(dropping-prefix)
+            suffix = _normalize-name-sort-part(suffix)
+
+            let demote-prefix = (
+              demote in ("display-and-sort", "sort-only")
+            )
+            let family-part = family
+            if prefix != "" and not demote-prefix {
+              if prefix.ends-with("'") or prefix.ends-with("-") {
+                family-part = prefix + family
+              } else {
+                family-part = prefix + " " + family
+              }
+            }
+
+            let parts = ()
+            if family-part != "" { parts.push(family-part) }
+            if given != "" { parts.push(given) }
+            let particles = ()
+            if dropping-prefix != "" { particles.push(dropping-prefix) }
+            if prefix != "" and demote-prefix { particles.push(prefix) }
+            if particles.len() > 0 { parts.push(particles.join(" ")) }
+            if suffix != "" { parts.push(suffix) }
+            parts.filter(p => p != "").join(" ")
           }
         })
         .join(" ")
@@ -225,7 +277,9 @@
         }
         let key = ""
         for v in var-list {
-          if key == "" { key = name-sort-key(v, initialize-with: init-with) }
+          if key == "" {
+            key = name-sort-key(v, initialize-with: init-with, form: name-form)
+          }
         }
         if key == "" {
           let substitute = names-node
@@ -246,7 +300,11 @@
                 .split(" ")
               for v in sub-vars {
                 if key == "" {
-                  key = name-sort-key(v, initialize-with: init-with)
+                  key = name-sort-key(
+                    v,
+                    initialize-with: init-with,
+                    form: name-form,
+                  )
                 }
               }
             }
@@ -394,14 +452,21 @@
       }
     } else {
       // Get regular variable value directly
-      get-variable(ctx, var-name)
+      let raw = get-variable(ctx, var-name)
+      if var-name == "status" and type(raw) == str and raw == "" {
+        "~missing~"
+      } else {
+        raw
+      }
     }
   } else {
     ""
   }
 
   // Normalize for case-insensitive sorting
-  let normalized = if type(value) == str { lower(value) } else { "" }
+  let normalized = if type(value) == str {
+    lower(_strip-sort-quotes(value))
+  } else { "" }
 
   (order: order, value: normalized)
 }

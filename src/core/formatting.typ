@@ -264,6 +264,13 @@
   let processed = ()
   let first = true
 
+  if (
+    parts.len() > 0
+      and parts.first().match(regex("[A-Za-z\u{0370}-\u{03FF}]")) == none
+  ) {
+    return parts.join("-")
+  }
+
   for part in parts {
     if part == "" {
       processed.push("")
@@ -454,6 +461,37 @@
   let text-case = attrs.at("text-case", default: none)
   if text-case == none { return content }
 
+  let locale = ""
+  if ctx != none {
+    let fields = ctx.at("fields", default: (:))
+    let entry-lang = fields.at("language", default: "")
+    if entry-lang != "" {
+      locale = entry-lang
+    } else {
+      locale = ctx.style.at("default-locale", default: "")
+    }
+  }
+  let is-turkish = locale.starts-with("tr")
+
+  let upper-locale = s => if not is-turkish {
+    upper(s)
+  } else {
+    s.clusters().map(c => (
+      if c == "i" { "İ" }
+      else if c == "ı" { "I" }
+      else { upper(c) }
+    )).join()
+  }
+  let lower-locale = s => if not is-turkish {
+    lower(s)
+  } else {
+    s.clusters().map(c => (
+      if c == "I" { "ı" }
+      else if c == "İ" { "i" }
+      else { lower(c) }
+    )).join()
+  }
+
   // CSL spec: title case only applies to English
   // Check entry language if ctx is provided
   if text-case == "title" and ctx != none {
@@ -476,9 +514,9 @@
 
   let result = content
   if text-case == "lowercase" {
-    result = lower(result)
+    result = lower-locale(result)
   } else if text-case == "uppercase" {
-    result = upper(result)
+    result = upper-locale(result)
   } else if text-case == "capitalize-first" and result.len() > 0 {
     result = capitalize-first-char(result)
   } else if text-case == "capitalize-all" {

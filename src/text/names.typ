@@ -752,12 +752,7 @@
     let demote-prefix = demote == "display-and-sort"
     if formatted-prefix != "" and not demote-prefix {
       // Prefix stays with family name
-      // No space if prefix ends with connecting character (apostrophe or hyphen)
-      if prefix.ends-with("'") or prefix.ends-with("-") {
-        formatted-family = formatted-prefix + formatted-family
-      } else {
-        formatted-family = formatted-prefix + " " + formatted-family
-      }
+      formatted-family = formatted-prefix + " " + formatted-family
     }
 
     // Build name parts: Family, Given [dropping-prefix] [demoted-prefix], Suffix
@@ -857,6 +852,9 @@
   et-al-attrs: (:),
 ) = {
   if names.len() == 0 { return [] }
+  if substitute-string != none and substitute-count == -1 {
+    return substitute-string
+  }
 
   // ==========================================================================
   // CSL-M suppress-min / suppress-max
@@ -1323,6 +1321,9 @@
   et-al-term: "et-al",
   et-al-attrs: (:),
 ) = {
+  if substitute-string != none and substitute-count == -1 {
+    return substitute-string
+  }
   if names.len() == 0 { return [] }
 
   // Separate personal and institutional names

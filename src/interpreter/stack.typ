@@ -141,18 +141,34 @@
         // - At level 0 (not inside quotes): single quotes -> double quotes
         // - At level 1 (inside outer quotes): double quotes -> single quotes
         let quote-level = ctx.at("quote-level", default: 0)
+        let has-single = folded.match(regex("[\u{2018}\u{2019}']")) != none
+        let has-double = folded.match(regex("[\u{201C}\u{201D}\"]")) != none
+        let effective-level = if (
+          not _attr-true(attrs.at("quotes", default: "false"))
+            and quote-level == 1
+            and has-single
+            and not has-double
+        ) { 0 } else { quote-level }
         let normalized = if type(folded) == str {
           // Always normalize quotes, even without quotes="true"
           // The target level depends on whether we're adding outer quotes
           let has-quotes = _attr-true(attrs.at("quotes", default: "false"))
           if has-quotes {
             // Will add outer quotes, so embedded quotes go to level+1
-            transform-quotes-at-level(folded, ctx, quote-level + 1)
+            transform-quotes-at-level(folded, ctx, effective-level + 1)
           } else {
             // No outer quotes, normalize to current level
-            transform-quotes-at-level(folded, ctx, quote-level)
+            transform-quotes-at-level(folded, ctx, effective-level)
           }
         } else { folded }
+        let normalized = if type(normalized) == str {
+          normalized.replace(
+            regex("(^|[\\s\\(\\[])[\u{2018}\u{2019}']([^'\u{2018}\u{2019}]+)[\u{2018}\u{2019}']"),
+            m => (
+              m.captures.at(0) + "\"" + m.captures.at(1) + "\""
+            ),
+          )
+        } else { normalized }
 
         // Apply quotes if requested (after normalization)
         let has-quotes = _attr-true(attrs.at("quotes", default: "false"))
@@ -377,7 +393,11 @@
     // handle-names now returns (content, done-vars) for substitute quashing
     let (result, names-done-vars) = handle-names(node, ctx)
     if is-empty(result) {
-      ([], "no-var", names-done-vars, false)
+      if names-done-vars.contains("__substitute-term__") {
+        ([], "var", names-done-vars, false)
+      } else {
+        ([], "no-var", names-done-vars, false)
+      }
     } else {
       let node-children = node.at("children", default: ())
       let name-node = node-children.find(c => (
@@ -521,7 +541,7 @@
         let macro-name = attrs.macro
 
         // Check cache first!
-        if macro-name in macro-cache {
+        if accumulated-done-vars.len() == 0 and macro-name in macro-cache {
           // Cache hit - use cached result with formatting
           let cached = macro-cache.at(macro-name)
           let cached-done-vars = cached.at(2, default: ())

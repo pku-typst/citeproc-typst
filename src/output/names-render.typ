@@ -171,6 +171,13 @@
 ) = {
   let names-node = get-first-bib-names-node(style)
   if names-node == none { return "" }
+  let names-children = names-node.at("children", default: ())
+  let filtered-children = names-children.filter(c => (
+    type(c) != dictionary or c.at("tag", default: "") != "label"
+  ))
+  if filtered-children != names-children {
+    names-node = (..names-node, children: filtered-children)
+  }
 
   // Create context for rendering
   let ctx = create-context(style, entry)

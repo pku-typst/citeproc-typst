@@ -221,3 +221,25 @@
 
   false
 }
+
+/// Check if style uses citation-label variable
+#let style-uses-citation-label(style) = {
+  let macros = style.at("macros", default: (:))
+  for (name, macro-def) in macros {
+    if _children-use-citation-label(macro-def.at("children", default: ())) {
+      return true
+    }
+  }
+
+  let bib = style.at("bibliography", default: none)
+  if bib != none {
+    let layouts = bib.at("layouts", default: ())
+    for layout in layouts {
+      if _children-use-citation-label(layout.at("children", default: ())) {
+        return true
+      }
+    }
+  }
+
+  false
+}

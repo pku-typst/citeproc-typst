@@ -17,6 +17,7 @@
 #import "../output/mod.typ": (
   collapse-punctuation, get-punctuation-in-quote, get-rendered-entries,
   process-entries, render-citation, style-uses-citation-number,
+  style-uses-citation-label,
 )
 #import "../parsing/mod.typ": detect-language
 #import "../core/mod.typ": (
@@ -319,6 +320,8 @@
 
     // Pre-render complete bibliography content
     let uses-citation-number = style-uses-citation-number(style)
+    let uses-citation-label = style-uses-citation-label(style)
+    let uses-left-margin = uses-citation-number or uses-citation-label
     let bib-content = {
       if second-field-align == "flush" {
         let max-order = pre-rendered.fold(0, (acc, e) => calc.max(acc, e.order))
@@ -328,7 +331,7 @@
 
         set par(first-line-indent: 0em, hanging-indent: indent, spacing: 0.65em)
         for e in pre-rendered {
-          if uses-citation-number {
+          if uses-left-margin {
             box(width: num-width, e.rendered-number)
             h(0.5em)
           }
@@ -347,7 +350,7 @@
         )
         pad(left: num-width)[
           #for e in pre-rendered {
-            if uses-citation-number {
+            if uses-left-margin {
               box(width: num-width, e.rendered-number)
             }
             [#e.rendered-body #e.ref-label]

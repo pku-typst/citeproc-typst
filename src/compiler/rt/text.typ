@@ -66,8 +66,22 @@
   }
 
   if val != "" {
-    let ends = if type(val) == str { val.ends-with(".") } else { false }
-    (val, "var", (), ends)
+    let normalized = if type(val) == str and "style" in ctx {
+      let quote-level = ctx.at("quote-level", default: 0)
+      let fixed = transform-quotes-at-level(val, ctx, quote-level)
+      fixed.replace(
+        regex("(^|[\\s\\(\\[])[\u{2018}\u{2019}']([^'\u{2018}\u{2019}]+)[\u{2018}\u{2019}']"),
+        m => (
+          m.captures.at(0) + "\"" + m.captures.at(1) + "\""
+        ),
+      )
+    } else {
+      val
+    }
+    let ends = if type(normalized) == str { normalized.ends-with(".") } else {
+      false
+    }
+    (normalized, "var", (), ends)
   } else {
     ([], "no-var", (), false)
   }
@@ -140,15 +154,31 @@
 
     // Handle quotes (CSL quote flipflopping)
     let quote-level = ctx.at("quote-level", default: 0)
+    let has-single = cased.match(regex("[\u{2018}\u{2019}']")) != none
+    let has-double = cased.match(regex("[\u{201C}\u{201D}\"]")) != none
+    let effective-level = if (
+      not has-quotes
+        and quote-level == 1
+        and has-single
+        and not has-double
+    ) { 0 } else { quote-level }
 
     // Normalize embedded quotes in content (only if ctx.style is available)
     let normalized = if type(cased) == str and "style" in ctx {
       if has-quotes {
-        transform-quotes-at-level(cased, ctx, quote-level + 1)
+        transform-quotes-at-level(cased, ctx, effective-level + 1)
       } else {
-        transform-quotes-at-level(cased, ctx, quote-level)
+        transform-quotes-at-level(cased, ctx, effective-level)
       }
     } else { cased }
+    let normalized = if type(normalized) == str {
+      normalized.replace(
+        regex("(^|[\\s\\(\\[])[\u{2018}\u{2019}']([^'\u{2018}\u{2019}]+)[\u{2018}\u{2019}']"),
+        m => (
+          m.captures.at(0) + "\"" + m.captures.at(1) + "\""
+        ),
+      )
+    } else { normalized }
 
     let fixed = _fix-inner-quotes(normalized, ctx, quote-level, has-quotes)
     // Apply quotes if requested (only if ctx.style is available)
