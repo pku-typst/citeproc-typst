@@ -338,6 +338,33 @@
     }
     return func(..fields, body: updated)
   }
+  if "children" in fields and fields.children.len() > 0 {
+    let kids = fields.children
+    let first = kids.first()
+    let first-text = if type(first) == str { first } else {
+      _literal-text(first)
+    }
+    if first-text != none {
+      let stripped = _strip-leading-punct(first-text)
+      if stripped != first-text {
+        let rebuilt = ()
+        if type(first) == str {
+          rebuilt.push(stripped)
+        } else {
+          let first-fields = first.fields()
+          if "body" in first-fields and type(first-fields.body) == str {
+            rebuilt.push(first.func()(..first-fields, body: stripped))
+          } else if "text" in first-fields and type(first-fields.text) == str {
+            rebuilt.push(first.func()(..first-fields, text: stripped))
+          } else {
+            rebuilt.push(first)
+          }
+        }
+        for child in kids.slice(1) { rebuilt.push(child) }
+        return func(..fields, children: rebuilt)
+      }
+    }
+  }
 
   if "children" in fields and fields.children.len() > 0 {
     let kids = fields.children
@@ -420,6 +447,7 @@
       for item in flat {
         if type(item) == str {
           let swapped = item.replace("\u{201D},", ",\u{201D}")
+          swapped = swapped.replace("\u{2019}\u{201D}.", "\u{2019}.\u{201D}")
           swapped = swapped.replace("\u{2019}.\u{201D}", ".\u{2019}\u{201D}")
           swapped = swapped.replace(regex("(\\d),\\s*\\("), "$1 (")
           swapped = _normalize-nested-double-quotes(swapped)
@@ -430,6 +458,10 @@
         let fields = item.fields()
         if "body" in fields and type(fields.body) == str {
           let swapped = fields.body.replace("\u{201D},", ",\u{201D}")
+          swapped = swapped.replace(
+            "\u{2019}\u{201D}.",
+            "\u{2019}.\u{201D}",
+          )
           swapped = swapped.replace("\u{2019}.\u{201D}", ".\u{2019}\u{201D}")
           swapped = swapped.replace(regex("(\\d),\\s*\\("), "$1 (")
           let normalized = _normalize-nested-double-quotes(swapped)
@@ -443,6 +475,10 @@
         }
         if "text" in fields and type(fields.text) == str {
           let swapped = fields.text.replace("\u{201D},", ",\u{201D}")
+          swapped = swapped.replace(
+            "\u{2019}\u{201D}.",
+            "\u{2019}.\u{201D}",
+          )
           swapped = swapped.replace("\u{2019}.\u{201D}", ".\u{2019}\u{201D}")
           swapped = swapped.replace(regex("(\\d),\\s*\\("), "$1 (")
           let normalized = _normalize-nested-double-quotes(swapped)
@@ -490,44 +526,7 @@
           prev-text != none
             and curr-text != none
             and prev-text.trim().ends-with("\u{2019}")
-            and curr-text == "."
-            and next-text != none
-            and next-text.trim().starts-with("\u{201D}")
-        ) {
-          let updated-prev = prev-text.replace(regex("\u{2019}$"), ".\u{2019}")
-          if updated-prev != prev-text {
-            updated = updated.slice(0, updated.len() - 1)
-            if type(prev) == str {
-              updated.push(updated-prev)
-            } else if prev.func() == text {
-              let fields = prev.fields()
-              if "body" in fields and type(fields.body) == str {
-                let updated-body = fields.body.replace(
-                  regex("\u{2019}$"),
-                  ".\u{2019}",
-                )
-                updated.push(text(updated-body))
-              } else if "text" in fields and type(fields.text) == str {
-                let updated-text = fields.text.replace(
-                  regex("\u{2019}$"),
-                  ".\u{2019}",
-                )
-                updated.push(text(updated-text))
-              } else {
-                updated.push(prev)
-              }
-            } else {
-              updated.push(prev)
-            }
-            changed = true
-            continue
-          }
-        }
-        if (
-          prev-text != none
-            and curr-text != none
-            and prev-text.trim().ends-with("\u{2019}")
-            and curr-text.starts-with(".\u{201D}")
+            and curr-text.match(regex("^\\.\\s*\\u{201D}")) != none
         ) {
           let updated-prev = prev-text.replace(regex("\u{2019}$"), ".\u{2019}")
           if updated-prev != prev-text {
@@ -564,6 +563,7 @@
             and curr-text != none
             and prev-text.trim().ends-with(",")
             and curr-text.trim().starts-with("(")
+            and prev-text.trim().match(regex("\\d$")) != none
         ) {
           let cleaned = prev-text.replace(regex(",\\s*$"), " ")
           if cleaned != prev-text {

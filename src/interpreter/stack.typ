@@ -33,6 +33,7 @@
 #import "../parsing/mod.typ": lookup-term
 #import "../text/ranges.typ": format-number-range, format-page-range
 #import "../text/quotes.typ": apply-quotes, transform-quotes-at-level
+#import "../output/punctuation.typ": get-punctuation-in-quote
 
 #let _fix-inner-quotes(text, ctx, quote-level, has-quotes) = {
   if not has-quotes { return text }
@@ -159,32 +160,56 @@
         let quoted = if has-quotes {
           apply-quotes(fixed, ctx, level: quote-level)
         } else { fixed }
+        if type(quoted) != str and quoted.func() == text {
+          let body = quoted
+            .fields()
+            .at(
+              "text",
+              default: quoted.fields().at("body", default: ""),
+            )
+          if type(body) == str and body != "" {
+            quoted = body
+          }
+        }
 
         // punctuation-in-quote: move period/comma inside quotes
         let suffix = attrs.at("suffix", default: "")
         let piq = if "style" in ctx {
-          let options = ctx
-            .style
-            .at("locale", default: (:))
-            .at("options", default: (:))
-          options.at("punctuation-in-quote", default: false)
+          get-punctuation-in-quote(ctx.style)
         } else { false }
         let adjusted-attrs = if (
           _attr-true(attrs.at("quotes", default: "false"))
             and piq
             and suffix.len() > 0
             and suffix.first() in (".", ",")
-            and type(quoted) == str
         ) {
-          if suffix.first() == "." and quoted.ends-with("\u{2019}\u{201D}") {
-            quoted = quoted.replace(
-              regex("\u{2019}\u{201D}$"),
-              ".\u{2019}\u{201D}",
-            )
-          } else if suffix.first() == "." and quoted.ends-with("\u{2019}") {
-            quoted = quoted.replace(regex("\u{2019}$"), ".\u{2019}")
-          } else if not quoted.ends-with(suffix.first()) {
-            quoted = quoted + suffix.first()
+          if type(quoted) == str {
+            if suffix.first() == "." and quoted.ends-with("\u{2019}\u{201D}") {
+              quoted = quoted.replace(
+                regex("\u{2019}\u{201D}$"),
+                ".\u{2019}\u{201D}",
+              )
+            } else if suffix.first() == "." and quoted.ends-with("\u{2019}") {
+              quoted = quoted.replace(regex("\u{2019}$"), ".\u{2019}")
+            } else if not quoted.ends-with(suffix.first()) {
+              quoted = quoted + suffix.first()
+            }
+          } else if quoted.func() == text {
+            let fields = quoted.fields()
+            let body = fields.at("text", default: fields.at(
+              "body",
+              default: none,
+            ))
+            if type(body) == str and body.ends-with("\u{201D}") {
+              let updated = if (
+                suffix.first() == "." and body.ends-with("\u{2019}\u{201D}")
+              ) {
+                body.replace(regex("\u{2019}\u{201D}$"), ".\u{2019}\u{201D}")
+              } else {
+                body.replace(regex("\u{201D}$"), suffix.first() + "\u{201D}")
+              }
+              quoted = text(updated)
+            }
           }
           (..attrs, suffix: suffix.slice(1))
         } else { attrs }
@@ -259,32 +284,53 @@
       ) {
         apply-quotes(fixed, ctx, level: quote-level)
       } else { fixed }
+      if type(quoted) != str and quoted.func() == text {
+        let body = quoted
+          .fields()
+          .at(
+            "text",
+            default: quoted.fields().at("body", default: ""),
+          )
+        if type(body) == str and body != "" {
+          quoted = body
+        }
+      }
 
       // punctuation-in-quote for literal values
       let suffix = attrs.at("suffix", default: "")
       let piq = if "style" in ctx {
-        let options = ctx
-          .style
-          .at("locale", default: (:))
-          .at("options", default: (:))
-        options.at("punctuation-in-quote", default: false)
+        get-punctuation-in-quote(ctx.style)
       } else { false }
       let adjusted-attrs = if (
-        has-quotes
-          and piq
-          and suffix.len() > 0
-          and suffix.first() in (".", ",")
-          and type(quoted) == str
+        has-quotes and piq and suffix.len() > 0 and suffix.first() in (".", ",")
       ) {
-        if suffix.first() == "." and quoted.ends-with("\u{2019}\u{201D}") {
-          quoted = quoted.replace(
-            regex("\u{2019}\u{201D}$"),
-            ".\u{2019}\u{201D}",
-          )
-        } else if suffix.first() == "." and quoted.ends-with("\u{2019}") {
-          quoted = quoted.replace(regex("\u{2019}$"), ".\u{2019}")
-        } else if not quoted.ends-with(suffix.first()) {
-          quoted = quoted + suffix.first()
+        if type(quoted) == str {
+          if suffix.first() == "." and quoted.ends-with("\u{2019}\u{201D}") {
+            quoted = quoted.replace(
+              regex("\u{2019}\u{201D}$"),
+              ".\u{2019}\u{201D}",
+            )
+          } else if suffix.first() == "." and quoted.ends-with("\u{2019}") {
+            quoted = quoted.replace(regex("\u{2019}$"), ".\u{2019}")
+          } else if not quoted.ends-with(suffix.first()) {
+            quoted = quoted + suffix.first()
+          }
+        } else if quoted.func() == text {
+          let fields = quoted.fields()
+          let body = fields.at("text", default: fields.at(
+            "body",
+            default: none,
+          ))
+          if type(body) == str and body.ends-with("\u{201D}") {
+            let updated = if (
+              suffix.first() == "." and body.ends-with("\u{2019}\u{201D}")
+            ) {
+              body.replace(regex("\u{2019}\u{201D}$"), ".\u{2019}\u{201D}")
+            } else {
+              body.replace(regex("\u{201D}$"), suffix.first() + "\u{201D}")
+            }
+            quoted = text(updated)
+          }
         }
         (..attrs, suffix: suffix.slice(1))
       } else { attrs }
@@ -736,10 +782,13 @@
               } else {
                 group-delimiter
               }
+              let prev-str = content-to-string(prev-content).trim()
               let delim = if (
                 delim.len() > 0
                   and delim.first() == ","
                   and next-str.starts-with("(")
+                  and prev-str.len() > 0
+                  and prev-str.clusters().last().match(regex("\\d")) != none
               ) {
                 delim.replace(",", "")
               } else {

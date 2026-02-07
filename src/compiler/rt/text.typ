@@ -4,6 +4,7 @@
   apply-text-case, finalize, fold-superscripts, is-empty,
 )
 #import "../../text/quotes.typ": apply-quotes, transform-quotes-at-level
+#import "../../output/punctuation.typ": get-punctuation-in-quote
 
 #let _fix-inner-quotes(text, ctx, quote-level, has-quotes) = {
   if not has-quotes { return text }
@@ -297,9 +298,7 @@
 
   let suffix = attrs.at("suffix", default: "")
   let punctuation-in-quote = if "style" in ctx {
-    let locale = ctx.style.at("locale", default: (:))
-    let options = locale.at("options", default: (:))
-    options.at("punctuation-in-quote", default: false)
+    get-punctuation-in-quote(ctx.style)
   } else { false }
 
   let quote-punct = if (
@@ -338,11 +337,37 @@
     } else { fixed }
     quoted
   } else {
-    if has-quotes {
+    let quoted = if has-quotes {
       apply-quotes(content, ctx, level: quote-level)
     } else {
       content
     }
+    if type(quoted) != str and quoted.func() == text {
+      let body = quoted
+        .fields()
+        .at(
+          "text",
+          default: quoted.fields().at("body", default: ""),
+        )
+      if type(body) == str and body != "" {
+        quoted = body
+      }
+    }
+    if quote-punct != "" and quoted.func() == text {
+      let fields = quoted.fields()
+      let body = fields.at("text", default: fields.at("body", default: none))
+      if type(body) == str and body.ends-with("\u{201D}") {
+        let updated = if (
+          quote-punct == "." and body.ends-with("\u{2019}\u{201D}")
+        ) {
+          body.replace(regex("\u{2019}\u{201D}$"), ".\u{2019}\u{201D}")
+        } else {
+          body.replace(regex("\u{201D}$"), quote-punct + "\u{201D}")
+        }
+        quoted = text(updated)
+      }
+    }
+    quoted
   }
 
   let ends = if type(processed) == str { processed.ends-with(".") } else {

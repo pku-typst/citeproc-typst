@@ -857,6 +857,7 @@
           + "          )\n"
           + "          let next-content = parts.at(i).at(0)\n"
           + "          let next-str = content-to-string(next-content).trim()\n"
+          + "          let prev-str = content-to-string(prev-content).trim()\n"
       )
       code += (
         indent
@@ -871,7 +872,7 @@
           + "\".slice(1) } else { \""
           + escaped
           + "\" }\n"
-          + "          let delim = if (delim.len() > 0 and delim.first() == \",\" and next-str.starts-with(\"(\")) { delim.replace(\",\", \"\") } else { delim }\n"
+          + "          let delim = if (delim.len() > 0 and delim.first() == \",\" and next-str.starts-with(\"(\") and prev-str.len() > 0 and prev-str.clusters().last().match(regex(\"\\\\d\")) != none) { delim.replace(\",\", \"\") } else { delim }\n"
       )
       code += indent + "          if delim != \"\" { joined.push(delim) }\n"
       code += indent + "        }\n"

@@ -156,9 +156,82 @@
             .at("attrs", default: (:))
             .at("initialize-with", default: none)
         } else { none }
+        let name-form = if name-node != none {
+          name-node.at("attrs", default: (:)).at("form", default: none)
+        } else {
+          names-node.at("attrs", default: (:)).at("form", default: none)
+        }
+        let macro-name = key-spec.at("macro", default: "")
+        if name-form == "count" or macro-name.ends-with("count") {
+          let parsed = ctx.at("parsed-names", default: (:))
+          let count = 0
+          for v in var-list {
+            let names-list = parsed.at(v, default: ())
+            if names-list.len() > 0 {
+              count = names-list.len()
+              break
+            }
+          }
+          if count == 0 {
+            let substitute = names-node
+              .at("children", default: ())
+              .find(c => (
+                type(c) == dictionary
+                  and c.at("tag", default: "") == "substitute"
+              ))
+            if substitute != none {
+              let sub-names = substitute
+                .at("children", default: ())
+                .find(c => (
+                  type(c) == dictionary and c.at("tag", default: "") == "names"
+                ))
+              if sub-names != none {
+                let sub-vars = sub-names
+                  .at("attrs", default: (:))
+                  .at("variable", default: "")
+                  .split(" ")
+                for v in sub-vars {
+                  let names-list = parsed.at(v, default: ())
+                  if names-list.len() > 0 {
+                    count = names-list.len()
+                    break
+                  }
+                }
+              }
+            }
+          }
+          if count != 0 {
+            return (order: order, value: str(count))
+          }
+        }
         let key = ""
         for v in var-list {
           if key == "" { key = name-sort-key(v, initialize-with: init-with) }
+        }
+        if key == "" {
+          let substitute = names-node
+            .at("children", default: ())
+            .find(c => (
+              type(c) == dictionary and c.at("tag", default: "") == "substitute"
+            ))
+          if substitute != none {
+            let sub-names = substitute
+              .at("children", default: ())
+              .find(c => (
+                type(c) == dictionary and c.at("tag", default: "") == "names"
+              ))
+            if sub-names != none {
+              let sub-vars = sub-names
+                .at("attrs", default: (:))
+                .at("variable", default: "")
+                .split(" ")
+              for v in sub-vars {
+                if key == "" {
+                  key = name-sort-key(v, initialize-with: init-with)
+                }
+              }
+            }
+          }
         }
         if key != "" {
           key
