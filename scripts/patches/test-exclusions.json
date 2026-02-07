@@ -30,10 +30,6 @@
       "reason": "citeproc-js converts ASCII quotes to typographic quotes in citation-item prefix/suffix. This smart quotes feature is not part of CSL spec."
     },
     {
-      "fixture": "affix_MovingPunctuation",
-      "reason": "punctuation-in-quote feature: moving periods/commas inside closing quotes. Complex feature not yet implemented."
-    },
-    {
       "fixture": "affix_WithCommas",
       "reason": "Uses citeproc-js citation update format (..[n] and >>[n] prefixes) for testing dynamic citation updates. Not applicable to static Typst compilation."
     },
@@ -43,7 +39,7 @@
     },
     {
       "fixture": "punctuation_FullMontyQuotesIn",
-      "reason": "punctuation-in-quote with quoted content inside linked citations requires cross-node punctuation collapse. Not supported yet."
+      "reason": "punctuation-in-quote with quoted content inside linked citations requires cross-node punctuation collapse. Exclamation/question marks not moved inside quotes, and period dedup fails across quote boundaries."
     },
     {
       "fixture": "name_HyphenatedNonDroppingParticle1",
@@ -75,27 +71,15 @@
     },
     {
       "fixture": "name_namepartAffixes",
-      "reason": "Complex name-part affixes with particles. CSL-M extension feature with unclear spec behavior."
+      "reason": "Name-part affixes don't merge non-dropping particle into family group. Expected: particle inside family formatting. Actual: particle orphaned outside."
     },
     {
       "fixture": "name_namepartAffixesNameAsSortOrder",
-      "reason": "Complex name-part affixes with particles and sort order. CSL-M extension feature with unclear spec behavior."
+      "reason": "Name-part affixes in sort order don't merge particle into given group. Expected: particle joins given. Actual: particle orphaned."
     },
     {
       "fixture": "name_namepartAffixesNameAsSortOrderDemoteNonDroppingParticle",
       "reason": "Complex name-part affixes with particles, sort order, and demote-non-dropping-particle. CSL-M extension feature with unclear spec behavior."
-    },
-    {
-      "fixture": "name_AfterInvertedName",
-      "reason": "Requires disambiguate-add-names feature which needs complex cross-citation disambiguation. Implementation differs from citeproc-js."
-    },
-    {
-      "fixture": "name_CiteGroupDelimiterWithYearSuffixCollapse2",
-      "reason": "Complex cite grouping with non-adjacent same-author items and year-suffix collapse. Edge case in cite grouping algorithm."
-    },
-    {
-      "fixture": "name_CiteGroupDelimiterWithYearSuffixCollapse3",
-      "reason": "Complex cite grouping with year-suffix collapse. Edge case in cite grouping algorithm."
     },
     {
       "fixture": "name_InitialsInitializeTrue",

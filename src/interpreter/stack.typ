@@ -405,7 +405,10 @@
     // handle-names now returns (content, done-vars) for substitute quashing
     let (result, names-done-vars) = handle-names(node, ctx)
     if is-empty(result) {
-      if names-done-vars.contains("__substitute-term__") {
+      if (
+        names-done-vars.contains("__substitute-term__")
+          or names-done-vars.contains("__suppress-author__")
+      ) {
         ([], "var", names-done-vars, false)
       } else {
         ([], "no-var", names-done-vars, false)

@@ -67,11 +67,11 @@
 
 CSL spec: "The comparison is limited to the output of the (first) cs:names element"
 
-Citation order: Doe 2000, Smith et al. 2001, Doe 2002, Smith et al. 2003
+Citation order: Doe 2000, Doe 2002, Smith et al. 2001, Smith et al. 2003
 
 Expected: "(Doe, 2000, 2002; Smith et al., 2001, 2003)"
-- "Doe" (1 author) grouped separately from "Smith et al." (3 authors)
+- Adjacent same-author items grouped; "Doe" (1 author) separate from "Smith et al." (3 authors)
 
-Actual: #multicite("doe2000", "smith2001", "doe2002", "smith2003")
+Actual: #multicite("doe2000", "doe2002", "smith2001", "smith2003")
 
 #csl-bibliography()

@@ -326,15 +326,23 @@
           or has-cite-group-delim
       )
       let result = if should-group {
-        // Group by author
-        let by-author = (:)
-        let author-order = ()
+        // Group by adjacent author — only merge consecutive items with the same author-key.
+        // Non-adjacent items with the same author stay in separate groups.
+        let author-groups-list = () // Array of (author-key, items) tuples
+        let prev-key = none
         for item in cite-items {
-          if item.author-key not in by-author {
-            by-author.insert(item.author-key, ())
-            author-order.push(item.author-key)
+          if item.author-key == prev-key {
+            // Same author as previous — append to current group
+            let last = author-groups-list.pop()
+            author-groups-list.push((
+              key: last.key,
+              items: last.items + (item,),
+            ))
+          } else {
+            // New author (or first item) — start a new group
+            author-groups-list.push((key: item.author-key, items: (item,)))
+            prev-key = item.author-key
           }
-          by-author.at(item.author-key).push(item)
         }
 
         // Get year-suffix-delimiter
@@ -349,8 +357,8 @@
 
         // Render each author group, tracking if collapse occurred
         let author-groups = () // Array of (content, collapsed: bool)
-        for author-key in author-order {
-          let items = by-author.at(author-key)
+        for grp in author-groups-list {
+          let items = grp.items
           let collapsed = items.len() > 1 // More than one item means collapse occurred
 
           // For year-suffix-ranged: group by year first, then collapse suffix ranges
@@ -458,8 +466,8 @@
                       is-first-in-author = false
                       is-first-in-year = false
                     }
-                  } else {
-                    // Range of 2+ consecutive suffixes - render as range
+                  } else if r.end - r.start >= 2 {
+                    // Range of 3+ consecutive suffixes — render as en-dash range
                     let start-item = year-items.find(it => (
                       suffixes.at(it.key, default: none) == r.start
                     ))
@@ -501,6 +509,47 @@
                       suffix-parts.push([#start-rendered–#end-suffix])
                       is-first-in-author = false
                       is-first-in-year = false
+                    }
+                  } else {
+                    // Range of exactly 2 consecutive suffixes — render individually
+                    for suffix-idx in range(r.start, r.end + 1) {
+                      let item = year-items.find(it => (
+                        suffixes.at(it.key, default: none) == suffix-idx
+                      ))
+                      if item != none {
+                        let rendered = render-cite(
+                          item.entry,
+                          style,
+                          supplement: item.supplement,
+                          year-suffix: suffix-idx,
+                          suppress-affixes: true,
+                          suppress-author: not is-first-in-author,
+                          suppress-year: not is-first-in-year,
+                          cite-number: citations.order.at(
+                            item.key,
+                            default: 0,
+                          ),
+                          names-expanded: item.disambig.at(
+                            "names-expanded",
+                            default: 0,
+                          ),
+                          givenname-level: item.disambig.at(
+                            "givenname-level",
+                            default: 0,
+                          ),
+                          givenname-levels: item.disambig.at(
+                            "givenname-levels",
+                            default: (),
+                          ),
+                          needs-disambiguate: item.disambig.at(
+                            "needs-disambiguate",
+                            default: false,
+                          ),
+                        )
+                        suffix-parts.push(rendered)
+                        is-first-in-author = false
+                        is-first-in-year = false
+                      }
                     }
                   }
                 }

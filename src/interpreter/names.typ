@@ -132,6 +132,14 @@
     ctx.at("suppress-author", default: false)
       and var-names-str.contains("author")
   ) {
+    // Check if author names actually exist — if so, signal "suppressed" (not "absent")
+    // to prevent the <substitute> chain from running
+    let author-names = ctx
+      .at("parsed-names", default: (:))
+      .at("author", default: ())
+    if author-names.len() > 0 {
+      return ([], ("__suppress-author__",))
+    }
     return ([], ())
   }
 

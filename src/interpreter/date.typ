@@ -47,8 +47,14 @@
   // But still render year-suffix if present (for implicit year-suffix styles)
   if ctx.at("suppress-year", default: false) {
     // Check if we should render just the year-suffix
+    // But only for the first date element (use __year-suffix-done to prevent double emission)
     let suffix = ctx.at("year-suffix", default: none)
     let has-explicit = ctx.at("has-explicit-year-suffix", default: false)
+    let already-done = ctx.at("year-suffix-done", default: false)
+    let done-vars = ctx.at("done-vars", default: ())
+    if already-done or "__year-suffix-done" in done-vars {
+      return []
+    }
     if suffix != none and suffix != "" and not has-explicit {
       // Render only the year-suffix letter (without the year)
       return _suffix-to-string(suffix)

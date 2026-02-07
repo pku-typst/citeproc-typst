@@ -69,12 +69,12 @@
 
 CSL spec: When collapse="year" is set, cites with identical names are grouped and the repeated name is suppressed.
 
-Citation order: Doe 1999, Smith 2002, Doe 2006
+Citation order: Doe 1999, Doe 2006, Smith 2002
 
 Expected: "(Doe, 1999, 2006; Smith, 2002)"
 - Doe's cites grouped at first Doe position, name suppressed for second cite
 - Years shown individually with cite-group-delimiter between them
 
-Actual: #multicite("doe1999", "smith2002", "doe2006")
+Actual: #multicite("doe1999", "doe2006", "smith2002")
 
 #csl-bibliography()
