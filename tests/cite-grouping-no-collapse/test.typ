@@ -1,19 +1,19 @@
-// Test cite-group-delimiter with collapse="year"
+// Test cite-group-delimiter WITHOUT collapse
 //
-// CSL spec: When collapse is set, cites with identical names are grouped
-// and the repeated name is suppressed (collapsed).
+// CSL spec: cite-group-delimiter alone triggers grouping (adjacent placement)
+// but NOT name suppression. The name is repeated for each cite in the group.
 
 #import "/lib.typ": csl-bibliography, init-csl, multicite
 
-// Style with cite-group-delimiter AND collapse="year"
+// Style with cite-group-delimiter but NO collapse attribute
 #let test-csl = ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0">
   <info>
-    <title>Test Cite Grouping Only</title>
-    <id>test-cite-grouping</id>
+    <title>Test Cite Grouping Only (No Collapse)</title>
+    <id>test-cite-grouping-no-collapse</id>
   </info>
-  <citation cite-group-delimiter=", " collapse="year" disambiguate-add-year-suffix="true">
+  <citation cite-group-delimiter=", " disambiguate-add-year-suffix="true">
     <layout prefix="(" suffix=")" delimiter="; ">
       <group delimiter=", ">
         <names variable="author">
@@ -63,17 +63,15 @@
 
 #show: init-csl.with(test-bib, test-csl)
 
-= Cite Grouping Test
+= Cite Grouping Without Collapse
 
-== cite-group-delimiter With collapse="year"
-
-CSL spec: When collapse="year" is set, cites with identical names are grouped and the repeated name is suppressed.
+cite-group-delimiter alone triggers grouping (adjacent placement) but NOT name suppression.
 
 Citation order: Doe 1999, Smith 2002, Doe 2006
 
-Expected: "(Doe, 1999, 2006; Smith, 2002)"
-- Doe's cites grouped at first Doe position, name suppressed for second cite
-- Years shown individually with cite-group-delimiter between them
+Expected: "(Doe, 1999, Doe, 2006; Smith, 2002)"
+- Doe's cites grouped adjacently, but name is NOT suppressed
+- cite-group-delimiter ", " used between grouped cites
 
 Actual: #multicite("doe1999", "smith2002", "doe2006")
 

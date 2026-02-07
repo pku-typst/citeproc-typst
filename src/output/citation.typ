@@ -200,6 +200,7 @@
     givenname-level: givenname-level,
     givenname-levels: givenname-levels,
     render-context: RENDER-CONTEXT.citation,
+    style-class: style.class,
     // Et-al settings for subsequent cites (CSL spec: inheritable name options)
     et-al-subsequent-min: citation.at("et-al-subsequent-min", default: none),
     et-al-subsequent-use-first: citation.at(

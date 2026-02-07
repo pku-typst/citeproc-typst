@@ -4,7 +4,7 @@
 // Includes CSL-M extension: cs:institution for institutional authors
 
 #import "../parsing/mod.typ": is-cjk-name, lookup-term
-#import "../core/constants.typ": POSITION, RENDER-CONTEXT
+#import "../core/constants.typ": POSITION, RENDER-CONTEXT, STYLE-CLASS
 #import "../core/utils.typ": capitalize-first-char
 #import "../core/formatting.typ": finalize
 
@@ -662,9 +662,13 @@
   ) {
     givenname-level = givenname-levels.at(name-position - 1)
   }
+  // In note styles, subsequent cites use short form without disambiguation.
+  // In author-date styles, all cites must render identically.
   let cite-position = ctx.at("position", default: POSITION.first)
+  let is-note-style = ctx.at("style-class", default: "") == STYLE-CLASS.note
   if (
-    name-form == "short"
+    is-note-style
+      and name-form == "short"
       and (
         cite-position == POSITION.subsequent
           or cite-position == POSITION.ibid

@@ -707,7 +707,8 @@
     let label-has-prefix = label-attrs.at("prefix", default: "") != ""
 
     if label-position == "before" {
-      [#label-content #names-content]
+      // Label's own suffix controls spacing (e.g., suffix=" " on "by")
+      [#label-content#names-content]
     } else {
       // CSL spec: label follows names directly without additional delimiter
       // Label's own prefix/suffix controls spacing

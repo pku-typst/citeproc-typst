@@ -288,8 +288,10 @@
     include-number: include-number,
     abbreviations: abbreviations,
     names-expanded: disambig.at("names-expanded", default: 0),
-    givenname-level: disambig.at("givenname-level", default: 0),
-    givenname-levels: disambig.at("givenname-levels", default: ()),
+    // CSL spec: givenname disambiguation only applies to citations, not bibliography.
+    // Bibliography names always render per their <name> format (with initialize-with, etc.).
+    givenname-level: 0,
+    givenname-levels: (),
     needs-disambiguate: disambig.at("needs-disambiguate", default: false),
     author-substitute: author-substitute,
     author-substitute-rule: author-substitute-rule,

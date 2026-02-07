@@ -10,11 +10,10 @@ Combines:
 Usage:
     python scripts/generate-data.py \
         --csl-total 150 --csl-passed 150 --csl-failed 0 \
-        --citeproc-total 1000 --citeproc-compiled 950 --citeproc-errors 50 \
         --results-dir docs-src/public/results \
-        --categories-file build/citeproc-categories.json \
         --benchmark-file build/benchmark-results.json \
         --history-file docs-src/public/history.json \
+        --test-suite-file build/test-suite-report.json \
         --output docs-src/public/data.json
 """
 
@@ -135,7 +134,7 @@ def main():
 
     print(f"Generated {args.output}")
     print(f"  CSL styles: {len(styles)}")
-    print(f"  Categories: {len(categories)}")
+    print(f"  Categories: {len(test_suite.get('byCategory', []))}")
     print(f"  Benchmark runs: {len(history['runs'])}")
 
 

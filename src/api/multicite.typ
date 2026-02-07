@@ -594,6 +594,9 @@
             }
 
             for (i, item) in ordered-items.enumerate() {
+              // Only suppress author when collapse mode is active.
+              // cite-group-delimiter alone triggers grouping (adjacent placement)
+              // but NOT name suppression — that requires an explicit collapse attribute.
               let do-suppress-author = (
                 i > 0 and effective-collapse-mode != none
               )
