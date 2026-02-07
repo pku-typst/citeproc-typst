@@ -830,14 +830,12 @@
         // Apply prefix/suffix
         let prefix = meta.attrs.at("prefix", default: "")
         let suffix = meta.attrs.at("suffix", default: "")
-        let end-flag = false
-        for r in ordered.rev() {
-          if not end-flag {
-            let c = r.at(0)
-            if not is-empty(c) { end-flag = r.at(3, default: false) }
-          }
+        let content-end-flag = if type(joined) == str {
+          joined.trim().ends-with(".")
+        } else {
+          content-to-string(joined).trim().ends-with(".")
         }
-        let content-end-flag = end-flag
+        let end-flag = content-end-flag
         if suffix != "" and suffix.ends-with(".") { end-flag = true }
         if not is-empty(joined) {
           // CSL spec: "a non-empty nested cs:group is treated as a non-empty variable

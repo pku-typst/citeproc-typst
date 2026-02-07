@@ -198,7 +198,7 @@
   // Use compiled function if available and not filtering, otherwise fall back to interpreter
   let result = {
     let compiled = style.at("compiled", default: none)
-    let use-compiler = sys.inputs.at("compiler", default: "true") == "true"
+    let use-compiler = sys.inputs.at("compiler", default: "false") == "true"
     // Only use compiled version when include-number=true (no filtering needed)
     if compiled != none and include-number and use-compiler {
       // Get the compiled layout for this locale
@@ -248,10 +248,6 @@
 
   // Apply layout suffix (usually ".")
   let layout-suffix = layout.at("suffix", default: ".")
-  let result-str = content-to-string(result)
-  if result-str.trim().ends-with(".") and layout-suffix.starts-with(".") {
-    layout-suffix = layout-suffix.slice(1)
-  }
 
   // Apply punctuation collapsing to CSL output only
   collapse-punctuation(

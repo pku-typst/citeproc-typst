@@ -645,7 +645,7 @@
   // If content ends with a period and suffix starts with a period, remove one
   // Use stripped content when strip-periods is enabled
   let content-ends-with-period = if type(processed) == str {
-    processed.trim().ends-with(".")
+    processed.ends-with(".")
   } else if attrs.at("strip-periods", default: "false") == "true" {
     false
   } else {

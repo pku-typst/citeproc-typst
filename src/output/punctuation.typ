@@ -44,6 +44,7 @@
 /// - "Title", → "Title,"
 ///
 /// This wrapper limits the show rules to CSL output only.
+#import "../core/utils.typ": is-empty
 #import "helpers.typ": content-to-string
 
 #let _is-plain-text(content) = {
@@ -406,6 +407,37 @@
     }
     return link(dest, collapsed)
   }
+  if content != none and type(content) != str and type(content) != array {
+    let fields = content.fields()
+    if "child" in fields {
+      let updated-child = collapse-punctuation(
+        fields.child,
+        punctuation-in-quote: punctuation-in-quote,
+      )
+      if updated-child != fields.child {
+        if "styles" in fields {
+          return content.func()(updated-child, fields.styles)
+        }
+        return content.func()(..fields, child: updated-child)
+      }
+    }
+    if "body" in fields and type(fields.body) != str {
+      let updated-body = collapse-punctuation(
+        fields.body,
+        punctuation-in-quote: punctuation-in-quote,
+      )
+      if updated-body != fields.body {
+        if "styles" in fields {
+          return content.func()(updated-body, fields.styles)
+        }
+        let updated-fields = (:)
+        for (k, v) in fields.pairs() {
+          if k != "body" { updated-fields.insert(k, v) }
+        }
+        return content.func()(updated-body, ..updated-fields)
+      }
+    }
+  }
 
   let flat = _flatten-content(content)
   if flat.len() > 0 {
@@ -590,6 +622,44 @@
             next-text = content-to-string(flat.at(i + 1))
           }
         }
+        if punctuation-in-quote and curr-full != none {
+          let prev-index = updated.len() - 1
+          while prev-index >= 0 and is-empty(updated.at(prev-index)) {
+            prev-index -= 1
+          }
+          let prev-item = if prev-index >= 0 {
+            updated.at(prev-index)
+          } else {
+            none
+          }
+          let prev-text = if prev-item != none {
+            content-to-string(prev-item)
+          } else {
+            none
+          }
+          let punct = _leading-punct(curr-full)
+          if (
+            prev-text != none
+              and punct != none
+              and prev-text.trim().ends-with("\u{201D}")
+          ) {
+            let moved = _move-punct-into-quoted(prev-item, punct)
+            if moved != none {
+              if prev-index >= 0 {
+                let tail = updated.slice(prev-index + 1)
+                updated = updated.slice(0, prev-index)
+                updated.push(moved)
+                for t in tail { updated.push(t) }
+              } else {
+                updated = updated.slice(0, updated.len() - 1)
+                updated.push(moved)
+              }
+              updated.push(_strip-leading-punct-content(item))
+              changed = true
+              continue
+            }
+          }
+        }
         if (
           prev-text != none
             and curr-text != none
@@ -703,16 +773,14 @@
     }
   }
 
-  if (
-    punctuation-in-quote
-      and content != none
-      and type(content) != str
-      and type(content) != array
-  ) {
-    let func = content.func()
-    let fields = content.fields()
-    if "children" in fields {
-      let kids = fields.children
+  if punctuation-in-quote and content != none and type(content) != str {
+    let kids = if type(content) == array {
+      content
+    } else {
+      let fields = content.fields()
+      if "children" in fields { fields.children } else { none }
+    }
+    if kids != none {
       if kids.len() >= 2 {
         let last-text = _literal-text(kids.last())
         if last-text == none {
@@ -735,19 +803,18 @@
       for item in kids {
         if updated.len() > 0 {
           let prev = updated.last()
-          let curr-text = _literal-text(item)
-          if curr-text != none {
-            let clusters = curr-text.clusters()
-            if clusters.len() > 0 and clusters.first() in (".", ",") {
-              let punct = clusters.first()
-              let moved-prev = _move-punct-into-quoted(prev, punct)
-              if moved-prev != none {
-                updated = updated.slice(0, updated.len() - 1)
-                updated.push(moved-prev)
-                let stripped = _strip-leading-punct-content(item)
-                updated.push(stripped)
-                continue
-              }
+          let curr-text = content-to-string(item)
+          let punct = if curr-text != none { _leading-punct(curr-text) } else {
+            none
+          }
+          if punct != none {
+            let moved-prev = _move-punct-into-quoted(prev, punct)
+            if moved-prev != none {
+              updated = updated.slice(0, updated.len() - 1)
+              updated.push(moved-prev)
+              let stripped = _strip-leading-punct-content(item)
+              updated.push(stripped)
+              continue
             }
           }
         }

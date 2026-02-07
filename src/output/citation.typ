@@ -5,6 +5,7 @@
 #import "../core/constants.typ": POSITION, RENDER-CONTEXT, STYLE-CLASS
 #import "../core/formatting.typ": apply-formatting
 #import "../core/utils.typ": capitalize-first-char, is-empty
+#import "../data/collapsing.typ": num-to-suffix
 #import "helpers.typ": content-to-string
 #import "../interpreter/mod.typ": create-context
 #import "../interpreter/stack.typ": interpret-children-stack
@@ -85,6 +86,14 @@
     abbreviations: abbreviations,
     disambiguate: needs-disambiguate,
   )
+
+  let normalized-year-suffix = if year-suffix == none {
+    ""
+  } else if type(year-suffix) == int {
+    num-to-suffix(year-suffix)
+  } else {
+    str(year-suffix)
+  }
 
   // Set suppress flags in context for CSL interpreter
   if suppress-author {
@@ -181,7 +190,7 @@
   // CSL spec: has-explicit-year-suffix determines if year-suffix is auto-appended to dates
   let ctx = (
     ..ctx,
-    year-suffix: year-suffix,
+    year-suffix: normalized-year-suffix,
     position: effective-position,
     first-reference-note-number: if first-note-number != none {
       str(first-note-number)
@@ -254,7 +263,7 @@
   // Use compiled function if available, otherwise fall back to interpreter
   let result = {
     let compiled = style.at("compiled", default: none)
-    let use-compiler = sys.inputs.at("compiler", default: "true") == "true"
+    let use-compiler = sys.inputs.at("compiler", default: "false") == "true"
     let missing-issued = (
       ctx.fields.at("year", default: "") == ""
         and ctx.fields.at("month", default: "") == ""
@@ -316,7 +325,7 @@
     }
   } else if form == "year" {
     let year = ctx.fields.at("year", default: "n.d.")
-    str(year) + year-suffix
+    str(year) + normalized-year-suffix
   } else if form == "prose" {
     // Prose form: inline text without superscript/subscript
     // Note: locator is now rendered via CSL's <text variable="locator"/>,

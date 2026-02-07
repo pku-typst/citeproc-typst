@@ -6,10 +6,9 @@ Uses Typst HTML export to compare citation/bibliography output against
 the official CSL test-suite fixtures.
 
 Usage:
-    python scripts/run-test-suite.py [--limit N] [--category CATEGORY] [--verbose] [--compare]
+    python scripts/run-test-suite.py [--limit N] [--category CATEGORY] [--verbose] [--compare] [--compiler]
 """
 
-import os
 import sys
 import re
 import json
@@ -679,7 +678,7 @@ def generate_typst_test(fixture: TestFixture, json_path: str, csl_path: str,
 # =============================================================================
 
 def run_test(fixture: TestFixture, project_dir: Path, temp_dir: Path,
-             compare: bool = False, no_compiler: bool = False) -> Dict[str, Any]:
+             compare: bool = False, compiler: bool = False) -> Dict[str, Any]:
     """Run a single test and return results."""
 
     result = {
@@ -747,8 +746,8 @@ def run_test(fixture: TestFixture, project_dir: Path, temp_dir: Path,
         cmd = ['typst', 'compile', str(test_path), str(html_path),
                '--root', str(project_dir), '--format', 'html', '--features', 'html',
                '--input', 'use-footnote=false']
-        if no_compiler:
-            cmd.extend(['--input', 'compiler=false'])
+        if compiler:
+            cmd.extend(['--input', 'compiler=true'])
         proc = subprocess.run(
             cmd,
             capture_output=True,
@@ -993,8 +992,8 @@ def main():
     parser.add_argument('--source', type=str, default='test-suite',
                         choices=['test-suite', 'citeproc-js'],
                         help='Which fixture source to use')
-    parser.add_argument('--no-compiler', action='store_true',
-                        help='Disable compiled CSL (use interpreter only)')
+    parser.add_argument('--compiler', action='store_true',
+                        help='Enable compiled CSL (default: interpreter)')
     parser.add_argument('--output', '-o', type=str,
                         help='Output report path (default: build/test-suite-report.md)')
     parser.add_argument('--json-output', type=str,
@@ -1048,7 +1047,7 @@ def main():
             print(f'[{i+1}/{len(fixtures)}] Testing {fixture.name}...', end=' ')
 
         result = run_test(fixture, project_dir, temp_path, compare=args.compare,
-                          no_compiler=args.no_compiler)
+                          compiler=args.compiler)
         results.append(result)
 
         if args.verbose:

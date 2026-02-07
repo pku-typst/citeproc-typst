@@ -72,7 +72,7 @@
   style = annotate-disambiguate-steps(style)
 
   // Compile style for faster rendering (check sys.inputs for override)
-  let use-compiler = sys.inputs.at("compiler", default: "true") == "true"
+  let use-compiler = sys.inputs.at("compiler", default: "false") == "true"
   if compile and use-compiler {
     import "../compiler/mod.typ": compile-style
     let compiled = compile-style(style)

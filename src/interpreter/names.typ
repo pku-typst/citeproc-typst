@@ -265,7 +265,11 @@
   }
 
   let substitute-done-vars = ()
+  let substitute = none
   if names == none or names.len() == 0 {
+    substitute = children.find(c => (
+      type(c) == dictionary and c.at("tag", default: "") == "substitute"
+    ))
     // Check for subsequent-author-substitute BEFORE trying substitute
     // CSL spec: subsequent-author-substitute applies to the ENTIRE output of the
     // first cs:names element, including substitutes
@@ -276,23 +280,50 @@
     let is-target-element = var-names.any(v => target-vars.contains(v))
 
     if author-substitute != none and is-target-element {
+      let substitute-vars = ()
+      if substitute != none {
+        for sub-child in substitute.at("children", default: ()) {
+          if (
+            type(sub-child) == dictionary
+              and sub-child.at("tag", default: "") == "names"
+          ) {
+            let child-attrs = sub-child.at("attrs", default: (:))
+            if "variable" in child-attrs {
+              let child-vars = child-attrs.variable.split(" ")
+              for v in child-vars {
+                let candidate = ctx.parsed-names.at(v, default: ())
+                if candidate.len() > 0 {
+                  substitute-vars = (v,)
+                  break
+                }
+              }
+            }
+          }
+          if substitute-vars.len() > 0 { break }
+        }
+      }
+      let has-substitute-names = substitute-vars.len() > 0
       let substitute-rule = ctx.at(
         "author-substitute-rule",
         default: "complete-all",
       )
       let substitute-count = ctx.at("author-substitute-count", default: 0)
-      if substitute-rule == "complete-all" {
+      if substitute-rule == "complete-all" and not has-substitute-names {
         // Replace entire output with substitute string
-        return (finalize(author-substitute, attrs), ())
-      } else if substitute-rule == "partial-each" and substitute-count > 0 {
+        return (finalize(author-substitute, attrs), substitute-vars)
+      } else if (
+        substitute-rule == "partial-each"
+          and substitute-count > 0
+          and not has-substitute-names
+      ) {
         // For partial-each with substitute fallback (no actual names),
         // if matching-count > 0, it means the substitute output matched
         // Replace entire output with substitute string
-        return (finalize(author-substitute, attrs), ())
+        return (finalize(author-substitute, attrs), substitute-vars)
       } else if substitute-rule == "complete-each" {
         // complete-each also substitutes if match was found
-        if substitute-count > 0 {
-          return (finalize(author-substitute, attrs), ())
+        if substitute-count > 0 and not has-substitute-names {
+          return (finalize(author-substitute, attrs), substitute-vars)
         }
       }
       // For other rules (partial-first, etc.) we still need to render the substitute
@@ -300,9 +331,7 @@
     }
 
     // Try substitute - CSL spec: try each child in order, use FIRST that produces output
-    let substitute = children.find(c => (
-      type(c) == dictionary and c.at("tag", default: "") == "substitute"
-    ))
+    let substitute = substitute
     if substitute != none {
       if author-substitute != none and is-target-element {
         // If substitute provides names, use them to allow label + author-substitute
