@@ -9,6 +9,8 @@
 // Module-level constants (avoid recreating on each call)
 // =============================================================================
 
+#let _re-non-alpha = regex("[^A-Za-z]")
+
 // CSL name variables (stored in ctx.names, not ctx.fields)
 #let NAME-VARS = (
   "author",
@@ -143,7 +145,7 @@
       custom
     } else if family-list.len() > 0 {
       // Build label from family names
-      let cleaned = family-list.map(x => x.replace(regex("[^A-Za-z]"), ""))
+      let cleaned = family-list.map(x => x.replace(_re-non-alpha, ""))
       let label = if cleaned.len() == 1 {
         let s = cleaned.first()
         if s.len() >= 4 { s.slice(0, 4) } else { s }

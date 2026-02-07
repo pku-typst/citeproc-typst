@@ -187,13 +187,17 @@
 // Word after these should be capitalized even if it's a minor word
 #let _major-punctuation = (":", ";", "—", "–", "?", "!", ".")
 
+// Module-level regex patterns (avoid recompilation)
+#let _re-letter = regex("[a-zA-Z\u{00C0}-\u{024F}]")
+#let _re-lower-letter = regex("[a-z\u{00E0}-\u{00FF}]")
+#let _re-upper-letter = regex("[A-Z\u{00C0}-\u{00DF}]")
+#let _re-greek-letter = regex("[A-Za-z\u{0370}-\u{03FF}]")
+
 /// Check if a word is all uppercase (likely an acronym)
 #let _is-all-uppercase(word) = {
   if word == "" { return false }
   // Filter out non-letter characters for the check
-  let letters = word
-    .clusters()
-    .filter(c => c.match(regex("[a-zA-Z\u{00C0}-\u{024F}]")) != none)
+  let letters = word.clusters().filter(c => c.match(_re-letter) != none)
   if letters.len() == 0 { return false }
   letters.all(c => c == upper(c))
 }
@@ -203,7 +207,7 @@
   if word == "" { return false }
   let first = word.clusters().first()
   // Check if it's a letter and lowercase
-  if first.match(regex("[a-z\u{00E0}-\u{00FF}]")) != none {
+  if first.match(_re-lower-letter) != none {
     return true
   }
   false
@@ -228,7 +232,7 @@
     let clusters = word.clusters()
     let has-later-upper = clusters
       .slice(1)
-      .any(c => c.match(regex("[A-Z\u{00C0}-\u{00DF}]")) != none)
+      .any(c => c.match(_re-upper-letter) != none)
     if has-later-upper {
       return word
     }
@@ -238,7 +242,7 @@
   if clusters.len() == 0 { return word }
 
   // Find the first letter to capitalize (skip leading non-letters like quotes)
-  let letter-pattern = regex("[a-zA-Z\u{00C0}-\u{024F}]")
+  let letter-pattern = _re-letter
   let prefix = ""
   let rest = clusters
 
@@ -265,8 +269,7 @@
   let first = true
 
   if (
-    parts.len() > 0
-      and parts.first().match(regex("[A-Za-z\u{0370}-\u{03FF}]")) == none
+    parts.len() > 0 and parts.first().match(_re-greek-letter) == none
   ) {
     return parts.join("-")
   }

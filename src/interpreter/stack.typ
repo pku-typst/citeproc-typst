@@ -27,6 +27,18 @@
   apply-text-case, capitalize-first-char, finalize, fold-superscripts, is-empty,
 )
 
+// Module-level regex patterns (avoid recompilation in hot loops)
+#let _re-quote-chars = regex("[\"\u{201C}\u{201D}]")
+#let _re-single-quotes = regex("[\u{2018}\u{2019}']")
+#let _re-double-quotes = regex("[\u{201C}\u{201D}\"]")
+#let _re-single-quote-pair = regex(
+  "(^|[\\s\\(\\[])[\u{2018}\u{2019}']([^'\u{2018}\u{2019}]+)[\u{2018}\u{2019}']",
+)
+#let _re-rsq-rdq-end = regex("\u{2019}\u{201D}$")
+#let _re-rsq-end = regex("\u{2019}$")
+#let _re-rdq-end = regex("\u{201D}$")
+#let _re-digit = regex("\\d")
+
 #let _attr-true(val) = if type(val) == bool { val } else { val == "true" }
 #import "../data/conditions.typ": eval-condition
 #import "../data/variables.typ": get-variable
@@ -42,7 +54,7 @@
     if text.func() == text {
       let body = fields.at("text", default: fields.at("body", default: none))
       if (
-        type(body) == str and body.match(regex("[\"\u{201C}\u{201D}]")) != none
+        type(body) == str and body.match(_re-quote-chars) != none
       ) {
         let normalized = transform-quotes-at-level(body, ctx, 1)
         return text(normalized)
@@ -50,7 +62,7 @@
     }
     return text
   }
-  if text.match(regex("[\"\u{201C}\u{201D}]")) == none { return text }
+  if text.match(_re-quote-chars) == none { return text }
   transform-quotes-at-level(text, ctx, 1)
 }
 #import "../text/names.typ": _resolve-et-al-settings, names-end-flag
@@ -141,8 +153,8 @@
         // - At level 0 (not inside quotes): single quotes -> double quotes
         // - At level 1 (inside outer quotes): double quotes -> single quotes
         let quote-level = ctx.at("quote-level", default: 0)
-        let has-single = folded.match(regex("[\u{2018}\u{2019}']")) != none
-        let has-double = folded.match(regex("[\u{201C}\u{201D}\"]")) != none
+        let has-single = folded.match(_re-single-quotes) != none
+        let has-double = folded.match(_re-double-quotes) != none
         let effective-level = if (
           not _attr-true(attrs.at("quotes", default: "false"))
             and quote-level == 1
@@ -163,9 +175,7 @@
         } else { folded }
         let normalized = if type(normalized) == str {
           normalized.replace(
-            regex(
-              "(^|[\\s\\(\\[])[\u{2018}\u{2019}']([^'\u{2018}\u{2019}]+)[\u{2018}\u{2019}']",
-            ),
+            _re-single-quote-pair,
             m => (
               m.captures.at(0) + "\"" + m.captures.at(1) + "\""
             ),
@@ -204,11 +214,11 @@
           if type(quoted) == str {
             if suffix.first() == "." and quoted.ends-with("\u{2019}\u{201D}") {
               quoted = quoted.replace(
-                regex("\u{2019}\u{201D}$"),
+                _re-rsq-rdq-end,
                 ".\u{2019}\u{201D}",
               )
             } else if suffix.first() == "." and quoted.ends-with("\u{2019}") {
-              quoted = quoted.replace(regex("\u{2019}$"), ".\u{2019}")
+              quoted = quoted.replace(_re-rsq-end, ".\u{2019}")
             } else if not quoted.ends-with(suffix.first()) {
               quoted = quoted + suffix.first()
             }
@@ -222,9 +232,9 @@
               let updated = if (
                 suffix.first() == "." and body.ends-with("\u{2019}\u{201D}")
               ) {
-                body.replace(regex("\u{2019}\u{201D}$"), ".\u{2019}\u{201D}")
+                body.replace(_re-rsq-rdq-end, ".\u{2019}\u{201D}")
               } else {
-                body.replace(regex("\u{201D}$"), suffix.first() + "\u{201D}")
+                body.replace(_re-rdq-end, suffix.first() + "\u{201D}")
               }
               quoted = text(updated)
             }
@@ -325,11 +335,11 @@
         if type(quoted) == str {
           if suffix.first() == "." and quoted.ends-with("\u{2019}\u{201D}") {
             quoted = quoted.replace(
-              regex("\u{2019}\u{201D}$"),
+              _re-rsq-rdq-end,
               ".\u{2019}\u{201D}",
             )
           } else if suffix.first() == "." and quoted.ends-with("\u{2019}") {
-            quoted = quoted.replace(regex("\u{2019}$"), ".\u{2019}")
+            quoted = quoted.replace(_re-rsq-end, ".\u{2019}")
           } else if not quoted.ends-with(suffix.first()) {
             quoted = quoted + suffix.first()
           }
@@ -343,9 +353,9 @@
             let updated = if (
               suffix.first() == "." and body.ends-with("\u{2019}\u{201D}")
             ) {
-              body.replace(regex("\u{2019}\u{201D}$"), ".\u{2019}\u{201D}")
+              body.replace(_re-rsq-rdq-end, ".\u{2019}\u{201D}")
             } else {
-              body.replace(regex("\u{201D}$"), suffix.first() + "\u{201D}")
+              body.replace(_re-rdq-end, suffix.first() + "\u{201D}")
             }
             quoted = text(updated)
           }
@@ -810,7 +820,7 @@
                   and delim.first() == ","
                   and next-str.starts-with("(")
                   and prev-str.len() > 0
-                  and prev-str.clusters().last().match(regex("\\d")) != none
+                  and prev-str.clusters().last().match(_re-digit) != none
               ) {
                 delim.replace(",", "")
               } else {

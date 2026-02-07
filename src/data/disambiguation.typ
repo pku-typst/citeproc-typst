@@ -13,8 +13,11 @@
 #import "../core/state.typ": get-entry-year, get-first-author-family
 #import "variables.typ": get-variable
 
-// Module-level regex pattern
+// Module-level regex patterns (avoid recompilation)
 #let _whitespace-pattern = regex("\\s+")
+#let _re-non-alpha = regex("[^A-Za-z]")
+#let _re-whitespace-dot = regex("[\\s\\.]+")
+#let _re-whitespace-or-dot = regex("[\\s\\.]")
 
 // =============================================================================
 // Citation Label Detection (for disambiguation)
@@ -437,7 +440,7 @@
     .filter(x => x != "")
 
   let label = if family-list.len() > 0 {
-    let cleaned = family-list.map(x => x.replace(regex("[^A-Za-z]"), ""))
+    let cleaned = family-list.map(x => x.replace(_re-non-alpha, ""))
     if cleaned.len() == 1 {
       let s = cleaned.first()
       if s.len() >= 4 { s.slice(0, 4) } else { s }
@@ -559,7 +562,7 @@
 /// Returns: Initials string (e.g., "J. M.")
 #let get-initials(given) = {
   if given == none or given == "" { return "" }
-  let parts = given.split(regex("[\\s\\.]+"))
+  let parts = given.split(_re-whitespace-dot)
   parts
     .filter(p => p.len() > 0)
     .map(p => {
@@ -573,7 +576,7 @@
 #let _normalize-given(given) = {
   if given == none { return "" }
   let lowered = lower(given)
-  lowered.replace(regex("[\\s\\.]"), "")
+  lowered.replace(_re-whitespace-or-dot, "")
 }
 
 #let _name-family-key(name) = {
@@ -1231,18 +1234,30 @@
   style,
   date-vars: (),
   name-vars: (),
+  cache: none,
 ) = {
   let groups = (:)
+  let new-cache = if cache != none { cache } else { (:) }
 
   for e in entries {
     let state = states.at(e.key)
-    let citation-key = build-citation-key(
-      e.entry,
-      state,
-      style,
-      date-vars: date-vars,
-      name-vars: name-vars,
-    )
+    // Check cache: if entry's state hasn't changed, reuse cached key
+    let cached = if cache != none { cache.at(e.key, default: none) } else {
+      none
+    }
+    let citation-key = if cached != none and cached.at(0) == state {
+      cached.at(1)
+    } else {
+      let key = build-citation-key(
+        e.entry,
+        state,
+        style,
+        date-vars: date-vars,
+        name-vars: name-vars,
+      )
+      new-cache.insert(e.key, (state, key))
+      key
+    }
 
     if citation-key not in groups {
       groups.insert(citation-key, ())
@@ -1250,7 +1265,7 @@
     groups.at(citation-key).push(e.key)
   }
 
-  groups
+  (groups: groups, cache: new-cache)
 }
 
 /// Get ambiguous groups (groups with more than one entry)
@@ -1650,14 +1665,16 @@
     }
   }
 
-  // Initial grouping
-  let groups = group-by-citation-key(
+  // Initial grouping (with citation key cache for performance)
+  let _result = group-by-citation-key(
     entries,
     states,
     style,
     date-vars: date-vars,
     name-vars: name-vars,
   )
+  let groups = _result.groups
+  let _key-cache = _result.cache
   let ambiguous = get-ambiguous-groups(groups)
 
   // ==========================================================================
@@ -1745,15 +1762,17 @@
         }
       }
 
-      // Re-group and check
-      let new-groups = group-by-citation-key(
+      // Re-group and check (reuse cache for unchanged entries)
+      let _result = group-by-citation-key(
         entries,
         states,
         style,
         date-vars: date-vars,
         name-vars: name-vars,
+        cache: _key-cache,
       )
-      ambiguous = get-ambiguous-groups(new-groups)
+      _key-cache = _result.cache
+      ambiguous = get-ambiguous-groups(_result.groups)
 
       if ambiguous.len() == 0 or not changed { break }
     }
@@ -1846,15 +1865,17 @@
         break
       }
 
-      // Re-group and check
-      let new-groups = group-by-citation-key(
+      // Re-group and check (reuse cache)
+      let _result = group-by-citation-key(
         entries,
         states,
         style,
         date-vars: date-vars,
         name-vars: name-vars,
+        cache: _key-cache,
       )
-      ambiguous = get-ambiguous-groups(new-groups)
+      _key-cache = _result.cache
+      ambiguous = get-ambiguous-groups(_result.groups)
 
       // Interleave givenname expansion with add-names when enabled
       if add-givenname and not is-all-names-rule and ambiguous.len() > 0 {
@@ -1938,14 +1959,16 @@
               changed = true
             }
           }
-          let newer-groups = group-by-citation-key(
+          let _result = group-by-citation-key(
             entries,
             states,
             style,
             date-vars: date-vars,
             name-vars: name-vars,
+            cache: _key-cache,
           )
-          ambiguous = get-ambiguous-groups(newer-groups)
+          _key-cache = _result.cache
+          ambiguous = get-ambiguous-groups(_result.groups)
           if ambiguous.len() == 0 or not changed { break }
         }
       }
@@ -2008,14 +2031,16 @@
       // Final check: revert expansion for entries that are still ambiguous
       // with the exact same collision partners as before
       // This ensures that if expansion didn't help, we don't show expanded names
-      let final-groups = group-by-citation-key(
+      let _result = group-by-citation-key(
         entries,
         states,
         style,
         date-vars: date-vars,
         name-vars: name-vars,
+        cache: _key-cache,
       )
-      let final-ambiguous = get-ambiguous-groups(final-groups)
+      _key-cache = _result.cache
+      let final-ambiguous = get-ambiguous-groups(_result.groups)
 
       // Build initial groups (with no expansion) for comparison
       let initial-states = (:)
@@ -2028,13 +2053,15 @@
           year-suffix: none,
         ))
       }
-      let initial-groups = group-by-citation-key(
+      // Note: initial-states uses a separate cache (different states)
+      let _init-result = group-by-citation-key(
         entries,
         initial-states,
         style,
         date-vars: date-vars,
         name-vars: name-vars,
       )
+      let initial-groups = _init-result.groups
 
       // For each still-ambiguous group, check if expansion actually helped
       for (group-key, group-keys) in final-ambiguous {
@@ -2074,13 +2101,17 @@
       }
 
       // Recalculate ambiguous groups after potential reversion
-      ambiguous = get-ambiguous-groups(group-by-citation-key(
+      // Cache may be stale after reversion, so recompute
+      let _result = group-by-citation-key(
         entries,
         states,
         style,
         date-vars: date-vars,
         name-vars: name-vars,
-      ))
+        cache: _key-cache,
+      )
+      _key-cache = _result.cache
+      ambiguous = get-ambiguous-groups(_result.groups)
     }
   }
 
@@ -2167,14 +2198,16 @@
           changed = true
         }
       }
-      let new-groups = group-by-citation-key(
+      let _result = group-by-citation-key(
         entries,
         states,
         style,
         date-vars: date-vars,
         name-vars: name-vars,
+        cache: _key-cache,
       )
-      ambiguous = get-ambiguous-groups(new-groups)
+      _key-cache = _result.cache
+      ambiguous = get-ambiguous-groups(_result.groups)
       if ambiguous.len() == 0 or not changed { break }
     }
   }

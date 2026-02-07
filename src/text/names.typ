@@ -49,6 +49,8 @@
 #let _name-split-pattern = regex("[ -]+")
 // Pattern to detect already-initialized names (single letter followed by period)
 #let _initialized-name-pattern = regex("^[A-Z]\\.[A-Z]")
+#let _name-split-all-pattern = regex("[ .\\-]+")
+#let _space-split-pattern = regex("[ ]+")
 // Romanesque script detection (from citeproc-js STARTSWITH_ROMANESQUE_REGEXP)
 // Used to determine if a space is needed before et-al term
 // Matches: Latin, Greek, Cyrillic, Hebrew, Arabic, Thai, and related scripts
@@ -429,9 +431,8 @@
   // Names like "ME" (adjacent uppercase) are NOT considered initialized
   if not initialize {
     // Split by space, hyphen, AND period to identify individual parts
-    let split-pattern = regex("[ .\\-]+")
     let parts = given
-      .split(split-pattern)
+      .split(_name-split-all-pattern)
       .filter(p => p != "" and p.trim() != "")
 
     // Check if this looks like an already-initialized name:
@@ -473,7 +474,7 @@
   // Split by space first to get groups, then handle hyphens within groups
   if initialize-hyphen and given.contains("-") {
     // Split by space (but not hyphen) to preserve hyphenated groups
-    let space-parts = given.split(regex("[ ]+")).filter(p => p != "")
+    let space-parts = given.split(_space-split-pattern).filter(p => p != "")
     let result-parts = ()
 
     for space-part in space-parts {

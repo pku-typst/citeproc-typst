@@ -8,10 +8,19 @@
 #import "../interpreter/stack.typ": interpret-children-stack
 #import "../output/helpers.typ": content-to-string, find-first-names-node
 
+// Module-level regex patterns (avoid recompilation)
+#let _re-whitespace = regex("\\s+")
+#let _re-leading-quotes = regex("^['\u{2019}]+")
+#let _re-leading-non-digits = regex("^[^0-9]+")
+#let _re-trailing-non-digits = regex("[^0-9]+$")
+#let _re-date-format = regex("^\\d{4}([-/]\\d{1,2})?([-/]\\d{1,2})?$")
+#let _re-non-digits = regex("[^0-9]+")
+#let _re-sort-punct = regex("[,.;:!?]")
+
 // Helper: get initials for a given name string
 #let _get-initials(given) = {
   if given == none or given == "" { return "" }
-  let parts = given.split(regex("\\s+"))
+  let parts = given.split(_re-whitespace)
   parts
     .filter(p => p.len() > 0)
     .map(p => {
@@ -24,7 +33,7 @@
 // Normalize name parts for sort comparison (strip bracketed chars, leading quotes)
 #let _normalize-name-sort-part(part) = {
   if part == none or type(part) != str { return "" }
-  part.replace("[", "").replace("]", "").replace(regex("^['\u{2019}]+"), "")
+  part.replace("[", "").replace("]", "").replace(_re-leading-quotes, "")
 }
 
 // Normalize date-like strings for lexicographic sorting
@@ -32,12 +41,12 @@
   if type(text) != str { return text }
   let stripped = text
     .trim()
-    .replace(regex("^[^0-9]+"), "")
-    .replace(regex("[^0-9]+$"), "")
-  if stripped.match(regex("^\\d{4}([-/]\\d{1,2})?([-/]\\d{1,2})?$")) == none {
+    .replace(_re-leading-non-digits, "")
+    .replace(_re-trailing-non-digits, "")
+  if stripped.match(_re-date-format) == none {
     return text
   }
-  let parts = stripped.split(regex("[^0-9]+"))
+  let parts = stripped.split(_re-non-digits)
   let year = parts.at(0, default: "")
   let month = parts.at(1, default: "0")
   let day = parts.at(2, default: "0")
@@ -53,7 +62,7 @@
     .replace("\"", "")
     .replace("\u{201C}", "")
     .replace("\u{201D}", "")
-    .replace(regex("[,.;:!?]"), "")
+    .replace(_re-sort-punct, "")
 }
 
 // =============================================================================

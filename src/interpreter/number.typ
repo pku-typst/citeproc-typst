@@ -9,8 +9,12 @@
 #import "../parsing/mod.typ": lookup-term
 #import "../text/number.typ": get-ordinal-suffix
 
-// Pattern to find all numbers in a string
+// Module-level regex patterns (avoid recompilation)
 #let _number-pattern = regex("\\d+")
+#let _re-digit-dash-roman = regex("\\d.*-.*[ivxlcdmIVXLCDM]")
+#let _re-roman-dash = regex("[ivxlcdmIVXLCDM].*-")
+#let _re-digit-range = regex("\\d.*[\\-–—].*[A-Za-z0-9]")
+#let _re-roman-range = regex("[ivxlcdm]+[\\-–—][ivxlcdm]+")
 
 /// Check if a value string represents plural content (multiple numbers)
 ///
@@ -34,26 +38,19 @@
       val-str.contains("–")
         or val-str.contains("—")
         or (
-          val-str.contains("-")
-            and val-str.match(regex("\\d.*-.*[ivxlcdmIVXLCDM]")) != none
+          val-str.contains("-") and val-str.match(_re-digit-dash-roman) != none
         )
         or (
-          val-str.contains("-")
-            and val-str.match(regex("[ivxlcdmIVXLCDM].*-")) != none
+          val-str.contains("-") and val-str.match(_re-roman-dash) != none
         )
-        or val-str.match(regex("\\d.*[\\-–—].*[A-Za-z0-9]")) != none
+        or val-str.match(_re-digit-range) != none
     )
     has-range-sep
   } else {
     // No Arabic numbers - check for Roman numeral ranges
     let lower = val-str.replace(" ", "")
     let has-roman-range = (
-      lower.match(
-        regex(
-          "[ivxlcdm]+[\\-–—][ivxlcdm]+",
-        ),
-      )
-        != none
+      lower.match(_re-roman-range) != none
     )
     has-roman-range
   }

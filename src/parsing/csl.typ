@@ -5,6 +5,9 @@
 #import "locales/mod.typ": create-fallback-locale
 #import "../core/utils.typ": safe-int
 
+// Module-level regex pattern (avoid recompilation)
+#let _re-basic-ws = regex("^[ \t\n\r]+|[ \t\n\r]+$")
+
 /// Find a child element by tag name
 #let find-child(node, tag) = {
   if type(node) != dictionary { return none }
@@ -98,8 +101,7 @@
   // Helper to trim only basic whitespace, preserving Unicode spaces
   let trim-basic-ws = text => {
     // Only trim regular space, tab, newline, carriage return
-    let ws-pattern = regex("^[ \t\n\r]+|[ \t\n\r]+$")
-    text.replace(ws-pattern, "")
+    text.replace(_re-basic-ws, "")
   }
 
   if type(node) == str { return trim-basic-ws(node) }

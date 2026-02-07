@@ -123,6 +123,9 @@
 // Pattern for detecting Roman numerals
 #let _roman-pattern = regex("^[ivxlcdmIVXLCDM]+$")
 
+// Pattern for range pairs in composite page/number strings
+#let _range-pair-pattern = regex("([0-9A-Za-z]+)\\s*[-–]\\s*([0-9A-Za-z]+)")
+
 /// Check if a string is numeric according to CSL rules
 ///
 /// Content is considered numeric if it contains at least one digit
@@ -512,7 +515,7 @@
 
   if raw.contains(",") or raw.contains(";") or raw.contains("&") {
     let normalized = raw.replace(
-      regex("([0-9A-Za-z]+)\\s*[-–]\\s*([0-9A-Za-z]+)"),
+      _range-pair-pattern,
       it => format-pair(it.captures.at(0), it.captures.at(1)),
     )
     return localize-separators(normalized, ctx)
@@ -521,7 +524,7 @@
   let range = parse-range(page-str)
   if range == none {
     let normalized = raw.replace(
-      regex("([0-9A-Za-z]+)\\s*[-–]\\s*([0-9A-Za-z]+)"),
+      _range-pair-pattern,
       it => format-pair(it.captures.at(0), it.captures.at(1)),
     )
     return localize-separators(normalized, ctx)

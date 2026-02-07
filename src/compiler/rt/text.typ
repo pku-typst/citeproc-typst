@@ -6,6 +6,13 @@
 #import "../../text/quotes.typ": apply-quotes, transform-quotes-at-level
 #import "../../output/punctuation.typ": get-punctuation-in-quote
 
+// Module-level regex patterns (avoid recompilation)
+#let _re-quote-chars = regex("[\"\u{201C}\u{201D}]")
+#let _re-single-quotes = regex("[\u{2018}\u{2019}']")
+#let _re-double-quotes = regex("[\u{201C}\u{201D}\"]")
+#let _re-rsq-rdq-end = regex("\u{2019}\u{201D}$")
+#let _re-rdq-end = regex("\u{201D}$")
+
 #let _fix-inner-quotes(text, ctx, quote-level, has-quotes) = {
   if not has-quotes { return text }
   if type(text) != str {
@@ -13,7 +20,7 @@
     if text.func() == text {
       let body = fields.at("text", default: fields.at("body", default: none))
       if (
-        type(body) == str and body.match(regex("[\"\u{201C}\u{201D}]")) != none
+        type(body) == str and body.match(_re-quote-chars) != none
       ) {
         let normalized = transform-quotes-at-level(body, ctx, 1)
         return text(normalized)
@@ -21,7 +28,7 @@
     }
     return text
   }
-  if text.match(regex("[\"\u{201C}\u{201D}]")) == none { return text }
+  if text.match(_re-quote-chars) == none { return text }
   transform-quotes-at-level(text, ctx, 1)
 }
 #import "../../text/ranges.typ": format-number-range, format-page-range
@@ -156,8 +163,8 @@
 
     // Handle quotes (CSL quote flipflopping)
     let quote-level = ctx.at("quote-level", default: 0)
-    let has-single = cased.match(regex("[\u{2018}\u{2019}']")) != none
-    let has-double = cased.match(regex("[\u{201C}\u{201D}\"]")) != none
+    let has-single = cased.match(_re-single-quotes) != none
+    let has-double = cased.match(_re-double-quotes) != none
     let effective-level = if (
       not has-quotes and quote-level == 1 and has-single and not has-double
     ) { 0 } else { quote-level }
@@ -391,9 +398,9 @@
         let updated = if (
           quote-punct == "." and body.ends-with("\u{2019}\u{201D}")
         ) {
-          body.replace(regex("\u{2019}\u{201D}$"), ".\u{2019}\u{201D}")
+          body.replace(_re-rsq-rdq-end, ".\u{2019}\u{201D}")
         } else {
-          body.replace(regex("\u{201D}$"), quote-punct + "\u{201D}")
+          body.replace(_re-rdq-end, quote-punct + "\u{201D}")
         }
         quoted = text(updated)
       }

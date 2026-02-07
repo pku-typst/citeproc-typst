@@ -6,6 +6,15 @@
 
 #import "../parsing/mod.typ": get-quote-chars
 
+// Module-level regex patterns (avoid recompilation in hot loops)
+#let _re-letter = regex("[a-zA-Z\u{00C0}-\u{024F}]")
+#let _re-quote-opener = regex("[ \t\n(\\[]")
+#let _re-digit = regex("[0-9]")
+#let _re-single-quote-pair = regex(
+  "(^|[\\s\\(\\[])[\u{2018}\u{2019}']([^'\u{2018}\u{2019}]+)[\u{2018}\u{2019}']",
+)
+#let _re-double-quote-chars = regex("[\"\u{201C}\u{201D}]")
+
 // =============================================================================
 // Quote Functions
 // =============================================================================
@@ -87,9 +96,9 @@
 
   let clusters = text.clusters()
   let result = ""
-  let letter-pattern = regex("[a-zA-Z\u{00C0}-\u{024F}]")
+  let letter-pattern = _re-letter
   // Characters that can precede an opening quote (citeproc-js style)
-  let quote-opener-pattern = regex("[ \t\n(\\[]")
+  let quote-opener-pattern = _re-quote-opener
 
   for (i, char) in clusters.enumerate() {
     // Check previous and next characters
@@ -126,7 +135,7 @@
       // Straight single quote - most ambiguous case
       // citeproc-js rule: only an opening quote if preceded by space/bracket
       // AND followed by a letter (not a digit - '09 is apostrophe)
-      let next-is-digit = next.match(regex("[0-9]")) != none
+      let next-is-digit = next.match(_re-digit) != none
       if prev-is-letter and next-is-letter {
         // Between letters: apostrophe (don't, l'Égypte)
         result += right-single
@@ -176,9 +185,7 @@
 
   if not use-inner {
     result = result.replace(
-      regex(
-        "(^|[\\s\\(\\[])[\u{2018}\u{2019}']([^'\u{2018}\u{2019}]+)[\u{2018}\u{2019}']",
-      ),
+      _re-single-quote-pair,
       m => (
         m.captures.at(0) + target-open + m.captures.at(1) + target-close
       ),
@@ -235,9 +242,9 @@
   // Alternate between outer and inner quotes based on level
   let is-inner = calc.rem(level, 2) == 1
   let has-inner = if type(content) == str {
-    content.match(regex("[\"\u{201C}\u{201D}]")) != none
+    content.match(_re-double-quote-chars) != none
   } else {
-    _content-to-string(content).match(regex("[\"\u{201C}\u{201D}]")) != none
+    _content-to-string(content).match(_re-double-quote-chars) != none
   }
   if is-inner and not has-inner { is-inner = false }
 

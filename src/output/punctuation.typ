@@ -2,6 +2,60 @@
 //
 // Implements CSL punctuation collapsing rules based on citeproc-js LtoR_MAP.
 
+// =============================================================================
+// Module-level regex patterns (avoid recompilation in hot loops)
+// =============================================================================
+
+// Replace patterns
+#let _re-digit-comma-paren = regex("(\\d),\\s*\\(")
+#let _re-dot-before-rdquote = regex("^\\.\\s*\\u{201D}")
+#let _re-rsquote-end = regex("\u{2019}$")
+#let _re-digit-comma-end = regex("\\d,\\s*$")
+#let _re-comma-end = regex(",\\s*$")
+
+// Show rule patterns: multi-space / digit-comma-paren
+#let _re-multi-space = regex(" {2,}")
+
+// Duplicate punctuation collapse
+#let _re-dup-dot = regex("[.。]{2,}")
+#let _re-dup-comma = regex("[,，、]{2,}")
+#let _re-dup-semi = regex("[;；]{2,}")
+#let _re-dup-colon = regex("[:：]{2,}")
+#let _re-dup-bang = regex("[!！]{2,}")
+#let _re-dup-qmark = regex("[?？]{2,}")
+
+// Duplicate across closing quotes
+#let _re-dot-q-dot = regex("[.。][\u{201D}\"][.。]")
+#let _re-comma-q-comma = regex("[,，、][\u{201D}\"][,，、]")
+#let _re-semi-q-semi = regex("[;；][\u{201D}\"][;；]")
+#let _re-colon-q-colon = regex("[:：][\u{201D}\"][:：]")
+#let _re-bang-q-bang = regex("[!！][\u{201D}\"][!！]")
+#let _re-qmark-q-qmark = regex("[?？][\u{201D}\"][?？]")
+
+// Absorption rules
+#let _re-bang-dot = regex("[!！][.。]")
+#let _re-bang-colon = regex("[!！][:：]")
+#let _re-qmark-dot = regex("[?？][.。]")
+#let _re-qmark-colon = regex("[?？][:：]")
+#let _re-colon-dot = regex("[:：][.。]")
+#let _re-colon-bang = regex("[:：][!！]")
+#let _re-colon-qmark = regex("[:：][?？]")
+#let _re-semi-dot = regex("[;；][.。]")
+#let _re-semi-colon = regex("[;；][:：]")
+#let _re-semi-bang = regex("[;；][!！]")
+#let _re-semi-qmark = regex("[;；][?？]")
+
+// Absorption across closing quotes
+#let _re-bang-q-colon = regex("[!！][\u{201D}\"][:：]")
+#let _re-qmark-q-colon = regex("[?？][\u{201D}\"][:：]")
+#let _re-semi-q-colon = regex("[;；][\u{201D}\"][:：]")
+
+// Punctuation-in-quote patterns
+#let _re-qmark-rdq-dot = regex("[?？]\u{201D}\\.")
+#let _re-bang-rdq-dot = regex("[!！]\u{201D}\\.")
+#let _re-dot-rdq-dot = regex("[.。]\u{201D}[.。]")
+#let _re-comma-rdq-comma = regex("[,，、]\u{201D}[,，、]")
+
 /// Get the punctuation-in-quote setting from a parsed CSL style
 ///
 /// - style: Parsed CSL style
@@ -386,7 +440,7 @@
 
 #let collapse-punctuation(content, punctuation-in-quote: false) = {
   if type(content) == str {
-    let normalized = content.replace(regex("(\\d),\\s*\\("), "$1 (")
+    let normalized = content.replace(_re-digit-comma-paren, "$1 (")
     if normalized != content { content = normalized }
   }
   // Apply punctuation rules inside links by recursing into the body
@@ -400,7 +454,7 @@
     )
     if _is-plain-text(collapsed) {
       let s = content-to-string(collapsed)
-      let normalized = s.replace(regex("(\\d),\\s*\\("), "$1 (")
+      let normalized = s.replace(_re-digit-comma-paren, "$1 (")
       if normalized != s {
         collapsed = text(normalized)
       }
@@ -445,14 +499,14 @@
     let changed = false
     for item in flat {
       if type(item) == str {
-        let normalized = item.replace(regex("(\\d),\\s*\\("), "$1 (")
+        let normalized = item.replace(_re-digit-comma-paren, "$1 (")
         if normalized != item { changed = true }
         updated.push(normalized)
         continue
       }
       let fields = item.fields()
       if "body" in fields and type(fields.body) == str {
-        let normalized = fields.body.replace(regex("(\\d),\\s*\\("), "$1 (")
+        let normalized = fields.body.replace(_re-digit-comma-paren, "$1 (")
         if normalized != fields.body { changed = true }
         if item.func() == text {
           updated.push(text(normalized))
@@ -462,7 +516,7 @@
         continue
       }
       if "text" in fields and type(fields.text) == str {
-        let normalized = fields.text.replace(regex("(\\d),\\s*\\("), "$1 (")
+        let normalized = fields.text.replace(_re-digit-comma-paren, "$1 (")
         if normalized != fields.text { changed = true }
         if item.func() == text {
           updated.push(text(normalized))
@@ -476,7 +530,7 @@
         let changed-kids = false
         for child in fields.children {
           if type(child) == str {
-            let normalized = child.replace(regex("(\\d),\\s*\\("), "$1 (")
+            let normalized = child.replace(_re-digit-comma-paren, "$1 (")
             if normalized != child { changed-kids = true }
             kids.push(normalized)
           } else {
@@ -548,7 +602,7 @@
           let swapped = item.replace("\u{201D},", ",\u{201D}")
           swapped = swapped.replace("\u{2019}\u{201D}.", "\u{2019}.\u{201D}")
           swapped = swapped.replace("\u{2019}.\u{201D}", ".\u{2019}\u{201D}")
-          swapped = swapped.replace(regex("(\\d),\\s*\\("), "$1 (")
+          swapped = swapped.replace(_re-digit-comma-paren, "$1 (")
           swapped = _normalize-nested-double-quotes(swapped)
           if swapped != item { changed = true }
           updated.push(swapped)
@@ -562,7 +616,7 @@
             "\u{2019}.\u{201D}",
           )
           swapped = swapped.replace("\u{2019}.\u{201D}", ".\u{2019}\u{201D}")
-          swapped = swapped.replace(regex("(\\d),\\s*\\("), "$1 (")
+          swapped = swapped.replace(_re-digit-comma-paren, "$1 (")
           let normalized = _normalize-nested-double-quotes(swapped)
           if normalized != fields.body { changed = true }
           if item.func() == text {
@@ -579,7 +633,7 @@
             "\u{2019}.\u{201D}",
           )
           swapped = swapped.replace("\u{2019}.\u{201D}", ".\u{2019}\u{201D}")
-          swapped = swapped.replace(regex("(\\d),\\s*\\("), "$1 (")
+          swapped = swapped.replace(_re-digit-comma-paren, "$1 (")
           let normalized = _normalize-nested-double-quotes(swapped)
           if normalized != fields.text { changed = true }
           if item.func() == text {
@@ -664,9 +718,9 @@
           prev-text != none
             and curr-text != none
             and prev-text.trim().ends-with("\u{2019}")
-            and curr-text.match(regex("^\\.\\s*\\u{201D}")) != none
+            and curr-text.match(_re-dot-before-rdquote) != none
         ) {
-          let updated-prev = prev-text.replace(regex("\u{2019}$"), ".\u{2019}")
+          let updated-prev = prev-text.replace(_re-rsquote-end, ".\u{2019}")
           if updated-prev != prev-text {
             updated = updated.slice(0, updated.len() - 1)
             if type(prev) == str {
@@ -675,13 +729,13 @@
               let fields = prev.fields()
               if "body" in fields and type(fields.body) == str {
                 let updated-body = fields.body.replace(
-                  regex("\u{2019}$"),
+                  _re-rsquote-end,
                   ".\u{2019}",
                 )
                 updated.push(text(updated-body))
               } else if "text" in fields and type(fields.text) == str {
                 let updated-text = fields.text.replace(
-                  regex("\u{2019}$"),
+                  _re-rsquote-end,
                   ".\u{2019}",
                 )
                 updated.push(text(updated-text))
@@ -701,9 +755,9 @@
             and curr-full != none
             and prev-text.trim().ends-with(",")
             and curr-full.trim().starts-with("(")
-            and prev-text.trim().match(regex("\\d,\\s*$")) != none
+            and prev-text.trim().match(_re-digit-comma-end) != none
         ) {
-          let cleaned = prev-text.replace(regex(",\\s*$"), " ")
+          let cleaned = prev-text.replace(_re-comma-end, " ")
           if cleaned != prev-text {
             updated = updated.slice(0, updated.len() - 1)
             if type(prev) == str {
@@ -711,10 +765,10 @@
             } else if prev.func() == text {
               let fields = prev.fields()
               if "body" in fields and type(fields.body) == str {
-                let updated-body = fields.body.replace(regex(",\\s*$"), " ")
+                let updated-body = fields.body.replace(_re-comma-end, " ")
                 updated.push(text(updated-body))
               } else if "text" in fields and type(fields.text) == str {
-                let updated-text = fields.text.replace(regex(",\\s*$"), " ")
+                let updated-text = fields.text.replace(_re-comma-end, " ")
                 updated.push(text(updated-text))
               } else {
                 updated.push(prev)
@@ -835,119 +889,65 @@
 
   // Rule 0: Multiple spaces collapse to single space
   // This handles cases like delimiter ". " + prefix " (" → ". (" not ".  ("
-  show regex(" {2,}"): " "
+  show _re-multi-space: " "
   // Rule 0b: Drop comma before parenthetical after a number
-  show regex("(\\d),\\s*\\("): "$1 ("
+  show _re-digit-comma-paren: "$1 ("
 
   // Rule 1: Duplicate punctuation collapses (keeps first character)
-  show regex("[.。]{2,}"): it => it.text.first()
-  show regex("[,，、]{2,}"): it => it.text.first()
-  show regex("[;；]{2,}"): it => it.text.first()
-  show regex("[:：]{2,}"): it => it.text.first()
-  show regex("[!！]{2,}"): it => it.text.first()
-  show regex("[?？]{2,}"): it => it.text.first()
+  show _re-dup-dot: it => it.text.first()
+  show _re-dup-comma: it => it.text.first()
+  show _re-dup-semi: it => it.text.first()
+  show _re-dup-colon: it => it.text.first()
+  show _re-dup-bang: it => it.text.first()
+  show _re-dup-qmark: it => it.text.first()
 
   // Rule 1b: Duplicate punctuation across closing quotes (keep first)
-  show regex("[.。][\u{201D}\"][.。]"): it => it
-    .text
-    .clusters()
-    .slice(0, 2)
-    .join()
-  show regex("[,，、][\u{201D}\"][,，、]"): it => it
-    .text
-    .clusters()
-    .slice(0, 2)
-    .join()
-  show regex("[;；][\u{201D}\"][;；]"): it => it
-    .text
-    .clusters()
-    .slice(0, 2)
-    .join()
-  show regex("[:：][\u{201D}\"][:：]"): it => it
-    .text
-    .clusters()
-    .slice(0, 2)
-    .join()
-  show regex("[!！][\u{201D}\"][!！]"): it => it
-    .text
-    .clusters()
-    .slice(0, 2)
-    .join()
-  show regex("[?？][\u{201D}\"][?？]"): it => it
-    .text
-    .clusters()
-    .slice(0, 2)
-    .join()
+  show _re-dot-q-dot: it => it.text.clusters().slice(0, 2).join()
+  show _re-comma-q-comma: it => it.text.clusters().slice(0, 2).join()
+  show _re-semi-q-semi: it => it.text.clusters().slice(0, 2).join()
+  show _re-colon-q-colon: it => it.text.clusters().slice(0, 2).join()
+  show _re-bang-q-bang: it => it.text.clusters().slice(0, 2).join()
+  show _re-qmark-q-qmark: it => it.text.clusters().slice(0, 2).join()
 
   // Rule 2: Absorption rules from citeproc-js LtoR_MAP
-  // Helper to get the "stronger" punctuation
-  let get-absorbed(text, absorbers) = {
-    let chars = text.clusters()
-    chars.find(c => c in absorbers)
-  }
-
   // "!" absorbs "." and ":"
-  show regex("[!！][.。]"): it => it.text.first()
-  show regex("[!！][:：]"): it => it.text.first()
+  show _re-bang-dot: it => it.text.first()
+  show _re-bang-colon: it => it.text.first()
 
   // "?" absorbs "." and ":"
-  show regex("[?？][.。]"): it => it.text.first()
-  show regex("[?？][:：]"): it => it.text.first()
+  show _re-qmark-dot: it => it.text.first()
+  show _re-qmark-colon: it => it.text.first()
 
   // ":" absorbs "." only
-  show regex("[:：][.。]"): it => it.text.first()
+  show _re-colon-dot: it => it.text.first()
 
   // ":" is absorbed by "!" and "?"
-  show regex("[:：][!！]"): it => it.text.clusters().last()
-  show regex("[:：][?？]"): it => it.text.clusters().last()
+  show _re-colon-bang: it => it.text.clusters().last()
+  show _re-colon-qmark: it => it.text.clusters().last()
 
   // ";" absorbs "." and ":"
-  show regex("[;；][.。]"): it => it.text.first()
-  show regex("[;；][:：]"): it => it.text.first()
+  show _re-semi-dot: it => it.text.first()
+  show _re-semi-colon: it => it.text.first()
 
   // ";" is absorbed by "!" and "?"
-  show regex("[;；][!！]"): it => it.text.clusters().last()
-  show regex("[;；][?？]"): it => it.text.clusters().last()
+  show _re-semi-bang: it => it.text.clusters().last()
+  show _re-semi-qmark: it => it.text.clusters().last()
 
   // Absorption across closing quotes
-  show regex("[!！][\u{201D}\"][:：]"): it => it
-    .text
-    .clusters()
-    .slice(0, 2)
-    .join()
-  show regex("[?？][\u{201D}\"][:：]"): it => it
-    .text
-    .clusters()
-    .slice(0, 2)
-    .join()
-  show regex("[;；][\u{201D}\"][:：]"): it => it
-    .text
-    .clusters()
-    .slice(0, 2)
-    .join()
+  show _re-bang-q-colon: it => it.text.clusters().slice(0, 2).join()
+  show _re-qmark-q-colon: it => it.text.clusters().slice(0, 2).join()
+  show _re-semi-q-colon: it => it.text.clusters().slice(0, 2).join()
 
   // punctuation-in-quote: move periods and commas inside closing quotes
-  // Only applies when the locale has punctuation-in-quote="true" (e.g., en-US)
-  // Pattern: closing quote followed by period or comma → swap them
-  // Handles: " (right double quote)
-  // Note: We handle this conditionally by wrapping in another layer
   if punctuation-in-quote {
     // If a question/exclamation mark is already inside the quote,
     // drop a trailing period after the closing quote.
-    show regex("[?？]\u{201D}\\."): it => it.text.clusters().slice(0, 2).join()
-    show regex("[!！]\u{201D}\\."): it => it.text.clusters().slice(0, 2).join()
+    show _re-qmark-rdq-dot: it => it.text.clusters().slice(0, 2).join()
+    show _re-bang-rdq-dot: it => it.text.clusters().slice(0, 2).join()
     // Right double quote + period/comma → swap them
     // Collapse duplicate period/comma before swapping
-    show regex("[.。]\u{201D}[.。]"): it => it
-      .text
-      .clusters()
-      .slice(0, 2)
-      .join()
-    show regex("[,，、]\u{201D}[,，、]"): it => it
-      .text
-      .clusters()
-      .slice(0, 2)
-      .join()
+    show _re-dot-rdq-dot: it => it.text.clusters().slice(0, 2).join()
+    show _re-comma-rdq-comma: it => it.text.clusters().slice(0, 2).join()
     show "\u{201D}.": ".\u{201D}"
     show "\u{201D},": ",\u{201D}"
     normalized

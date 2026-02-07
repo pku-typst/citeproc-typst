@@ -12,6 +12,9 @@
 // Pattern for extracting leading integer (including negative)
 #let _leading-int-pattern = regex("^-?\\d+")
 
+// Pattern for safe label building
+#let _re-non-alnum = regex("[^A-Za-z0-9_-]")
+
 // =============================================================================
 // String Utilities
 // =============================================================================
@@ -96,6 +99,6 @@
 
 /// Build a safe reference label from a cite key
 #let make-cite-ref-label(key) = {
-  let safe = str(key).replace(regex("[^A-Za-z0-9_-]"), "-")
+  let safe = str(key).replace(_re-non-alnum, "-")
   "citeproc-ref-" + safe
 }
