@@ -24,7 +24,7 @@
 //   - Subsequent references to those variables produce no output
 
 #import "../core/mod.typ": (
-  apply-text-case, finalize, fold-superscripts, is-empty,
+  apply-text-case, capitalize-first-char, finalize, fold-superscripts, is-empty,
 )
 
 #let _attr-true(val) = if type(val) == bool { val } else { val == "true" }
@@ -120,13 +120,11 @@
       }
 
       if val != "" {
-        let result = if (
-          var-name == "page"
-            or var-name == "page-first"
-            or var-name == "locator"
-        ) {
+        let result = if var-name == "page" or var-name == "page-first" {
           let page-format = ctx.style.at("page-range-format", default: none)
           format-page-range(val, format: page-format, ctx: ctx)
+        } else if var-name == "locator" {
+          format-page-range(val, format: "expanded", ctx: ctx)
         } else if var-name == "issue" {
           format-number-range(val, ctx: ctx)
         } else { val }
@@ -178,7 +176,14 @@
             and suffix.first() in (".", ",")
             and type(quoted) == str
         ) {
-          if not quoted.ends-with(suffix.first()) {
+          if suffix.first() == "." and quoted.ends-with("\u{2019}\u{201D}") {
+            quoted = quoted.replace(
+              regex("\u{2019}\u{201D}$"),
+              ".\u{2019}\u{201D}",
+            )
+          } else if suffix.first() == "." and quoted.ends-with("\u{2019}") {
+            quoted = quoted.replace(regex("\u{2019}$"), ".\u{2019}")
+          } else if not quoted.ends-with(suffix.first()) {
             quoted = quoted + suffix.first()
           }
           (..attrs, suffix: suffix.slice(1))
@@ -271,7 +276,14 @@
           and suffix.first() in (".", ",")
           and type(quoted) == str
       ) {
-        if not quoted.ends-with(suffix.first()) {
+        if suffix.first() == "." and quoted.ends-with("\u{2019}\u{201D}") {
+          quoted = quoted.replace(
+            regex("\u{2019}\u{201D}$"),
+            ".\u{2019}\u{201D}",
+          )
+        } else if suffix.first() == "." and quoted.ends-with("\u{2019}") {
+          quoted = quoted.replace(regex("\u{2019}$"), ".\u{2019}")
+        } else if not quoted.ends-with(suffix.first()) {
           quoted = quoted + suffix.first()
         }
         (..attrs, suffix: suffix.slice(1))
@@ -289,6 +301,12 @@
       // Term can be none (undefined) or "" (defined as empty)
       // Both render as empty, but the distinction matters for substitute logic
       let term-str = if result != none { result } else { "" }
+      if attrs.term == "ibid" and term-str != "" {
+        let pos = ctx.at("position", default: none)
+        if pos in ("ibid", "ibid-with-locator") {
+          term-str = capitalize-first-char(term-str)
+        }
+      }
       let final-attrs = if type(term-str) == str {
         (..attrs, "_ends-with-period": term-str.ends-with("."))
       } else { attrs }
@@ -707,6 +725,7 @@
                 part-results.at(i - 1).at(3, default: false)
                   or content-to-string(prev-content).trim().ends-with(".")
               )
+              let next-str = content-to-string(parts.at(i)).trim()
               let delim = if (
                 group-delimiter.len() > 0
                   and group-delimiter.first() == "."
@@ -716,6 +735,15 @@
                 group-delimiter.slice(1)
               } else {
                 group-delimiter
+              }
+              let delim = if (
+                delim.len() > 0
+                  and delim.first() == ","
+                  and next-str.starts-with("(")
+              ) {
+                delim.replace(",", "")
+              } else {
+                delim
               }
               if delim != "" { joined.push(delim) }
             }

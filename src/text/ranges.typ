@@ -148,33 +148,31 @@
   let str = page-str.trim()
 
   // Match prefix (letters before digits), number, suffix (letters after digits)
-  let prefix = ""
-  let number = ""
-  let suffix = ""
-
+  let clusters = str.clusters()
+  let last-start = none
+  let last-end = none
   let in-number = false
-  let after-number = false
 
-  for char in str.clusters() {
+  for (i, char) in clusters.enumerate() {
     let is-digit = char.match(_digit-pattern) != none
-
     if is-digit {
-      if after-number {
-        // This shouldn't happen in valid page numbers
-        suffix += char
-      } else {
-        number += char
+      if not in-number {
+        last-start = i
+        last-end = none
         in-number = true
       }
-    } else {
-      if in-number {
-        after-number = true
-        suffix += char
-      } else {
-        prefix += char
-      }
+    } else if in-number {
+      last-end = i
+      in-number = false
     }
   }
+
+  if last-start == none { return ("", "", "") }
+  if last-end == none { last-end = clusters.len() }
+
+  let prefix = clusters.slice(0, last-start).join()
+  let number = clusters.slice(last-start, last-end).join()
+  let suffix = clusters.slice(last-end).join()
 
   (prefix, number, suffix)
 }
@@ -227,13 +225,16 @@
     // Keep at least min-chars in the end
     let keep = calc.max(e-chars.len() - matching, min-chars)
     let minimized-end = e-chars.slice(e-chars.len() - keep).join("")
+    let end-prefix = if minimized-end.len() < e-num.len() { "" } else {
+      e-prefix
+    }
 
     return (
       s-prefix
         + s-num
         + s-suffix
         + delimiter
-        + e-prefix
+        + end-prefix
         + minimized-end
         + e-suffix
     )
@@ -258,12 +259,29 @@
   let (s-prefix, s-num, s-suffix) = parse-page-parts(start)
   let (e-prefix, e-num, e-suffix) = parse-page-parts(end)
 
-  if s-prefix != e-prefix or s-num == "" or e-num == "" {
+  if (
+    s-prefix != e-prefix
+      or type(s-num) != str
+      or type(e-num) != str
+      or s-num == ""
+      or e-num == ""
+  ) {
     return format-range-expanded(start, end, delimiter)
+  }
+
+  if e-num.len() < s-num.len() {
+    let s-digits = s-num.clusters().all(c => c.match(_digit-pattern) != none)
+    let e-digits = e-num.clusters().all(c => c.match(_digit-pattern) != none)
+    if s-digits and e-digits {
+      e-num = expand-range-end(s-num, e-num)
+    }
   }
 
   let s-int = int(s-num)
   let e-int = int(e-num)
+  if s-int == none or e-int == none {
+    return format-range-expanded(start, end, delimiter)
+  }
 
   // Rule 1: Numbers < 100 - use all digits
   if s-int < 100 {
@@ -292,12 +310,15 @@
   ) {
     // Both start and end are in x01-x09 range, just show the changed digit
     let minimized-end = str(calc.rem(e-int, 10))
+    let end-prefix = if minimized-end.len() < e-num.len() { "" } else {
+      e-prefix
+    }
     return (
       s-prefix
         + s-num
         + s-suffix
         + delimiter
-        + e-prefix
+        + end-prefix
         + minimized-end
         + e-suffix
     )
@@ -313,6 +334,11 @@
     }
   }
 
+  // If difference is in the first two digits for 4+ digit numbers, use full end
+  if s-str.len() >= 4 and diff-pos <= 1 {
+    return s-prefix + s-num + s-suffix + delimiter + e-prefix + e-num + e-suffix
+  }
+
   // Number of digits to keep from end
   let keep-digits = s-str.len() - diff-pos
 
@@ -324,7 +350,16 @@
   // Extract the abbreviated end
   let minimized-end = e-str.slice(e-str.len() - keep-digits)
 
-  s-prefix + s-num + s-suffix + delimiter + e-prefix + minimized-end + e-suffix
+  let end-prefix = if minimized-end.len() < e-num.len() { "" } else { e-prefix }
+  (
+    s-prefix
+      + s-num
+      + s-suffix
+      + delimiter
+      + end-prefix
+      + minimized-end
+      + e-suffix
+  )
 }
 
 /// Format a range with Chicago 16th edition style
@@ -340,12 +375,29 @@
   let (s-prefix, s-num, s-suffix) = parse-page-parts(start)
   let (e-prefix, e-num, e-suffix) = parse-page-parts(end)
 
-  if s-prefix != e-prefix or s-num == "" or e-num == "" {
+  if (
+    s-prefix != e-prefix
+      or type(s-num) != str
+      or type(e-num) != str
+      or s-num == ""
+      or e-num == ""
+  ) {
     return format-range-expanded(start, end, delimiter)
+  }
+
+  if e-num.len() < s-num.len() {
+    let s-digits = s-num.clusters().all(c => c.match(_digit-pattern) != none)
+    let e-digits = e-num.clusters().all(c => c.match(_digit-pattern) != none)
+    if s-digits and e-digits {
+      e-num = expand-range-end(s-num, e-num)
+    }
   }
 
   let s-int = int(s-num)
   let e-int = int(e-num)
+  if s-int == none or e-int == none {
+    return format-range-expanded(start, end, delimiter)
+  }
 
   let minimized-end = if s-int > 100 and calc.rem(s-int, 100) != 0 {
     // Find the divisor where they differ
@@ -362,7 +414,16 @@
     e-num
   }
 
-  s-prefix + s-num + s-suffix + delimiter + e-prefix + minimized-end + e-suffix
+  let end-prefix = if minimized-end.len() < e-num.len() { "" } else { e-prefix }
+  (
+    s-prefix
+      + s-num
+      + s-suffix
+      + delimiter
+      + end-prefix
+      + minimized-end
+      + e-suffix
+  )
 }
 
 // =============================================================================
@@ -404,41 +465,69 @@
   if page-str == none or page-str == "" { return page-str }
 
   let delimiter = get-range-delimiter(ctx, range-type: "page")
+  let raw = str(page-str)
+  let effective-format = if format == none { none } else { format }
+  let format-pair = (start, end) => {
+    let (s-prefix, s-num, s-suffix) = parse-page-parts(start)
+    let (e-prefix, e-num, e-suffix) = parse-page-parts(end)
+    if s-prefix != e-prefix {
+      return format-range-expanded(start, end, "-")
+    }
+    let end-raw = end
+    if (
+      effective-format != none
+        and type(s-num) == str
+        and type(e-num) == str
+        and s-num != ""
+        and e-num != ""
+    ) {
+      let expanded-num = expand-range-end(s-num, e-num)
+      if expanded-num != e-num {
+        end-raw = e-prefix + expanded-num + e-suffix
+      }
+    }
+    if not is-numeric-string(start) or not is-numeric-string(end-raw) {
+      return start + delimiter + end
+    }
+    if effective-format == none {
+      return format-range-expanded(start, end, delimiter)
+    }
+    let end-expanded = expand-range-end(start, end-raw)
+    if effective-format == "expanded" {
+      format-range-expanded(start, end-expanded, delimiter)
+    } else if effective-format == "minimal" {
+      format-range-minimal(start, end-expanded, delimiter, min-chars: 1)
+    } else if effective-format == "minimal-two" {
+      format-range-minimal(start, end-expanded, delimiter, min-chars: 2)
+    } else if (
+      effective-format == "chicago" or effective-format == "chicago-15"
+    ) {
+      format-range-chicago15(start, end-expanded, delimiter)
+    } else if effective-format == "chicago-16" {
+      format-range-chicago16(start, end-expanded, delimiter)
+    } else {
+      format-range-expanded(start, end-expanded, delimiter)
+    }
+  }
+
+  if raw.contains(",") or raw.contains(";") or raw.contains("&") {
+    let normalized = raw.replace(
+      regex("([0-9A-Za-z]+)\\s*[-–]\\s*([0-9A-Za-z]+)"),
+      it => format-pair(it.captures.at(0), it.captures.at(1)),
+    )
+    return localize-separators(normalized, ctx)
+  }
+
   let range = parse-range(page-str)
-
   if range == none {
-    // Not a range, apply separator localization and return
-    return localize-separators(str(page-str), ctx)
+    let normalized = raw.replace(
+      regex("([0-9A-Za-z]+)\\s*[-–]\\s*([0-9A-Za-z]+)"),
+      it => format-pair(it.captures.at(0), it.captures.at(1)),
+    )
+    return localize-separators(normalized, ctx)
   }
 
-  let start = range.start
-  let end-raw = range.end
-
-  // Only process as numeric range if both parts contain digits
-  // Non-numeric content like "Michaelson-Morely" should be returned as-is
-  if not is-numeric-string(start) or not is-numeric-string(end-raw) {
-    // Not a numeric range, return original string unchanged
-    return str(page-str)
-  }
-
-  // Expand shortened end (e.g., "100-4" -> "100-104")
-  // This is required before applying any range format
-  let end = expand-range-end(start, end-raw)
-
-  if format == "expanded" or format == none {
-    format-range-expanded(start, end, delimiter)
-  } else if format == "minimal" {
-    format-range-minimal(start, end, delimiter, min-chars: 1)
-  } else if format == "minimal-two" {
-    format-range-minimal(start, end, delimiter, min-chars: 2)
-  } else if format == "chicago" or format == "chicago-15" {
-    format-range-chicago15(start, end, delimiter)
-  } else if format == "chicago-16" {
-    format-range-chicago16(start, end, delimiter)
-  } else {
-    // Unknown format, use expanded
-    format-range-expanded(start, end, delimiter)
-  }
+  format-pair(range.start, range.end)
 }
 
 /// Format a numeric range (e.g., issue numbers)

@@ -241,39 +241,53 @@
 
   // Position condition (first, subsequent, ibid, ibid-with-locator, near-note)
   if "position" in attrs {
-    let pos-value = attrs.at("position")
-    let current-pos = ctx.at("position", default: POSITION.first)
-    let positions = pos-value.split(" ")
+    let render-context = ctx.at(
+      "render-context",
+      default: RENDER-CONTEXT.citation,
+    )
+    if render-context == RENDER-CONTEXT.bibliography {
+      conditions.push(false)
+    } else {
+      let pos-value = attrs.at("position")
+      let current-pos = ctx.at("position", default: POSITION.first)
+      let positions = pos-value.split(" ")
 
-    // Pre-compute note distance if needed (avoid repeated lookups)
-    let note-distance = if (
-      positions.any(p => p == "near-note" or p == "far-note")
-    ) {
-      let last-note = ctx.at("last-note-number", default: none)
-      let current-note = ctx.at("note-number", default: none)
-      if last-note != none and current-note != none {
-        current-note - last-note
+      // Pre-compute note distance if needed (avoid repeated lookups)
+      let note-distance = if (
+        positions.any(p => p == "near-note" or p == "far-note")
+      ) {
+        let last-note = ctx.at("last-note-number", default: none)
+        let current-note = ctx.at("note-number", default: none)
+        if last-note != none and current-note != none {
+          current-note - last-note
+        } else { none }
       } else { none }
-    } else { none }
-    let near-note-threshold = ctx.style.at("near-note-distance", default: 5)
+      let near-note-threshold = ctx.style.at("near-note-distance", default: 5)
 
-    let matches = positions.any(p => {
-      if p == current-pos {
-        true
-      } else if p == POSITION.subsequent {
-        (
-          current-pos
-            in (POSITION.subsequent, POSITION.ibid, POSITION.ibid-with-locator)
-        )
-      } else if p == "near-note" {
-        note-distance != none and note-distance <= near-note-threshold
-      } else if p == "far-note" {
-        note-distance == none or note-distance > near-note-threshold
-      } else {
-        false
-      }
-    })
-    conditions.push(matches)
+      let matches = positions.any(p => {
+        if p == current-pos {
+          true
+        } else if p == POSITION.ibid {
+          current-pos in (POSITION.ibid, POSITION.ibid-with-locator)
+        } else if p == POSITION.subsequent {
+          (
+            current-pos
+              in (
+                POSITION.subsequent,
+                POSITION.ibid,
+                POSITION.ibid-with-locator,
+              )
+          )
+        } else if p == "near-note" {
+          note-distance != none and note-distance <= near-note-threshold
+        } else if p == "far-note" {
+          note-distance == none or note-distance > near-note-threshold
+        } else {
+          false
+        }
+      })
+      conditions.push(matches)
+    }
   }
 
   // Locator condition: check if locator-label matches specified values

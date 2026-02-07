@@ -193,7 +193,14 @@
   if plan.at("has-label", default: false) {
     label-attrs = plan.at("label-attrs", default: (:))
     let form = label-attrs.at("form", default: "long")
-    let plural = names.len() > 1
+    let plural-attr = label-attrs.at("plural", default: "contextual")
+    let plural = if plural-attr == "always" {
+      true
+    } else if plural-attr == "never" {
+      false
+    } else {
+      names.len() > 1
+    }
     let term-name = if term-override != none { term-override } else { var-name }
     term = lookup-term(ctx, term-name, form: form, plural: plural)
     if term != none and term != "" {
@@ -386,7 +393,9 @@
       if var-names-list.len() > 0 {
         let et-al = _resolve-et-al-settings(name-attrs, ctx)
         let use-et-al = (
-          var-names-list.len() >= et-al.et-al-min
+          et-al.et-al-min != none
+            and et-al.et-al-use-first != none
+            and var-names-list.len() >= et-al.et-al-min
             and et-al.et-al-use-first < var-names-list.len()
         )
         let show-count = if use-et-al { et-al.et-al-use-first } else {

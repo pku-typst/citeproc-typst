@@ -181,7 +181,9 @@
         // Apply et-al truncation per CSL spec
         let et-al = _resolve-et-al-settings(name-attrs, ctx)
         let use-et-al = (
-          var-names-list.len() >= et-al.et-al-min
+          et-al.et-al-min != none
+            and et-al.et-al-use-first != none
+            and var-names-list.len() >= et-al.et-al-min
             and et-al.et-al-use-first < var-names-list.len()
         )
         let show-count = if use-et-al { et-al.et-al-use-first } else {
@@ -524,7 +526,14 @@
     let label-position = "after"
     let label-content = if label-node != none {
       let form = label-attrs.at("form", default: "long")
-      let plural = names.len() > 1
+      let plural-attr = label-attrs.at("plural", default: "contextual")
+      let plural = if plural-attr == "always" {
+        true
+      } else if plural-attr == "never" {
+        false
+      } else {
+        names.len() > 1
+      }
       // Use common term (e.g., "editortranslator") if available, otherwise use variable name
       let term-name = if common-term != none { common-term } else { used-var }
       term = lookup-term(ctx, term-name, form: form, plural: plural)

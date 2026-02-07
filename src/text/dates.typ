@@ -2,8 +2,10 @@
 //
 // Uses Typst's native datetime for formatting
 
-#import "../core/mod.typ": apply-formatting, apply-text-case, zero-pad
-#import "../parsing/mod.typ": lookup-term
+#import "../core/mod.typ": (
+  apply-formatting, apply-text-case, fold-superscripts, zero-pad,
+)
+#import "../parsing/mod.typ": create-fallback-locale, lookup-term
 
 // =============================================================================
 // Module-level constants (avoid recreating on each call)
@@ -56,6 +58,31 @@
 /// - ctx: Context with locale terms
 /// Returns: Ordinal suffix string
 #let _get-day-ordinal-suffix(day, ctx) = {
+  if day == 1 {
+    let gender-forms = ctx
+      .at("locale", default: (:))
+      .at("ordinal-gender-forms", default: (:))
+    if gender-forms.len() == 0 {
+      let lang = ctx
+        .at("style", default: (:))
+        .at(
+          "default-locale",
+          default: "en-US",
+        )
+      gender-forms = create-fallback-locale(lang).at(
+        "ordinal-gender-forms",
+        default: (:),
+      )
+    }
+    let masculine = gender-forms.at("ordinal-01:masculine", default: none)
+    if masculine != none and masculine != "" {
+      return masculine
+    }
+    let lang = ctx.at("style", default: (:)).at("default-locale", default: "")
+    if lang.starts-with("fr") {
+      return "\u{1D49}\u{02B3}"
+    }
+  }
   let last-two = calc.rem(day, 100)
   let last-one = calc.rem(day, 10)
 
@@ -444,7 +471,7 @@
       } else {
         // Use locale-aware ordinal suffixes
         let suffix = _get-day-ordinal-suffix(day, ctx)
-        str(day) + suffix
+        fold-superscripts(str(day) + suffix)
       }
     } else {
       dt.display("[day]")

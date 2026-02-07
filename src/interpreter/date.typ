@@ -127,7 +127,17 @@
       if origdate != "" { (year: origdate, date: origdate) } else { (:) }
     } else if variable == "event-date" {
       let eventdate = ctx.fields.at("eventdate", default: "")
-      if eventdate != "" { (year: eventdate, date: eventdate) } else { (:) }
+      if eventdate != "" {
+        (
+          year: ctx.fields.at("event-year", default: ""),
+          month: ctx.fields.at("event-month", default: ""),
+          day: ctx.fields.at("event-day", default: ""),
+          date: eventdate,
+          end-year: ctx.fields.at("event-end-year", default: ""),
+          end-month: ctx.fields.at("event-end-month", default: ""),
+          end-day: ctx.fields.at("event-end-day", default: ""),
+        )
+      } else { (:) }
     } else {
       ctx.fields
     }

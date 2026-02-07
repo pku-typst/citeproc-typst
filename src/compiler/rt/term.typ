@@ -1,6 +1,7 @@
 // citrus - Compiler Runtime: Term
 
 #import "text.typ": format-text-content
+#import "../../core/mod.typ": capitalize-first-char
 #import "../../parsing/mod.typ": lookup-term
 
 /// Get term value without formatting/affixes
@@ -13,6 +14,12 @@
   )
 
   let term = lookup-term(ctx, term-name, form: form, plural: plural)
+  if term != none and term-name == "ibid" {
+    let pos = ctx.at("position", default: none)
+    if pos in ("ibid", "ibid-with-locator") {
+      term = capitalize-first-char(term)
+    }
+  }
   if term != none {
     let ends = term.ends-with(".")
     (term, "none", (), ends)
@@ -28,6 +35,12 @@
   let plural = attrs.at("plural", default: "false") == "true"
 
   let term = lookup-term(ctx, term-name, form: form, plural: plural)
+  if term != none and term-name == "ibid" {
+    let pos = ctx.at("position", default: none)
+    if pos in ("ibid", "ibid-with-locator") {
+      term = capitalize-first-char(term)
+    }
+  }
   if term != none {
     let content = format-text-content(ctx, term, attrs)
     let ends = if type(content) == str { content.ends-with(".") } else { false }

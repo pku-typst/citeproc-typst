@@ -198,6 +198,9 @@
   if terms-node == none { return terms }
 
   for term-node in find-children(terms-node, "term") {
+    if term-node.attrs.at("gender-form", default: none) != none {
+      continue
+    }
     let parsed = parse-term(term-node)
     if parsed.name == "" { continue }
 
@@ -208,6 +211,22 @@
   }
 
   terms
+}
+
+#let parse-locale-ordinal-genders(locale-node) = {
+  let forms = (:)
+  let terms-node = find-child(locale-node, "terms")
+  if terms-node == none { return forms }
+
+  for term-node in find-children(terms-node, "term") {
+    let name = term-node.attrs.at("name", default: "")
+    let gender = term-node.attrs.at("gender-form", default: none)
+    if name != "" and gender != none and name.starts-with("ordinal-") {
+      forms.insert(name + ":" + gender, get-text-content(term-node))
+    }
+  }
+
+  forms
 }
 
 /// Parse date format from locale
@@ -271,6 +290,8 @@
     terms: parse-locale-terms(locale-node),
     dates: parse-locale-dates(locale-node),
     options: parse-locale-options(locale-node),
+    ordinal-gender-forms: parse-locale-ordinal-genders(locale-node),
+    term-genders: (:),
   )
 }
 
@@ -294,11 +315,26 @@
     merged-options.insert(k, v)
   }
 
+  let merged-term-genders = base.at("term-genders", default: (:))
+  for (k, v) in override.at("term-genders", default: (:)).pairs() {
+    merged-term-genders.insert(k, v)
+  }
+
+  let merged-ordinal-gender-forms = base.at(
+    "ordinal-gender-forms",
+    default: (:),
+  )
+  for (k, v) in override.at("ordinal-gender-forms", default: (:)).pairs() {
+    merged-ordinal-gender-forms.insert(k, v)
+  }
+
   (
     lang: override.lang,
     terms: merged-terms,
     dates: merged-dates,
     options: merged-options,
+    term-genders: merged-term-genders,
+    ordinal-gender-forms: merged-ordinal-gender-forms,
   )
 }
 

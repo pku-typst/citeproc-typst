@@ -97,6 +97,8 @@
     terms: builtin.terms,
     dates: builtin.dates,
     options: builtin.options,
+    term-genders: builtin.at("term-genders", default: (:)),
+    ordinal-gender-forms: builtin.at("ordinal-gender-forms", default: (:)),
   )
 }
 

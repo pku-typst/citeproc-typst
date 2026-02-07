@@ -41,6 +41,7 @@
           val-str.contains("-")
             and val-str.match(regex("[ivxlcdmIVXLCDM].*-")) != none
         )
+        or val-str.match(regex("\\d.*[\\-–—].*[A-Za-z0-9]")) != none
     )
     has-range-sep
   } else {
@@ -68,10 +69,29 @@
     let form = attrs.at("form", default: "numeric")
     let num = safe-int(val)
 
+    let gender-form = ctx
+      .at("locale", default: (:))
+      .at("term-genders", default: (:))
+      .at(var-name, default: none)
     let result = if form == "ordinal" {
       if num != none {
-        let suffix = get-ordinal-suffix(num, ctx)
-        str(num) + suffix
+        let suffix = get-ordinal-suffix(num, ctx, gender-form: gender-form)
+        let ordinal = str(num) + suffix
+        if type(val) == str and val.contains(",") {
+          let parts = val.split(",")
+          let rest = parts.slice(1).join(",")
+          let rest-trim = rest.trim()
+          if (
+            rest-trim.starts-with("p.")
+              and (rest-trim.contains("-") or rest-trim.contains("–"))
+          ) {
+            rest = rest.replace("p.", "pp.")
+          }
+          rest = rest.replace("-", "–")
+          ordinal + "," + rest
+        } else {
+          ordinal
+        }
       } else { val }
     } else if form == "long-ordinal" {
       if num != none and num >= 1 and num <= 10 {
@@ -87,13 +107,13 @@
             or long-ordinal == ""
             or long-ordinal.starts-with("long-ordinal-")
         ) {
-          str(num) + get-ordinal-suffix(num, ctx)
+          str(num) + get-ordinal-suffix(num, ctx, gender-form: gender-form)
         } else {
           long-ordinal
         }
       } else if num != none {
         // CSL spec: long-ordinal falls back to ordinal for numbers > 10
-        str(num) + get-ordinal-suffix(num, ctx)
+        str(num) + get-ordinal-suffix(num, ctx, gender-form: gender-form)
       } else { val }
     } else if form == "roman" {
       if num != none and num > 0 {
@@ -187,6 +207,14 @@
       num != none and num > 1
     } else {
       _is-plural-value(val-str)
+    }
+    let plural-attr = attrs.at("plural", default: "contextual")
+    let plural = if plural-attr == "always" {
+      true
+    } else if plural-attr == "never" {
+      false
+    } else {
+      plural
     }
 
     // CSL spec: for locator variable, use locator-label to determine the term

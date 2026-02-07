@@ -118,12 +118,16 @@
   }
 
   if val != "" {
-    // Format page ranges for page, page-first, locator
+    // Format page ranges for page/page-first; locator uses expanded
     let formatted = if is-page-like {
-      let page-format = if "style" in ctx {
-        ctx.style.at("page-range-format", default: none)
-      } else { none }
-      format-page-range(val, format: page-format, ctx: ctx)
+      if var-name == "locator" {
+        format-page-range(val, format: "expanded", ctx: ctx)
+      } else {
+        let page-format = if "style" in ctx {
+          ctx.style.at("page-range-format", default: none)
+        } else { none }
+        format-page-range(val, format: page-format, ctx: ctx)
+      }
     } else { val }
 
     // Apply text-case FIRST while content is still a string
@@ -224,14 +228,14 @@
   }
 
   if val != "" {
-    // Format page ranges for page, page-first, locator
-    let formatted = if (
-      var-name == "page" or var-name == "page-first" or var-name == "locator"
-    ) {
+    // Format page ranges for page/page-first; locator uses expanded
+    let formatted = if var-name == "page" or var-name == "page-first" {
       let page-format = if "style" in ctx {
         ctx.style.at("page-range-format", default: none)
       } else { none }
       format-page-range(val, format: page-format, ctx: ctx)
+    } else if var-name == "locator" {
+      format-page-range(val, format: "expanded", ctx: ctx)
     } else if var-name == "issue" {
       format-number-range(val, ctx: ctx)
     } else { val }

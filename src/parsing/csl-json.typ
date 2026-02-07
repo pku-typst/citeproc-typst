@@ -532,6 +532,33 @@
           }
           fields.insert("origdate", date-str)
         }
+      } else if var == "event-date" {
+        if "year" in date-fields {
+          let date-str = date-fields.year
+          if "month" in date-fields {
+            date-str += "-" + date-fields.month
+            if "day" in date-fields {
+              date-str += "-" + date-fields.day
+            }
+          }
+          fields.insert("eventdate", date-str)
+          fields.insert("event-year", date-fields.year)
+        }
+        if "month" in date-fields {
+          fields.insert("event-month", date-fields.month)
+        }
+        if "day" in date-fields {
+          fields.insert("event-day", date-fields.day)
+        }
+        if "end-year" in date-fields {
+          fields.insert("event-end-year", date-fields.at("end-year"))
+        }
+        if "end-month" in date-fields {
+          fields.insert("event-end-month", date-fields.at("end-month"))
+        }
+        if "end-day" in date-fields {
+          fields.insert("event-end-day", date-fields.at("end-day"))
+        }
       }
     }
   }
@@ -718,6 +745,44 @@
     // Update note field to cleaned version (variables removed)
     if note-result.cleaned-note != note-content {
       fields.insert("note", note-result.cleaned-note)
+    }
+  }
+
+  if "event-date" in fields and "eventdate" not in fields {
+    let raw = str(fields.at("event-date", default: "")).trim()
+    if raw != "" {
+      let parts = raw.split("/")
+      let start = parts.first().trim()
+      let start-parts = start.split("-")
+      if start-parts.len() >= 1 {
+        let year = start-parts.at(0)
+        let date-str = year
+        if start-parts.len() >= 2 {
+          let month = start-parts.at(1)
+          date-str += "-" + month
+          fields.insert("event-month", month)
+          if start-parts.len() >= 3 {
+            let day = start-parts.at(2)
+            date-str += "-" + day
+            fields.insert("event-day", day)
+          }
+        }
+        fields.insert("eventdate", date-str)
+        fields.insert("event-year", year)
+      }
+      if parts.len() >= 2 {
+        let end = parts.at(1).trim()
+        let end-parts = end.split("-")
+        if end-parts.len() >= 1 and end-parts.at(0) != "" {
+          fields.insert("event-end-year", end-parts.at(0))
+        }
+        if end-parts.len() >= 2 and end-parts.at(1) != "" {
+          fields.insert("event-end-month", end-parts.at(1))
+        }
+        if end-parts.len() >= 3 and end-parts.at(2) != "" {
+          fields.insert("event-end-day", end-parts.at(2))
+        }
+      }
     }
   }
 

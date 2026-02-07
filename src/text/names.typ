@@ -201,7 +201,7 @@
     "et-al-subsequent-min",
     "citation-et-al-min",
     "et-al-min",
-    4,
+    none,
     ctx,
   )
 
@@ -212,7 +212,7 @@
     "et-al-subsequent-use-first",
     "citation-et-al-use-first",
     "et-al-use-first",
-    3,
+    none,
     ctx,
   )
 
@@ -383,7 +383,7 @@
   if names.len() == 0 { return false }
   let et-al-min = et-al.et-al-min
   let et-al-use-first = et-al.et-al-use-first
-  let use-et-al = if et-al-min != none {
+  let use-et-al = if et-al-min != none and et-al-use-first != none {
     names.len() >= et-al-min and et-al-use-first < names.len()
   } else { false }
 
@@ -749,7 +749,8 @@
     // - "display-and-sort" or "sort-only": prefix moves after given name
 
     let demote = ctx.style.demote-non-dropping-particle
-    if formatted-prefix != "" and demote == "never" {
+    let demote-prefix = demote == "display-and-sort"
+    if formatted-prefix != "" and not demote-prefix {
       // Prefix stays with family name
       // No space if prefix ends with connecting character (apostrophe or hyphen)
       if prefix.ends-with("'") or prefix.ends-with("-") {
@@ -767,7 +768,7 @@
     // Add particles after given name if demoted or if dropping-prefix exists
     let particles = ()
     if dropping-prefix != "" { particles.push(dropping-prefix) }
-    if formatted-prefix != "" and demote != "never" {
+    if formatted-prefix != "" and demote-prefix {
       particles.push(formatted-prefix)
     }
     if particles.len() > 0 {
@@ -911,7 +912,10 @@
   // If et-al-use-first >= names.len(), we show all names and don't use et-al
   // Use personal-count for et-al threshold, but show-count from total names
   let use-et-al = (
-    personal-count >= et-al-min and et-al-use-first < personal-count
+    et-al-min != none
+      and et-al-use-first != none
+      and personal-count >= et-al-min
+      and et-al-use-first < personal-count
   )
   let show-count = if use-et-al { et-al-use-first } else { names.len() }
 

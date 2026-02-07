@@ -22,6 +22,10 @@
       "reason": "Uses citeproc-js specific escape sequence (\\-) to prevent hyphen-to-en-dash conversion. This escape is not part of CSL spec and not supported."
     },
     {
+      "fixture": "number_PlainHyphenOrEnDashAlwaysPlural",
+      "reason": "Contains duplicate CSL-JSON IDs in the fixture input. Duplicate IDs are not supported."
+    },
+    {
       "fixture": "affix_CommaAfterQuote",
       "reason": "citeproc-js converts ASCII quotes to typographic quotes in citation-item prefix/suffix. This smart quotes feature is not part of CSL spec."
     },

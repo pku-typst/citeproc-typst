@@ -91,6 +91,10 @@
   if clusters.len() == 0 { return none }
   let last = clusters.last()
   if last == "\u{201D}" {
+    if clusters.len() >= 2 and clusters.at(clusters.len() - 2) == "\u{2019}" {
+      let base = clusters.slice(0, clusters.len() - 2).join()
+      return base + punct + "\u{2019}\u{201D}"
+    }
     let base = clusters.slice(0, clusters.len() - 1).join()
     return base + punct + last
   }
@@ -416,6 +420,8 @@
       for item in flat {
         if type(item) == str {
           let swapped = item.replace("\u{201D},", ",\u{201D}")
+          swapped = swapped.replace("\u{2019}.\u{201D}", ".\u{2019}\u{201D}")
+          swapped = swapped.replace(regex("(\\d),\\s*\\("), "$1 (")
           swapped = _normalize-nested-double-quotes(swapped)
           if swapped != item { changed = true }
           updated.push(swapped)
@@ -424,6 +430,8 @@
         let fields = item.fields()
         if "body" in fields and type(fields.body) == str {
           let swapped = fields.body.replace("\u{201D},", ",\u{201D}")
+          swapped = swapped.replace("\u{2019}.\u{201D}", ".\u{2019}\u{201D}")
+          swapped = swapped.replace(regex("(\\d),\\s*\\("), "$1 (")
           let normalized = _normalize-nested-double-quotes(swapped)
           if normalized != fields.body { changed = true }
           if item.func() == text {
@@ -435,6 +443,8 @@
         }
         if "text" in fields and type(fields.text) == str {
           let swapped = fields.text.replace("\u{201D},", ",\u{201D}")
+          swapped = swapped.replace("\u{2019}.\u{201D}", ".\u{2019}\u{201D}")
+          swapped = swapped.replace(regex("(\\d),\\s*\\("), "$1 (")
           let normalized = _normalize-nested-double-quotes(swapped)
           if normalized != fields.text { changed = true }
           if item.func() == text {
@@ -460,13 +470,124 @@
   if flat.len() >= 2 {
     let updated = ()
     let changed = false
-    for item in flat {
+    for i in range(flat.len()) {
+      let item = flat.at(i)
       if updated.len() > 0 {
         let prev = updated.last()
         let prev-text = content-to-string(prev)
         let curr-text = _literal-text(item)
         if curr-text == none {
           curr-text = content-to-string(item)
+        }
+        let next-text = none
+        if i + 1 < flat.len() {
+          next-text = _literal-text(flat.at(i + 1))
+          if next-text == none {
+            next-text = content-to-string(flat.at(i + 1))
+          }
+        }
+        if (
+          prev-text != none
+            and curr-text != none
+            and prev-text.trim().ends-with("\u{2019}")
+            and curr-text == "."
+            and next-text != none
+            and next-text.trim().starts-with("\u{201D}")
+        ) {
+          let updated-prev = prev-text.replace(regex("\u{2019}$"), ".\u{2019}")
+          if updated-prev != prev-text {
+            updated = updated.slice(0, updated.len() - 1)
+            if type(prev) == str {
+              updated.push(updated-prev)
+            } else if prev.func() == text {
+              let fields = prev.fields()
+              if "body" in fields and type(fields.body) == str {
+                let updated-body = fields.body.replace(
+                  regex("\u{2019}$"),
+                  ".\u{2019}",
+                )
+                updated.push(text(updated-body))
+              } else if "text" in fields and type(fields.text) == str {
+                let updated-text = fields.text.replace(
+                  regex("\u{2019}$"),
+                  ".\u{2019}",
+                )
+                updated.push(text(updated-text))
+              } else {
+                updated.push(prev)
+              }
+            } else {
+              updated.push(prev)
+            }
+            changed = true
+            continue
+          }
+        }
+        if (
+          prev-text != none
+            and curr-text != none
+            and prev-text.trim().ends-with("\u{2019}")
+            and curr-text.starts-with(".\u{201D}")
+        ) {
+          let updated-prev = prev-text.replace(regex("\u{2019}$"), ".\u{2019}")
+          if updated-prev != prev-text {
+            updated = updated.slice(0, updated.len() - 1)
+            if type(prev) == str {
+              updated.push(updated-prev)
+            } else if prev.func() == text {
+              let fields = prev.fields()
+              if "body" in fields and type(fields.body) == str {
+                let updated-body = fields.body.replace(
+                  regex("\u{2019}$"),
+                  ".\u{2019}",
+                )
+                updated.push(text(updated-body))
+              } else if "text" in fields and type(fields.text) == str {
+                let updated-text = fields.text.replace(
+                  regex("\u{2019}$"),
+                  ".\u{2019}",
+                )
+                updated.push(text(updated-text))
+              } else {
+                updated.push(prev)
+              }
+            } else {
+              updated.push(prev)
+            }
+            updated.push(_strip-leading-punct-content(item))
+            changed = true
+            continue
+          }
+        }
+        if (
+          prev-text != none
+            and curr-text != none
+            and prev-text.trim().ends-with(",")
+            and curr-text.trim().starts-with("(")
+        ) {
+          let cleaned = prev-text.replace(regex(",\\s*$"), " ")
+          if cleaned != prev-text {
+            updated = updated.slice(0, updated.len() - 1)
+            if type(prev) == str {
+              updated.push(cleaned)
+            } else if prev.func() == text {
+              let fields = prev.fields()
+              if "body" in fields and type(fields.body) == str {
+                let updated-body = fields.body.replace(regex(",\\s*$"), " ")
+                updated.push(text(updated-body))
+              } else if "text" in fields and type(fields.text) == str {
+                let updated-text = fields.text.replace(regex(",\\s*$"), " ")
+                updated.push(text(updated-text))
+              } else {
+                updated.push(prev)
+              }
+            } else {
+              updated.push(prev)
+            }
+            updated.push(item)
+            changed = true
+            continue
+          }
         }
         let prev-punct = if prev-text != none {
           _trailing-punct(prev-text)

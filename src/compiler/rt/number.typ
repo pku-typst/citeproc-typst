@@ -34,9 +34,29 @@
   if is-empty(val) {
     ([], "no-var", (), false)
   } else {
+    let gender-form = ctx
+      .at("locale", default: (:))
+      .at("term-genders", default: (:))
+      .at(var-name, default: none)
     let num = safe-int(val)
     let result = if num != none {
-      str(num) + get-ordinal-suffix(num, ctx)
+      let suffix = get-ordinal-suffix(num, ctx, gender-form: gender-form)
+      let ordinal = str(num) + suffix
+      if type(val) == str and val.contains(",") {
+        let parts = val.split(",")
+        let rest = parts.slice(1).join(",")
+        let rest-trim = rest.trim()
+        if (
+          rest-trim.starts-with("p.")
+            and (rest-trim.contains("-") or rest-trim.contains("–"))
+        ) {
+          rest = rest.replace("p.", "pp.")
+        }
+        rest = rest.replace("-", "–")
+        ordinal + "," + rest
+      } else {
+        ordinal
+      }
     } else { val }
     let folded = if type(result) == str { fold-superscripts(result) } else {
       result
@@ -55,6 +75,10 @@
   if is-empty(val) {
     ([], "no-var", (), false)
   } else {
+    let gender-form = ctx
+      .at("locale", default: (:))
+      .at("term-genders", default: (:))
+      .at(var-name, default: none)
     let num = safe-int(val)
     let result = if num != none and num >= 1 and num <= 10 {
       let long-ordinal = lookup-term(
@@ -68,12 +92,12 @@
           or long-ordinal == ""
           or long-ordinal.starts-with("long-ordinal-")
       ) {
-        str(num) + get-ordinal-suffix(num, ctx)
+        str(num) + get-ordinal-suffix(num, ctx, gender-form: gender-form)
       } else {
         long-ordinal
       }
     } else if num != none {
-      str(num) + get-ordinal-suffix(num, ctx)
+      str(num) + get-ordinal-suffix(num, ctx, gender-form: gender-form)
     } else { val }
     let folded = if type(result) == str { fold-superscripts(result) } else {
       result

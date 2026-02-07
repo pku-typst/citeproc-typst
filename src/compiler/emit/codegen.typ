@@ -254,6 +254,16 @@
     }
 
     if not has-other {
+      let match-mode = attrs.at("match", default: "all")
+      if match-mode != "all" {
+        let parts = ()
+        for (key, val) in attrs {
+          parts.push(
+            "\"" + escape-string(key) + "\": \"" + escape-string(val) + "\"",
+          )
+        }
+        return "eval-condition((" + parts.join(", ") + ",), ctx)"
+      }
       let positions = escape-string(attrs.at("position"))
       return (
         "{ let positions = \""
@@ -269,6 +279,8 @@
           + "  positions.any(p => {\n"
           + "    if p == current-pos {\n"
           + "      true\n"
+          + "    } else if p == \"ibid\" {\n"
+          + "      current-pos in (\"ibid\", \"ibid-with-locator\")\n"
           + "    } else if p == \"subsequent\" {\n"
           + "      current-pos in (\"subsequent\", \"ibid\", \"ibid-with-locator\")\n"
           + "    } else if p == \"near-note\" {\n"
@@ -843,6 +855,8 @@
           + "            parts.at(i - 1).at(1, default: false)\n"
           + "              or content-to-string(prev-content).trim().ends-with(\".\")\n"
           + "          )\n"
+          + "          let next-content = parts.at(i).at(0)\n"
+          + "          let next-str = content-to-string(next-content).trim()\n"
       )
       code += (
         indent
@@ -857,6 +871,7 @@
           + "\".slice(1) } else { \""
           + escaped
           + "\" }\n"
+          + "          let delim = if (delim.len() > 0 and delim.first() == \",\" and next-str.starts-with(\"(\")) { delim.replace(\",\", \"\") } else { delim }\n"
       )
       code += indent + "          if delim != \"\" { joined.push(delim) }\n"
       code += indent + "        }\n"
