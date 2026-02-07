@@ -182,9 +182,15 @@
       style.class == STYLE-CLASS.note and not has-citation-number-collapse
     )
 
-    // Use author-date logic if:
+    // Use author-date/grouping logic if:
     // 1. Has year/year-suffix collapse (works for any style), OR
-    // 2. Explicit author-date style
+    // 2. Explicit author-date style, OR
+    // 3. cite-group-delimiter is set
+    let raw-cite-group-delim = style.citation.at(
+      "cite-group-delimiter",
+      default: none,
+    )
+    let has-cite-group-delim = raw-cite-group-delim != none
     let has-year-collapse = (
       collapse-mode
         in (
@@ -203,6 +209,7 @@
                 or layout.at("prefix", default: "") == "("
             )
         )
+        or has-cite-group-delim
     )
 
     // Get layout config
@@ -243,10 +250,7 @@
       let disambig-states = precomputed.at("disambig-states", default: (:))
 
       // Get delimiters
-      let raw-cite-group-delim = style.citation.at(
-        "cite-group-delimiter",
-        default: none,
-      )
+      let raw-cite-group-delim = raw-cite-group-delim
       let after-collapse-delim = _get-with-fallback(
         style.citation.at("after-collapse-delimiter", default: none),
         layout.at("delimiter", default: "; "),
@@ -313,9 +317,7 @@
         .filter(x => x != none)
 
       // Check if cite-group-delimiter is explicitly set (triggers grouping)
-      let has-cite-group-delim = (
-        style.citation.at("cite-group-delimiter", default: none) != none
-      )
+      let has-cite-group-delim = has-cite-group-delim
 
       // Apply grouping/collapse using CSL rendering
       let should-group = (
@@ -592,7 +594,9 @@
             }
 
             for (i, item) in ordered-items.enumerate() {
-              let do-suppress-author = i > 0
+              let do-suppress-author = (
+                i > 0 and effective-collapse-mode != none
+              )
 
               let rendered = render-cite(
                 item.entry,

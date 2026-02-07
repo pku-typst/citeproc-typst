@@ -48,11 +48,14 @@
 
   // Create context for rendering with citation-level et-al settings
   let ctx = create-context(style, entry)
+  let use-disambig = (
+    citation.at("cite-group-delimiter", default: none) == none
+  )
   let ctx = (
     ..ctx,
-    names-expanded: names-expanded,
-    givenname-level: givenname-level,
-    givenname-levels: givenname-levels,
+    names-expanded: if use-disambig { names-expanded } else { 0 },
+    givenname-level: if use-disambig { givenname-level } else { 0 },
+    givenname-levels: if use-disambig { givenname-levels } else { () },
     // Citation-level et-al settings (inheritable name options)
     citation-et-al-min: citation.at("et-al-min", default: none),
     citation-et-al-use-first: citation.at("et-al-use-first", default: none),

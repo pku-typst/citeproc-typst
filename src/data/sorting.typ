@@ -21,6 +21,25 @@
     .join(" ")
 }
 
+// Normalize date-like strings for lexicographic sorting
+#let _normalize-date-sort-key(text) = {
+  if type(text) != str { return text }
+  let stripped = text
+    .trim()
+    .replace(regex("^[^0-9]+"), "")
+    .replace(regex("[^0-9]+$"), "")
+  if stripped.match(regex("^\\d{4}([-/]\\d{1,2})?([-/]\\d{1,2})?$")) == none {
+    return text
+  }
+  let parts = stripped.split(regex("[^0-9]+"))
+  let year = parts.at(0, default: "")
+  let month = parts.at(1, default: "0")
+  let day = parts.at(2, default: "0")
+  if month.len() == 1 { month = "0" + month }
+  if day.len() == 1 { day = "0" + day }
+  year + "-" + month + "-" + day
+}
+
 // =============================================================================
 // Sort Key Extraction
 // =============================================================================
@@ -237,7 +256,9 @@
           key
         } else {
           let rendered = interpret-children-stack((names-node,), ctx)
-          let rendered-key = content-to-string(rendered)
+          let rendered-key = _normalize-date-sort-key(
+            content-to-string(rendered),
+          )
           if rendered-key != "" {
             rendered-key
           } else {
@@ -245,13 +266,13 @@
               macro-def.children,
               ctx,
             )
-            content-to-string(full-rendered)
+            _normalize-date-sort-key(content-to-string(full-rendered))
           }
         }
       } else {
         let rendered = interpret-children-stack(macro-def.children, ctx)
         // Convert to string for sorting
-        content-to-string(rendered)
+        _normalize-date-sort-key(content-to-string(rendered))
       }
     } else { "" }
   } else if key-spec.at("variable", default: "") != "" {

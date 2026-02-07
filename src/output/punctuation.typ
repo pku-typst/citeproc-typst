@@ -384,15 +384,82 @@
 }
 
 #let collapse-punctuation(content, punctuation-in-quote: false) = {
+  if type(content) == str {
+    let normalized = content.replace(regex("(\\d),\\s*\\("), "$1 (")
+    if normalized != content { content = normalized }
+  }
   // Apply punctuation rules inside links by recursing into the body
   if content != none and type(content) != str and content.func() == link {
     let fields = content.fields()
     let dest = fields.at("dest", default: none)
     let body = fields.at("body", default: [])
-    return link(dest, collapse-punctuation(
+    let collapsed = collapse-punctuation(
       body,
       punctuation-in-quote: punctuation-in-quote,
-    ))
+    )
+    if _is-plain-text(collapsed) {
+      let s = content-to-string(collapsed)
+      let normalized = s.replace(regex("(\\d),\\s*\\("), "$1 (")
+      if normalized != s {
+        collapsed = text(normalized)
+      }
+    }
+    return link(dest, collapsed)
+  }
+
+  let flat = _flatten-content(content)
+  if flat.len() > 0 {
+    let updated = ()
+    let changed = false
+    for item in flat {
+      if type(item) == str {
+        let normalized = item.replace(regex("(\\d),\\s*\\("), "$1 (")
+        if normalized != item { changed = true }
+        updated.push(normalized)
+        continue
+      }
+      let fields = item.fields()
+      if "body" in fields and type(fields.body) == str {
+        let normalized = fields.body.replace(regex("(\\d),\\s*\\("), "$1 (")
+        if normalized != fields.body { changed = true }
+        if item.func() == text {
+          updated.push(text(normalized))
+        } else {
+          updated.push(item.func()(..fields, body: normalized))
+        }
+        continue
+      }
+      if "text" in fields and type(fields.text) == str {
+        let normalized = fields.text.replace(regex("(\\d),\\s*\\("), "$1 (")
+        if normalized != fields.text { changed = true }
+        if item.func() == text {
+          updated.push(text(normalized))
+        } else {
+          updated.push(item.func()(..fields, text: normalized))
+        }
+        continue
+      }
+      if "children" in fields {
+        let kids = ()
+        let changed-kids = false
+        for child in fields.children {
+          if type(child) == str {
+            let normalized = child.replace(regex("(\\d),\\s*\\("), "$1 (")
+            if normalized != child { changed-kids = true }
+            kids.push(normalized)
+          } else {
+            kids.push(child)
+          }
+        }
+        if changed-kids {
+          changed = true
+          updated.push(item.func()(..fields, children: kids))
+          continue
+        }
+      }
+      updated.push(item)
+    }
+    if changed { return updated.join() }
   }
 
   if punctuation-in-quote {
@@ -515,6 +582,7 @@
         if curr-text == none {
           curr-text = content-to-string(item)
         }
+        let curr-full = content-to-string(item)
         let next-text = none
         if i + 1 < flat.len() {
           next-text = _literal-text(flat.at(i + 1))
@@ -560,9 +628,9 @@
         }
         if (
           prev-text != none
-            and curr-text != none
+            and curr-full != none
             and prev-text.trim().ends-with(",")
-            and curr-text.trim().starts-with("(")
+            and curr-full.trim().starts-with("(")
             and prev-text.trim().match(regex("\\d$")) != none
         ) {
           let cleaned = prev-text.replace(regex(",\\s*$"), " ")
@@ -701,6 +769,8 @@
   // Rule 0: Multiple spaces collapse to single space
   // This handles cases like delimiter ". " + prefix " (" → ". (" not ".  ("
   show regex(" {2,}"): " "
+  // Rule 0b: Drop comma before parenthetical
+  show regex(",\\s*\\("): " ("
 
   // Rule 1: Duplicate punctuation collapses (keeps first character)
   show regex("[.。]{2,}"): it => it.text.first()
