@@ -75,7 +75,7 @@
 
 Individual citations: @ref1, @ref2, @ref3
 
-Multiple citations (should collapse [1–3]): #multicite("ref1", "ref2", "ref3")
+Multiple citations (should collapse [1–3]): #multicite[@ref1 @ref2 @ref3]
 
 // Note: ref4 is cited here first, gets number 4
 // ref5 is cited later in "All six", gets number 5
@@ -83,14 +83,10 @@ Gap test - cite ref1, ref2, ref3, then skip ref4, cite ref5:
 
 First cite ref4 here: @ref4
 
-Now cite ref1–3, ref5 (should be [1–3, 5]): #multicite("ref1", "ref2", "ref3", "ref5")
+Now cite ref1–3, ref5 (should be [1–3, 5]): #multicite[@ref1 @ref2 @ref3 @ref5]
 
-Multiple with supplements (locator breaks collapse): #multicite(
-  (key: "ref1", supplement: "p. 10"),
-  "ref2",
-  "ref3",
-)
+Multiple with supplements (locator breaks collapse): #multicite[@ref1[p. 10] @ref2 @ref3]
 
-All six (should collapse [1–6]): #multicite("ref1", "ref2", "ref3", "ref4", "ref5", "ref6")
+All six (should collapse [1–6]): #multicite[@ref1 @ref2 @ref3 @ref4 @ref5 @ref6]
 
 #csl-bibliography()

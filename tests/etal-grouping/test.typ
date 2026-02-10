@@ -72,6 +72,6 @@ Citation order: Doe 2000, Doe 2002, Smith et al. 2001, Smith et al. 2003
 Expected: "(Doe, 2000, 2002; Smith et al., 2001, 2003)"
 - Adjacent same-author items grouped; "Doe" (1 author) separate from "Smith et al." (3 authors)
 
-Actual: #multicite("doe2000", "doe2002", "smith2001", "smith2003")
+Actual: #multicite[@doe2000 @doe2002 @smith2001 @smith2003]
 
 #csl-bibliography()

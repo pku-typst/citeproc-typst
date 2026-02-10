@@ -147,9 +147,16 @@ context {
 Combine multiple citations.
 
 ```typst
-#multicite("smith2020", "jones2021", "wang2022")
+// Using @key syntax (recommended — supports auto-completion):
+#multicite[@smith2020 @jones2021 @wang2022]
 
 // With page numbers:
+#multicite[@smith2020[p. 42] @jones2021]
+
+// Using string arguments:
+#multicite("smith2020", "jones2021", "wang2022")
+
+// With page numbers (string form):
 #multicite(
   (key: "smith2020", supplement: [p. 42]),
   "jones2021",

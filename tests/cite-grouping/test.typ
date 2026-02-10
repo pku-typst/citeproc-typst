@@ -75,6 +75,6 @@ Expected: "(Doe, 1999, 2006; Smith, 2002)"
 - Doe's cites grouped at first Doe position, name suppressed for second cite
 - Years shown individually with cite-group-delimiter between them
 
-Actual: #multicite("doe1999", "doe2006", "smith2002")
+Actual: #multicite[@doe1999 @doe2006 @smith2002]
 
 #csl-bibliography()

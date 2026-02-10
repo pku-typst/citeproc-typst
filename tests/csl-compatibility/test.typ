@@ -102,9 +102,9 @@ Jr. 后缀：King Jr.@king1963dream 发表演讲。
 
 = 多文献引用
 
-合并引用：#multicite("wang2010guide", "smith2020climate", "kopka2004guide")
+合并引用：#multicite[@wang2010guide @smith2020climate @kopka2004guide]
 
-带页码：#multicite((key: "wang2010guide", supplement: [53]), "smith2020climate")
+带页码：#multicite[@wang2010guide[53] @smith2020climate]
 
 = 引用形式
 

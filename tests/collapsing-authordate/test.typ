@@ -87,11 +87,11 @@ Second cite (same author/year, should get 'b'): @smith2020b
 
 Third cite: @smith2020c
 
-Multiple by Smith 2020 (should collapse "Smith, 2020a, b, c"): #multicite("smith2020a", "smith2020b", "smith2020c")
+Multiple by Smith 2020 (should collapse "Smith, 2020a, b, c"): #multicite[@smith2020a @smith2020b @smith2020c]
 
-Multiple by Smith different years (should be "Smith, 2020a, 2021"): #multicite("smith2020a", "smith2021")
+Multiple by Smith different years (should be "Smith, 2020a, 2021"): #multicite[@smith2020a @smith2021]
 
-Mixed authors (should be "Smith, 2020a; Jones, 2020"): #multicite("smith2020a", "jones2020")
+Mixed authors (should be "Smith, 2020a; Jones, 2020"): #multicite[@smith2020a @jones2020]
 
 == Different Years Without cite-group-delimiter
 
@@ -101,6 +101,6 @@ Cite order: Smith 2020a, Jones 2020, Smith 2021
 
 Expected: "(Smith, 2020a; Jones, 2020; Smith, 2021)" - No grouping, original order preserved
 
-Actual: #multicite("smith2020a", "jones2020", "smith2021")
+Actual: #multicite[@smith2020a @jones2020 @smith2021]
 
 #csl-bibliography()

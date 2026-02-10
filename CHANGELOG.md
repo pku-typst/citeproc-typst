@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `multicite` now accepts a content body with `@key` references: `#multicite[@smith2020 @jones2021]`. Supports supplements via `@key[p. 42]` syntax. The existing string/dict API remains fully supported. ([#2](https://github.com/pku-typst/citeproc-typst/issues/2))
+
 ## [0.2.0] - 2026-02-07
 
 ### Added

@@ -120,7 +120,16 @@
 
 /// Create multiple citations at once
 ///
-/// - keys: Citation keys (strings or dicts with key and supplement)
+/// Accepts either positional string/dict arguments or a content body with @key references:
+///
+/// ```typst
+/// #multicite("smith2020", "jones2021")
+/// #multicite((key: "smith2020", supplement: [p. 42]), "jones2021")
+/// #multicite[@smith2020 @jones2021 @wang2022]
+/// #multicite[@smith2020[p. 42] @jones2021]
+/// ```
+///
+/// - keys: Citation keys (strings, dicts with key and supplement, or content with @key refs)
 /// - form: Citation form ("prose" for narrative style)
 /// Returns: Combined citation content
 #let multicite(..args) = {
@@ -129,14 +138,43 @@
 
   if raw-list.len() == 0 { return [] }
 
-  // Normalize: convert strings to dicts
-  let normalized = raw-list.map(item => {
-    if type(item) == str {
-      (key: item, supplement: none)
+  // Content body path: #multicite[@key1 @key2 ...]
+  // When a content block is passed via [], it arrives as a single content positional arg.
+  let normalized = if (
+    raw-list.len() == 1 and type(raw-list.first()) == content
+  ) {
+    let body = raw-list.first()
+    let children = if body.has("children") {
+      body.children
     } else {
-      (key: item.at("key"), supplement: item.at("supplement", default: none))
+      (body,)
     }
-  })
+    children
+      .filter(it => it != [ ] and it != parbreak())
+      .map(it => {
+        if it.func() == ref {
+          let supp = it.at("supplement", default: none)
+          // ref supplement [auto] means no explicit supplement was given
+          let supp = if supp == auto { none } else { supp }
+          (key: str(it.target), supplement: supp)
+        } else if it.func() == cite {
+          (key: str(it.key), supplement: it.at("supplement", default: none))
+        } else {
+          panic("multicite: expected @key or cite(), got " + repr(it))
+        }
+      })
+  } else {
+    // Legacy path: positional string/dict arguments
+    raw-list.map(item => {
+      if type(item) == str {
+        (key: item, supplement: none)
+      } else {
+        (key: item.at("key"), supplement: item.at("supplement", default: none))
+      }
+    })
+  }
+
+  if normalized.len() == 0 { return [] }
 
   // Place markers for all keys
   for item in normalized {

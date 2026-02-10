@@ -73,6 +73,6 @@ Expected: "(Doe, 1999, Doe, 2006; Smith, 2002)"
 - Doe's cites grouped adjacently, but name is NOT suppressed
 - cite-group-delimiter ", " used between grouped cites
 
-Actual: #multicite("doe1999", "smith2002", "doe2006")
+Actual: #multicite[@doe1999 @smith2002 @doe2006]
 
 #csl-bibliography()
