@@ -4,6 +4,7 @@
 
 #import "bibliography.typ": csl-bibliography, get-cited-entries
 #import "multicite.typ": multicite
+#import "nocite.typ": nocite
 
 // =============================================================================
 // Locator Helper

@@ -38,6 +38,7 @@ As demonstrated by @smith2020, this approach works well.
 - **Year disambiguation** — Automatic a/b/c suffixes for same-author-same-year entries
 - **Citation collapsing** — Numeric ranges `[1-4]`, year-suffix `(Smith, 2020a, b)`
 - **Multiple citations** — Combine citations with `multicite()`
+- **Uncited entries** — Include bibliography entries without citing via `nocite()`
 - **Full formatting** — Italics, bold, small-caps, text-case, and more
 - **Bibliography linking** — Auto-link DOI, URL, PMID, PMCID in bibliography
 
@@ -161,6 +162,21 @@ Combine multiple citations.
   (key: "smith2020", supplement: [p. 42]),
   "jones2021",
 )
+```
+
+### `nocite`
+
+Include bibliography entries without citing them in-text.
+
+```typst
+// Using @key syntax (recommended):
+#nocite[@smith2020 @jones2021]
+
+// Using string arguments:
+#nocite("smith2020", "jones2021")
+
+// Include all entries:
+#nocite("*")
 ```
 
 ## Supported CSL Elements

@@ -30,5 +30,5 @@
 
 // Bibliography and citation API
 #import "src/api/mod.typ": (
-  csl-bibliography, get-cited-entries, locator, multicite,
+  csl-bibliography, get-cited-entries, locator, multicite, nocite,
 )

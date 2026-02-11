@@ -146,6 +146,38 @@
 }
 
 // =============================================================================
+// Nocite Collection (separate from citation tracking)
+// =============================================================================
+
+/// Collect all nocite entries from the document
+///
+/// Must be called within a `context` block.
+/// - bib: Bibliography data dictionary (key -> entry), used for expanding "*"
+/// Returns: Array of unique keys to include in bibliography
+#let collect-nocites(bib) = {
+  let nocites = query(<citeproc-nocite>)
+  if nocites.len() == 0 { return () }
+
+  // Check for wildcard sentinel
+  let has-all = nocites.any(nc => nc.value.at("all", default: false))
+  if has-all {
+    return bib.keys()
+  }
+
+  // Collect unique keys
+  let seen = (:)
+  let keys = ()
+  for nc in nocites {
+    let key = nc.value.key
+    if key not in seen {
+      seen.insert(key, true)
+      keys.push(key)
+    }
+  }
+  keys
+}
+
+// =============================================================================
 // Entry IR (Intermediate Representation)
 // =============================================================================
 

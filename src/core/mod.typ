@@ -23,5 +23,6 @@
 
 #import "state.typ": (
   _abbreviations, _bib-data, _cite-global-idx, _config, _csl-style, cite-marker,
-  collect-citations, create-entry-ir, get-entry-year, get-first-author-family,
+  collect-citations, collect-nocites, create-entry-ir, get-entry-year,
+  get-first-author-family,
 )

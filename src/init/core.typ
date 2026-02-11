@@ -22,7 +22,7 @@
 #import "../parsing/mod.typ": detect-language
 #import "../core/mod.typ": (
   _abbreviations, _bib-data, _cite-global-idx, _config, _csl-style, cite-marker,
-  collect-citations, make-cite-ref-label,
+  collect-citations, collect-nocites, make-cite-ref-label,
 )
 
 // =============================================================================
@@ -172,6 +172,15 @@
     let bib = _bib-data.get()
     let style = _csl-style.get()
     let citations = collect-citations()
+
+    // Merge nocite keys into citations (appended after real citations)
+    let nocite-keys = collect-nocites(bib)
+    for key in nocite-keys {
+      if key not in citations.order and key in bib {
+        citations.count += 1
+        citations.order.insert(key, citations.count)
+      }
+    }
 
     // Process entries through the full IR pipeline (sort + disambiguate)
     // This ensures year-suffixes are assigned according to CSL spec:
