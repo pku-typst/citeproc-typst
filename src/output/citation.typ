@@ -10,8 +10,18 @@
 #import "../interpreter/mod.typ": create-context
 #import "../interpreter/stack.typ": interpret-children-stack
 #import "../parsing/mod.typ": detect-language
+#import "../text/markup.typ": has-inline-markup, render-inline-markup
 #import "../text/names.typ": format-names
 #import "layout.typ": select-layout
+
+#let _prepare-layout-inline-content(content, layout) = {
+  let text = content-to-string(content)
+  if has-inline-markup(text) {
+    render-inline-markup(text, attrs: layout)
+  } else {
+    content
+  }
+}
 
 // Check if a layout contains any position conditions
 #let _layout-has-position(nodes, targets) = {
@@ -346,7 +356,7 @@
     if suppress-affixes {
       formatted
     } else {
-      apply-formatting(formatted, layout)
+      apply-formatting(_prepare-layout-inline-content(formatted, layout), layout)
     }
   } else {
     // Default form: apply all formatting
@@ -372,7 +382,7 @@
       }
 
       // Apply font formatting (font-weight, font-style)
-      apply-formatting(with-valign, layout)
+      apply-formatting(_prepare-layout-inline-content(with-valign, layout), layout)
     }
   }
 

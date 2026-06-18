@@ -41,9 +41,40 @@
 #import "../data/conditions.typ": eval-condition
 #import "../data/variables.typ": get-variable
 #import "../parsing/mod.typ": lookup-term
+#import "../text/markup.typ": (
+  has-inline-markup, prepare-inline-markup, render-inline-markup,
+  should-defer-inline-value, strip-inline-markup,
+)
 #import "../text/ranges.typ": format-number-range, format-page-range
 #import "../text/quotes.typ": apply-quotes, transform-quotes-at-level
 #import "../output/punctuation.typ": get-punctuation-in-quote
+
+#let _case-inline-text(text, attrs, ctx) = apply-text-case(text, attrs, ctx: ctx)
+
+#let _format-inline-text(raw, attrs, ctx, quote-level, has-quotes) = {
+  let nodes = prepare-inline-markup(
+    raw,
+    attrs,
+    ctx,
+    case-func: _case-inline-text,
+    quote-func: transform-quotes-at-level,
+    quote-level: quote-level,
+    has-quotes: has-quotes,
+  )
+  let rendered = render-inline-markup(raw, attrs: attrs, nodes: nodes)
+  let quoted = if has-quotes {
+    apply-quotes(rendered, ctx, level: quote-level)
+  } else {
+    rendered
+  }
+  let plain = strip-inline-markup(raw)
+  let ends = plain.ends-with(".")
+  let final-attrs = (..attrs, "_ends-with-period": ends)
+  if "text-case" in final-attrs {
+    let _ = final-attrs.remove("text-case")
+  }
+  (finalize(quoted, final-attrs), ends)
+}
 
 #let _fix-inner-quotes(text, ctx, quote-level, has-quotes) = {
   if not has-quotes { return text }
@@ -139,6 +170,19 @@
         } else if var-name == "issue" {
           format-number-range(val, ctx: ctx)
         } else { val }
+
+        let quote-level = ctx.at("quote-level", default: 0)
+        let has-quotes = _attr-true(attrs.at("quotes", default: "false"))
+        if type(result) == str and has-inline-markup(result) {
+          let (content, ends) = _format-inline-text(
+            result,
+            attrs,
+            ctx,
+            quote-level,
+            has-quotes,
+          )
+          return (content, "var", (), ends)
+        }
 
         // Apply text-case FIRST while content is still a string
         // CSL spec: text-case transformation happens before quotes are added
@@ -292,9 +336,25 @@
     } else if "value" in attrs {
       let result = attrs.value
       let quote-level = ctx.at("quote-level", default: 0)
+      let has-quotes = _attr-true(attrs.at("quotes", default: "false"))
+
+      if type(result) == str and has-inline-markup(result) {
+        let plain = strip-inline-markup(result)
+        let ends = plain.ends-with(".")
+        if should-defer-inline-value(attrs) {
+          return (result, "none", (), ends)
+        }
+        let (content, inline-ends) = _format-inline-text(
+          result,
+          attrs,
+          ctx,
+          quote-level,
+          has-quotes,
+        )
+        return (content, "none", (), inline-ends)
+      }
 
       // Normalize embedded quotes in value (same as variables)
-      let has-quotes = _attr-true(attrs.at("quotes", default: "false"))
       let folded = fold-superscripts(result)
       let normalized = if type(folded) == str and not is-empty(folded) {
         if has-quotes {

@@ -134,42 +134,6 @@
       "reason": "Uses citeproc-js citation update format (>>[n] prefix) for testing dynamic citation updates. Not applicable to static Typst compilation."
     },
     {
-      "fixture": "textcase_ImplicitNocase",
-      "reason": "Requires parsing HTML formatting tags (<sc>, <sup>, <sub>) from input data. This inline HTML markup parsing is not supported."
-    },
-    {
-      "fixture": "textcase_Lowercase",
-      "reason": "Requires parsing <span class='nocase'> from input data to preserve case. This HTML parsing is not supported."
-    },
-    {
-      "fixture": "textcase_SentenceCapitalization",
-      "reason": "Requires parsing <span class='nocase'> from input data to preserve case. This HTML parsing is not supported."
-    },
-    {
-      "fixture": "textcase_Uppercase",
-      "reason": "Requires parsing <span class='nocase'> from input data to preserve case. This HTML parsing is not supported."
-    },
-    {
-      "fixture": "flipflop_ApostropheInsideTag",
-      "reason": "Requires parsing <span class='nocase'> from input data. This HTML parsing is not supported."
-    },
-    {
-      "fixture": "flipflop_BoldfaceNodeLevelMarkup",
-      "reason": "Requires parsing embedded HTML tags (<b>) inside quoted input. This HTML parsing is not supported."
-    },
-    {
-      "fixture": "flipflop_ItalicsFlipped",
-      "reason": "Requires parsing <i> tags from input data to detect embedded italics. This HTML parsing is not supported."
-    },
-    {
-      "fixture": "flipflop_ItalicsSimple",
-      "reason": "Requires parsing <i> tags from input data to detect embedded italics. This HTML parsing is not supported."
-    },
-    {
-      "fixture": "decorations_SimpleFlipFlop",
-      "reason": "Requires parsing <i> tags from input data to detect embedded italics. This HTML parsing is not supported."
-    },
-    {
       "fixture": "decorations_NestedQuotesInnerReverse",
       "reason": "Requires parsing embedded HTML tags (<b>) inside quoted input. This HTML parsing is not supported."
     },
@@ -342,24 +306,8 @@
       "reason": "Uses citeproc-js citation update format (..[n] and >>[n] prefixes) for testing dynamic citation updates. Not applicable to static Typst compilation."
     },
     {
-      "fixture": "bugreports_AuthorPosition",
-      "reason": "Input contains inline HTML markup (<i>...</i>) in title fields. HTML parsing is not supported."
-    },
-    {
       "fixture": "bugreports_NoCaseEscape",
       "reason": "Input contains inline HTML markup (<span class='nocase'>). HTML parsing is not supported."
-    },
-    {
-      "fixture": "bugreports_SmallCapsEscape",
-      "reason": "Input contains inline HTML markup (<span style='font-variant: small-caps;'>). HTML parsing is not supported."
-    },
-    {
-      "fixture": "sort_StripMarkup",
-      "reason": "Input contains inline HTML markup (<i>...</i>) in title fields. HTML parsing is not supported."
-    },
-    {
-      "fixture": "sort_WithAndInOneEntry",
-      "reason": "Input contains inline HTML markup (<i>...</i>) in title fields. HTML parsing is not supported."
     }
   ]
 }

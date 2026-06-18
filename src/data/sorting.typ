@@ -7,6 +7,7 @@
 #import "../interpreter/mod.typ": create-context
 #import "../interpreter/stack.typ": interpret-children-stack
 #import "../output/helpers.typ": content-to-string, find-first-names-node
+#import "../text/markup.typ": strip-inline-markup
 
 // Module-level regex patterns (avoid recompilation)
 #let _re-whitespace = regex("\\s+")
@@ -461,6 +462,8 @@
       let raw = get-variable(ctx, var-name)
       if var-name == "status" and type(raw) == str and raw == "" {
         "~missing~"
+      } else if type(raw) == str {
+        strip-inline-markup(raw)
       } else {
         raw
       }
