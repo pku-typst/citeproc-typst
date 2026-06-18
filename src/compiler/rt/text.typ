@@ -179,9 +179,7 @@
     } else { cased }
     let normalized = if type(normalized) == str {
       normalized.replace(
-        regex(
-          "(^|[\\s\\(\\[])[\u{2018}\u{2019}']([^'\u{2018}\u{2019}]+)[\u{2018}\u{2019}']",
-        ),
+        regex("(^|[\\s\\(\\[])'([^']+)'"),
         m => (
           m.captures.at(0) + "\"" + m.captures.at(1) + "\""
         ),

@@ -10,9 +10,7 @@
 #let _re-letter = regex("[a-zA-Z\u{00C0}-\u{024F}]")
 #let _re-quote-opener = regex("[ \t\n(\\[]")
 #let _re-digit = regex("[0-9]")
-#let _re-single-quote-pair = regex(
-  "(^|[\\s\\(\\[])[\u{2018}\u{2019}']([^'\u{2018}\u{2019}]+)[\u{2018}\u{2019}']",
-)
+#let _re-single-quote-pair = regex("(^|[\\s\\(\\[])'([^']+)'")
 #let _re-double-quote-chars = regex("[\"\u{201C}\u{201D}]")
 
 // =============================================================================
@@ -76,7 +74,8 @@
   let lang = ctx.style.at("default-locale", default: "en")
   let chars = get-quote-chars(lang)
 
-  // Unicode quote characters for detection
+  // Treat authored typographic quotes as literal text. Only ASCII quotes are
+  // normalized to locale quote marks.
   let left-double = "\u{201C}" // "
   let right-double = "\u{201D}" // "
   let straight-double = "\""
@@ -109,28 +108,17 @@
     // citeproc-js: opening quote must be preceded by space, bracket, or be at start
     let can-be-opening = i == 0 or prev.match(quote-opener-pattern) != none
 
-    if char == left-double or char == straight-double {
-      // Double quote: always transform (double quotes are unambiguous)
+    if char == left-double or char == right-double {
+      result += char
+    } else if char == straight-double {
+      // Straight double quote: infer opening/closing from context.
       if can-be-opening {
         result += target-open
       } else {
         result += target-close
       }
-    } else if char == right-double {
-      // Closing double quote
-      result += target-close
     } else if char == left-single {
-      // Unicode left single quote - intended as opening quote
-      if can-be-opening {
-        if use-inner {
-          result += chars.open-inner-quote
-        } else {
-          result += chars.open-quote
-        }
-      } else {
-        // Not at valid opening position - treat as apostrophe
-        result += right-single
-      }
+      result += char
     } else if char == straight-single {
       // Straight single quote - most ambiguous case
       // citeproc-js rule: only an opening quote if preceded by space/bracket
@@ -166,18 +154,7 @@
         result += right-single
       }
     } else if char == right-single {
-      // Unicode right single quote
-      if prev-is-letter and next-is-letter {
-        // Between letters: apostrophe
-        result += right-single
-      } else {
-        // Closing quote position
-        if use-inner {
-          result += chars.close-inner-quote
-        } else {
-          result += chars.close-quote
-        }
-      }
+      result += char
     } else {
       result += char
     }

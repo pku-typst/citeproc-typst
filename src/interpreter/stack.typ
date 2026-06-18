@@ -31,9 +31,7 @@
 #let _re-quote-chars = regex("[\"\u{201C}\u{201D}]")
 #let _re-single-quotes = regex("[\u{2018}\u{2019}']")
 #let _re-double-quotes = regex("[\u{201C}\u{201D}\"]")
-#let _re-single-quote-pair = regex(
-  "(^|[\\s\\(\\[])[\u{2018}\u{2019}']([^'\u{2018}\u{2019}]+)[\u{2018}\u{2019}']",
-)
+#let _re-single-quote-pair = regex("(^|[\\s\\(\\[])'([^']+)'")
 #let _re-rsq-rdq-end = regex("\u{2019}\u{201D}$")
 #let _re-rsq-end = regex("\u{2019}$")
 #let _re-rdq-end = regex("\u{201D}$")
