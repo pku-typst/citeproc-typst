@@ -14,10 +14,75 @@
 #import "../text/names.typ": format-names
 #import "layout.typ": select-layout
 
+#let _content-has-inline-markup(value) = {
+  if value == none or value == [] { return false }
+  if type(value) == str { return has-inline-markup(value) }
+  if type(value) == array {
+    return value.any(_content-has-inline-markup)
+  }
+  if type(value) != content { return false }
+
+  let fields = value.fields()
+  if "children" in fields {
+    return fields.children.any(_content-has-inline-markup)
+  }
+  if "body" in fields {
+    return _content-has-inline-markup(fields.body)
+  }
+  if "text" in fields {
+    return _content-has-inline-markup(fields.text)
+  }
+  false
+}
+
+#let _rewrap-inline-body(func, body, original) = {
+  if func == emph {
+    emph(body)
+  } else if func == strong {
+    strong(body)
+  } else if func == underline {
+    underline(body)
+  } else if func == smallcaps {
+    smallcaps(body)
+  } else if func == super {
+    super(body)
+  } else if func == sub {
+    sub(body)
+  } else {
+    original
+  }
+}
+
+#let _render-layout-inline-content(value, layout) = {
+  if value == none or value == [] { return value }
+  if type(value) == str {
+    if has-inline-markup(value) {
+      return render-inline-markup(value, attrs: layout)
+    }
+    return value
+  } else if type(value) == array {
+    value.map(it => _render-layout-inline-content(it, layout)).join()
+  } else if type(value) != content {
+    value
+  } else {
+    let func = value.func()
+    let fields = value.fields()
+    if "children" in fields {
+      fields.children.map(it => _render-layout-inline-content(it, layout)).join()
+    } else if func == text and "text" in fields {
+      text(_render-layout-inline-content(fields.text, layout))
+    } else if "body" in fields {
+      let body = _render-layout-inline-content(fields.body, layout)
+      _rewrap-inline-body(func, body, value)
+    } else {
+      value
+    }
+  }
+}
+
 #let _prepare-layout-inline-content(content, layout) = {
-  let text = content-to-string(content)
-  if has-inline-markup(text) {
-    render-inline-markup(text, attrs: layout)
+  if _content-has-inline-markup(content) {
+    _render-layout-inline-content(content, layout)
   } else {
     content
   }

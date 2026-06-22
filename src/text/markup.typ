@@ -16,7 +16,9 @@
     attrs.at("font-style", default: none) != none
       or attrs.at("font-weight", default: none) != none
       or attrs.at("font-variant", default: none) != none
+      or attrs.at("text-decoration", default: none) != none
       or attrs.at("vertical-align", default: none) != none
+      or attrs.at("display", default: none) != none
   )
 }
 
@@ -211,6 +213,8 @@
   }
   out.join("")
 }
+
+#let inline-markup-plain-text(nodes) = _nodes-plain(nodes)
 
 #let strip-inline-markup(value) = {
   if not has-inline-markup(value) { return value }

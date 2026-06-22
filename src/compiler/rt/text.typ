@@ -4,8 +4,8 @@
   apply-text-case, finalize, fold-superscripts, is-empty,
 )
 #import "../../text/markup.typ": (
-  has-inline-markup, prepare-inline-markup, render-inline-markup,
-  strip-inline-markup,
+  has-inline-markup, inline-markup-plain-text, prepare-inline-markup,
+  render-inline-markup,
 )
 #import "../../text/quotes.typ": apply-quotes, transform-quotes-at-level
 #import "../../output/punctuation.typ": get-punctuation-in-quote
@@ -19,6 +19,18 @@
 
 #let _case-inline-text(text, attrs, ctx) = apply-text-case(text, attrs, ctx: ctx)
 
+#let _inline-quote-punctuation(attrs, ctx, has-quotes) = {
+  let suffix = attrs.at("suffix", default: "")
+  let piq = if "style" in ctx {
+    get-punctuation-in-quote(ctx.style)
+  } else { false }
+  if (
+    has-quotes and piq and suffix.len() > 0 and suffix.first() in (".", ",")
+  ) {
+    suffix.first()
+  } else { "" }
+}
+
 #let _format-inline-text(raw, attrs, ctx, quote-level, has-quotes) = {
   let nodes = prepare-inline-markup(
     raw,
@@ -30,18 +42,25 @@
     has-quotes: has-quotes,
   )
   let rendered = render-inline-markup(raw, attrs: attrs, nodes: nodes)
+  let plain = inline-markup-plain-text(nodes)
+  let quote-punct = _inline-quote-punctuation(attrs, ctx, has-quotes)
+  let adjusted-attrs = if quote-punct != "" {
+    (..attrs, suffix: attrs.suffix.slice(1))
+  } else { attrs }
+  if quote-punct != "" and not plain.ends-with(quote-punct) {
+    rendered = [#rendered#quote-punct]
+  }
   let quoted = if has-quotes {
     apply-quotes(rendered, ctx, level: quote-level)
   } else {
     rendered
   }
-  let plain = strip-inline-markup(raw)
-  let ends = plain.ends-with(".")
-  let final-attrs = (..attrs, "_ends-with-period": ends)
+  let final-ends = plain.ends-with(".") or quote-punct == "."
+  let final-attrs = (..adjusted-attrs, "_ends-with-period": final-ends)
   if "text-case" in final-attrs {
     let _ = final-attrs.remove("text-case")
   }
-  (finalize(quoted, final-attrs), ends)
+  (finalize(quoted, final-attrs), final-ends)
 }
 
 #let _fix-inner-quotes(text, ctx, quote-level, has-quotes) = {
@@ -105,8 +124,17 @@
 
   if val != "" {
     if type(val) == str and has-inline-markup(val) {
-      let rendered = render-inline-markup(val, attrs: attrs)
-      let plain = strip-inline-markup(val)
+      let nodes = prepare-inline-markup(
+        val,
+        attrs,
+        ctx,
+        quote-func: if "style" in ctx { transform-quotes-at-level } else {
+          none
+        },
+        quote-level: ctx.at("quote-level", default: 0),
+      )
+      let rendered = render-inline-markup(val, attrs: attrs, nodes: nodes)
+      let plain = inline-markup-plain-text(nodes)
       return (rendered, "var", (), plain.ends-with("."))
     }
 
