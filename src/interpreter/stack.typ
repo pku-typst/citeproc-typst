@@ -49,7 +49,11 @@
 #import "../text/quotes.typ": apply-quotes, transform-quotes-at-level
 #import "../output/punctuation.typ": get-punctuation-in-quote
 
-#let _case-inline-text(text, attrs, ctx) = apply-text-case(text, attrs, ctx: ctx)
+#let _case-inline-text(text, attrs, ctx) = apply-text-case(
+  text,
+  attrs,
+  ctx: ctx,
+)
 
 #let _inline-quote-punctuation(attrs, ctx, has-quotes) = {
   let suffix = attrs.at("suffix", default: "")

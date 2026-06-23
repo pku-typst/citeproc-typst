@@ -1,17 +1,12 @@
 // Unit tests for CSL-JSON HTML-like inline markup parsing.
 
 #import "/src/text/markup.typ": (
-  has-inline-markup,
-  parse-inline-markup,
-  prepare-inline-markup,
-  render-inline-markup,
-  should-defer-inline-value,
-  strip-inline-markup,
+  has-inline-markup, parse-inline-markup, prepare-inline-markup,
+  render-inline-markup, should-defer-inline-value, strip-inline-markup,
 )
 #import "/src/text/quotes.typ": transform-quotes-at-level
 #import "/src/compiler/rt/text.typ": (
-  _format-inline-text as compiled-format-inline-text,
-  get-text-variable-raw,
+  _format-inline-text as compiled-format-inline-text, get-text-variable-raw,
 )
 #import "/src/interpreter/stack.typ": (
   _format-inline-text as interpreted-format-inline-text,
@@ -23,16 +18,39 @@
 
 // Recognize citeproc-js-compatible span variants, but canonicalize them into
 // the same small internal tag vocabulary used by the renderer.
-#let nocase-node = first-node("<span data-kind=\"x\" class = 'foo nocase bar'>Smith</span>")
-#assert.eq(has-inline-markup("<span data-kind=\"x\" class = 'foo nocase bar'>Smith</span>"), true)
+#let nocase-node = first-node(
+  "<span data-kind=\"x\" class = 'foo nocase bar'>Smith</span>",
+)
+#assert.eq(
+  has-inline-markup(
+    "<span data-kind=\"x\" class = 'foo nocase bar'>Smith</span>",
+  ),
+  true,
+)
 #assert.eq(nocase-node.at("tag", default: ""), "nocase")
-#assert.eq(nocase-node.at("children", default: ((kind: "text", text: ""),)).first().text, "Smith")
-#assert.eq(strip-inline-markup("<span data-kind=\"x\" class = 'foo nocase bar'>Smith</span>"), "Smith")
+#assert.eq(
+  nocase-node.at("children", default: ((kind: "text", text: ""),)).first().text,
+  "Smith",
+)
+#assert.eq(
+  strip-inline-markup(
+    "<span data-kind=\"x\" class = 'foo nocase bar'>Smith</span>",
+  ),
+  "Smith",
+)
 
-#let smallcaps-node = first-node("<span title=\"x\" style='color: red; font-variant : small-caps; font-weight: bold'>Guide</span>")
+#let smallcaps-node = first-node(
+  "<span title=\"x\" style='color: red; font-variant : small-caps; font-weight: bold'>Guide</span>",
+)
 #assert.eq(smallcaps-node.at("attr", default: ""), "font-variant")
 #assert.eq(smallcaps-node.at("value", default: ""), "small-caps")
-#assert.eq(smallcaps-node.at("children", default: ((kind: "text", text: ""),)).first().text, "Guide")
+#assert.eq(
+  smallcaps-node
+    .at("children", default: ((kind: "text", text: ""),))
+    .first()
+    .text,
+  "Guide",
+)
 
 // Unsupported span markup stays literal, matching citeproc-js docs.
 #let unsupported = "A <span data-kind=\"x\">literal</span> B"
@@ -79,14 +97,20 @@
 
 // Formatting attrs that apply in finalize() should force inline value rendering
 // instead of deferring raw HTML-ish strings.
-#assert.eq(should-defer-inline-value((
-  value: "<i>underlined</i>",
-  text-decoration: "underline",
-)), false)
-#assert.eq(should-defer-inline-value((
-  value: "<i>displayed</i>",
-  display: "block",
-)), false)
+#assert.eq(
+  should-defer-inline-value((
+    value: "<i>underlined</i>",
+    text-decoration: "underline",
+  )),
+  false,
+)
+#assert.eq(
+  should-defer-inline-value((
+    value: "<i>displayed</i>",
+    display: "block",
+  )),
+  false,
+)
 
 // Inline text follows punctuation-in-quote just like non-inline text paths.
 #let piq-ctx = (
@@ -116,7 +140,13 @@
 // font-style/font-weight/font-variant decorations.
 #let nodecor-node = first-node("<span class=\"nodecor\">v.</span>")
 #assert.eq(nodecor-node.at("tag", default: ""), "nodecor")
-#assert.eq(nodecor-node.at("children", default: ((kind: "text", text: ""),)).first().text, "v.")
+#assert.eq(
+  nodecor-node
+    .at("children", default: ((kind: "text", text: ""),))
+    .first()
+    .text,
+  "v.",
+)
 
 // Rendering nodecor must be valid when outer formatting is inherited.
 #render-inline-markup(

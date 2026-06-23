@@ -139,7 +139,9 @@
     return ((kind: "text", text: str(source)),)
   }
 
-  let frames = ((tag: "root", close: none, opener: "", closer: "", children: ()),)
+  let frames = (
+    (tag: "root", close: none, opener: "", closer: "", children: ()),
+  )
   let last = 0
 
   for m in source.matches(_tag-pattern) {
@@ -261,7 +263,9 @@
     if node.kind == "text" {
       out.push((
         kind: "text",
-        text: if protected { node.text } else { quote-func(node.text, ctx, level) },
+        text: if protected { node.text } else {
+          quote-func(node.text, ctx, level)
+        },
       ))
     } else {
       let updated = node
@@ -415,7 +419,12 @@
   out.join()
 }
 
-#let render-inline-markup(source, attrs: (:), nodes: none, output-target: "auto") = {
+#let render-inline-markup(
+  source,
+  attrs: (:),
+  nodes: none,
+  output-target: "auto",
+) = {
   let parsed = if nodes == none { parse-inline-markup(source) } else { nodes }
   _render-nodes(parsed, _style-from-attrs(attrs), output-target)
 }

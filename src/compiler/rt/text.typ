@@ -17,7 +17,11 @@
 #let _re-rsq-rdq-end = regex("\u{2019}\u{201D}$")
 #let _re-rdq-end = regex("\u{201D}$")
 
-#let _case-inline-text(text, attrs, ctx) = apply-text-case(text, attrs, ctx: ctx)
+#let _case-inline-text(text, attrs, ctx) = apply-text-case(
+  text,
+  attrs,
+  ctx: ctx,
+)
 
 #let _inline-quote-punctuation(attrs, ctx, has-quotes) = {
   let suffix = attrs.at("suffix", default: "")

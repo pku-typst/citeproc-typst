@@ -664,7 +664,9 @@
     suffix
   }
 
-  let inline-processed = if type(processed) == str and has-inline-markup(processed) {
+  let inline-processed = if (
+    type(processed) == str and has-inline-markup(processed)
+  ) {
     render-inline-markup(processed, attrs: attrs)
   } else {
     processed

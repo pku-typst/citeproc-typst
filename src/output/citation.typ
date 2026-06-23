@@ -68,7 +68,10 @@
     let func = value.func()
     let fields = value.fields()
     if "children" in fields {
-      fields.children.map(it => _render-layout-inline-content(it, layout)).join()
+      fields
+        .children
+        .map(it => _render-layout-inline-content(it, layout))
+        .join()
     } else if func == text and "text" in fields {
       text(_render-layout-inline-content(fields.text, layout))
     } else if "body" in fields {
@@ -421,7 +424,10 @@
     if suppress-affixes {
       formatted
     } else {
-      apply-formatting(_prepare-layout-inline-content(formatted, layout), layout)
+      apply-formatting(
+        _prepare-layout-inline-content(formatted, layout),
+        layout,
+      )
     }
   } else {
     // Default form: apply all formatting
@@ -447,7 +453,10 @@
       }
 
       // Apply font formatting (font-weight, font-style)
-      apply-formatting(_prepare-layout-inline-content(with-valign, layout), layout)
+      apply-formatting(
+        _prepare-layout-inline-content(with-valign, layout),
+        layout,
+      )
     }
   }
 
