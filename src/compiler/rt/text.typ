@@ -3,6 +3,10 @@
 #import "../../core/mod.typ": (
   apply-text-case, finalize, fold-superscripts, is-empty,
 )
+#import "../../text/markup.typ": (
+  has-inline-markup, inline-markup-plain-text, prepare-inline-markup,
+  render-inline-markup,
+)
 #import "../../text/quotes.typ": apply-quotes, transform-quotes-at-level
 #import "../../output/punctuation.typ": get-punctuation-in-quote
 
@@ -12,6 +16,52 @@
 #let _re-double-quotes = regex("[\u{201C}\u{201D}\"]")
 #let _re-rsq-rdq-end = regex("\u{2019}\u{201D}$")
 #let _re-rdq-end = regex("\u{201D}$")
+
+#let _case-inline-text(text, attrs, ctx) = apply-text-case(text, attrs, ctx: ctx)
+
+#let _inline-quote-punctuation(attrs, ctx, has-quotes) = {
+  let suffix = attrs.at("suffix", default: "")
+  let piq = if "style" in ctx {
+    get-punctuation-in-quote(ctx.style)
+  } else { false }
+  if (
+    has-quotes and piq and suffix.len() > 0 and suffix.first() in (".", ",")
+  ) {
+    suffix.first()
+  } else { "" }
+}
+
+#let _format-inline-text(raw, attrs, ctx, quote-level, has-quotes) = {
+  let nodes = prepare-inline-markup(
+    raw,
+    attrs,
+    ctx,
+    case-func: _case-inline-text,
+    quote-func: transform-quotes-at-level,
+    quote-level: quote-level,
+    has-quotes: has-quotes,
+  )
+  let rendered = render-inline-markup(raw, attrs: attrs, nodes: nodes)
+  let plain = inline-markup-plain-text(nodes)
+  let quote-punct = _inline-quote-punctuation(attrs, ctx, has-quotes)
+  let adjusted-attrs = if quote-punct != "" {
+    (..attrs, suffix: attrs.suffix.slice(1))
+  } else { attrs }
+  if quote-punct != "" and not plain.ends-with(quote-punct) {
+    rendered = [#rendered#quote-punct]
+  }
+  let quoted = if has-quotes {
+    apply-quotes(rendered, ctx, level: quote-level)
+  } else {
+    rendered
+  }
+  let final-ends = plain.ends-with(".") or quote-punct == "."
+  let final-attrs = (..adjusted-attrs, "_ends-with-period": final-ends)
+  if "text-case" in final-attrs {
+    let _ = final-attrs.remove("text-case")
+  }
+  (finalize(quoted, final-attrs), final-ends)
+}
 
 #let _fix-inner-quotes(text, ctx, quote-level, has-quotes) = {
   if not has-quotes { return text }
@@ -73,6 +123,21 @@
   }
 
   if val != "" {
+    if type(val) == str and has-inline-markup(val) {
+      let nodes = prepare-inline-markup(
+        val,
+        attrs,
+        ctx,
+        quote-func: if "style" in ctx { transform-quotes-at-level } else {
+          none
+        },
+        quote-level: ctx.at("quote-level", default: 0),
+      )
+      let rendered = render-inline-markup(val, attrs: attrs, nodes: nodes)
+      let plain = inline-markup-plain-text(nodes)
+      return (rendered, "var", (), plain.ends-with("."))
+    }
+
     let normalized = if type(val) == str and "style" in ctx {
       let quote-level = ctx.at("quote-level", default: 0)
       let fixed = transform-quotes-at-level(val, ctx, quote-level)
@@ -154,6 +219,18 @@
       }
     } else { val }
 
+    let quote-level = ctx.at("quote-level", default: 0)
+    if type(formatted) == str and has-inline-markup(formatted) {
+      let (content, ends) = _format-inline-text(
+        formatted,
+        attrs,
+        ctx,
+        quote-level,
+        has-quotes,
+      )
+      return (content, "var", (), ends)
+    }
+
     // Apply text-case FIRST while content is still a string
     let cased = if plan.at("has-text-case", default: false) {
       apply-text-case(formatted, attrs, ctx: ctx)
@@ -162,7 +239,6 @@
     }
 
     // Handle quotes (CSL quote flipflopping)
-    let quote-level = ctx.at("quote-level", default: 0)
     let has-single = cased.match(_re-single-quotes) != none
     let has-double = cased.match(_re-double-quotes) != none
     let effective-level = if (
@@ -179,9 +255,7 @@
     } else { cased }
     let normalized = if type(normalized) == str {
       normalized.replace(
-        regex(
-          "(^|[\\s\\(\\[])[\u{2018}\u{2019}']([^'\u{2018}\u{2019}]+)[\u{2018}\u{2019}']",
-        ),
+        regex("(^|[\\s\\(\\[])'([^']+)'"),
         m => (
           m.captures.at(0) + "\"" + m.captures.at(1) + "\""
         ),
@@ -279,11 +353,6 @@
       format-number-range(val, ctx: ctx)
     } else { val }
 
-    // Apply text-case FIRST while content is still a string
-    let cased = apply-text-case(formatted, attrs, ctx: ctx)
-    let folded = fold-superscripts(cased)
-
-    // Handle quotes (CSL quote flipflopping)
     let quote-level = ctx.at("quote-level", default: 0)
     let quotes-attr = attrs.at("quotes", default: "false")
     let has-quotes = if type(quotes-attr) == bool {
@@ -291,6 +360,22 @@
     } else {
       quotes-attr == "true"
     }
+    if type(formatted) == str and has-inline-markup(formatted) {
+      let (content, ends) = _format-inline-text(
+        formatted,
+        attrs,
+        ctx,
+        quote-level,
+        has-quotes,
+      )
+      return (content, "var", (), ends)
+    }
+
+    // Apply text-case FIRST while content is still a string
+    let cased = apply-text-case(formatted, attrs, ctx: ctx)
+    let folded = fold-superscripts(cased)
+
+    // Handle quotes (CSL quote flipflopping)
 
     // Normalize embedded quotes in content (only if ctx.style is available)
     if type(folded) != str {

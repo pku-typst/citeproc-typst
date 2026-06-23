@@ -31,6 +31,8 @@
       and not has-explicit
       and "__year-suffix-done" not in done-vars
   )
-  let date-done = if mark-suffix { ("__year-suffix-done",) } else { () }
+  let date-done = if mark-suffix and not is-empty(content) {
+    ("__year-suffix-done",)
+  } else { () }
   (content, var-state, date-done, ends)
 }

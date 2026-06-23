@@ -3,6 +3,7 @@
 // Apply CSL formatting attributes to content.
 
 #import "utils.typ": capitalize-first-char, is-empty, strip-periods-from-str
+#import "../text/markup.typ": has-inline-markup, render-inline-markup
 
 // Superscript folding map (from CSL test suite SuperscriptFolding list)
 // Converts Unicode superscripts to base glyphs for <sup> rendering.
@@ -663,8 +664,14 @@
     suffix
   }
 
+  let inline-processed = if type(processed) == str and has-inline-markup(processed) {
+    render-inline-markup(processed, attrs: attrs)
+  } else {
+    processed
+  }
+
   // Apply formatting to content FIRST (CSL spec: affixes are outside formatting)
-  let formatted = apply-formatting(processed, attrs)
+  let formatted = apply-formatting(inline-processed, attrs)
 
   // Combine prefix + formatted content + suffix
   if prefix == "" and adjusted-suffix == "" {
