@@ -3,6 +3,8 @@
 
 #import "/lib.typ": csl-bibliography, init-csl-json
 
+#import "/src/parsing/csl-json.typ": convert-csl-json-entry
+
 // CSL-JSON test data (inline)
 #let test-json = `[
   {
@@ -75,8 +77,33 @@
     "page": "88-96",
     "issued": {"date-parts": [[2023]]},
     "language": "zh-CN"
+  },
+  {
+    "id": "article-number-test",
+    "type": "article-journal",
+    "title": "Testing Article Numbers in CSL-JSON",
+    "author": [
+      {"family": "Example", "given": "Alex"}
+    ],
+    "container-title": "Journal of Citation Testing",
+    "volume": "12",
+    "issue": "3",
+    "number": "e1234567",
+    "issued": {"date-parts": [[2024]]}
   }
 ]`.text
+
+// Regression test: preserve issue and article number independently
+#let article-number-entry = json(bytes(test-json)).find(
+  entry => entry.id == "article-number-test"
+)
+
+#assert(article-number-entry != none)
+
+#let converted-article = convert-csl-json-entry(article-number-entry)
+
+#assert.eq(converted-article.fields.at("issue"), "3")
+#assert.eq(converted-article.fields.at("number"), "e1234567")
 
 #show: init-csl-json.with(
   test-json,

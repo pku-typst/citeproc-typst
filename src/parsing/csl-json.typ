@@ -469,11 +469,6 @@
     fields.insert("pages", fields.at("page"))
   }
 
-  // issue -> number
-  if "issue" in fields {
-    fields.insert("number", fields.at("issue"))
-  }
-
   // Handle dates
   let date-vars = (
     "issued",
