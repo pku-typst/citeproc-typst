@@ -94,7 +94,7 @@
 ]`.text
 
 // Regression test: preserve issue and article number independently
-#let article-number-entry = json.decode(test-json).find(
+#let article-number-entry = json(bytes(test-json)).find(
   entry => entry.id == "article-number-test"
 )
 
