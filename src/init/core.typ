@@ -120,9 +120,8 @@
     cite-marker(key, locator: it.supplement, form: it.form)
 
     // Render citation using precomputed data (O(1) lookup via global counter)
-    context {
+    let body = context {
       let precomputed = _get-precomputed()
-      let style = _csl-style.get()
       let rendered-citations = if precomputed != none {
         precomputed.at("rendered-citations", default: ())
       } else {
@@ -134,25 +133,25 @@
 
       if cite-idx >= 0 and cite-idx < rendered-citations.len() {
         let cite-data = rendered-citations.at(cite-idx)
-        let result = cite-data.content
-        let cite-key = cite-data.key
-        let form = cite-data.form
-
-        // Add footnote/link wrapper
-        // Note: footnote can be disabled via --input use-footnote=false for HTML export
-        let is-inline-form = (
-          form in (CITE-FORM.prose, CITE-FORM.author, CITE-FORM.year)
-        )
-
-        if is-note-style and not is-inline-form and _use-footnote {
-          footnote(link(label(make-cite-ref-label(cite-key)), result))
-        } else {
-          link(label(make-cite-ref-label(cite-key)), result)
-        }
+        link(label(make-cite-ref-label(cite-data.key)), cite-data.content)
       } else {
-        // Fallback for edge cases
+        // Fallback while precomputed data is not yet available, or for unknown keys
         text(fill: red, "[??" + key + "??]")
       }
+    }
+
+    // Add the footnote outside the context block, so that it exists in every
+    // layout iteration regardless of the precomputed data. Otherwise the
+    // number of footnotes changes between iterations, and anything derived
+    // from the footnote counter cannot converge.
+    // Note: footnote can be disabled via --input use-footnote=false for HTML export
+    let is-inline-form = (
+      it.form in (CITE-FORM.prose, CITE-FORM.author, CITE-FORM.year)
+    )
+    if is-note-style and not is-inline-form and _use-footnote {
+      footnote(body)
+    } else {
+      body
     }
   }
 

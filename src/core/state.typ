@@ -3,7 +3,13 @@
 // Manages bibliography data, CSL style, and citation tracking.
 // Uses metadata + query pattern for citation collection.
 
-#import "constants.typ": POSITION
+#import "constants.typ": CITE-FORM, POSITION
+
+/// Whether note-style citations are wrapped in footnotes
+/// (disabled with `--input use-footnote=false`, e.g. for HTML export)
+#let _notes-as-footnotes = (
+  sys.inputs.at("use-footnote", default: "true") == "true"
+)
 
 // =============================================================================
 // Core State Variables
@@ -78,7 +84,10 @@
   )
 
   let n = 0
-  let note-number = 0 // Track note numbers (each citation in note style = one footnote)
+  // Note number of each citation. With footnotes enabled it is read from
+  // the footnote counter, so footnotes written by the user (with or
+  // without citations) and multi-item citations are counted correctly.
+  let note-number = 0
   let prev-key = none
 
   for c in cites {
@@ -92,7 +101,17 @@
     // Positions key for O(1) lookup (uses repr for consistency)
     let positions-key = key + "\n" + repr(locator)
 
-    note-number += 1
+    note-number = if not _notes-as-footnotes {
+      // Without footnotes there is no counter to read; one note per citation.
+      note-number + 1
+    } else if form in (CITE-FORM.prose, CITE-FORM.author, CITE-FORM.year) {
+      // Inline forms sit inside a footnote the user wrote; the counter
+      // already holds that footnote's number.
+      counter(footnote).at(c.location()).first()
+    } else {
+      // Other forms get their own footnote, created right after the marker.
+      counter(footnote).at(c.location()).first() + 1
+    }
 
     // Track first occurrence order (by key, not positions-key)
     if is-first-key {
