@@ -85,7 +85,9 @@
   if text.match(_re-quote-chars) == none { return text }
   transform-quotes-at-level(text, ctx, 1)
 }
-#import "../../text/ranges.typ": format-number-range, format-page-range
+#import "../../text/ranges.typ": (
+  format-number-range, format-page-range, locator-range-format,
+)
 #import "../../data/variables.typ": get-variable
 
 /// Get raw text variable without formatting/affixes
@@ -211,10 +213,10 @@
   }
 
   if val != "" {
-    // Format page ranges for page/page-first; locator uses expanded
+    // Format page ranges for page/page-first and locators (page-range-format)
     let formatted = if is-page-like {
       if var-name == "locator" {
-        format-page-range(val, format: "expanded", ctx: ctx)
+        format-page-range(val, format: locator-range-format(ctx), ctx: ctx)
       } else {
         let page-format = if "style" in ctx {
           ctx.style.at("page-range-format", default: none)
@@ -345,14 +347,14 @@
   }
 
   if val != "" {
-    // Format page ranges for page/page-first; locator uses expanded
+    // Format page ranges for page/page-first and locators (page-range-format)
     let formatted = if var-name == "page" or var-name == "page-first" {
       let page-format = if "style" in ctx {
         ctx.style.at("page-range-format", default: none)
       } else { none }
       format-page-range(val, format: page-format, ctx: ctx)
     } else if var-name == "locator" {
-      format-page-range(val, format: "expanded", ctx: ctx)
+      format-page-range(val, format: locator-range-format(ctx), ctx: ctx)
     } else if var-name == "issue" {
       format-number-range(val, ctx: ctx)
     } else { val }

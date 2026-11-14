@@ -458,6 +458,22 @@
   result
 }
 
+/// The page-range-format to apply to a citation locator
+///
+/// The style's page-range-format governs page ranges, so it applies to
+/// locators labelled "page". Other locators (paragraph, section, ...) keep
+/// their digits as written. Without the attribute, page ranges are rendered
+/// without reformatting (CSL 1.0.2).
+///
+/// - ctx: Context (uses ctx.style and ctx.locator-label)
+/// Returns: Format name or none
+#let locator-range-format(ctx) = {
+  if ctx.at("locator-label", default: "page") != "page" { return none }
+  let style = ctx.at("style", default: none)
+  if style == none { return none }
+  style.at("page-range-format", default: none)
+}
+
 /// Format a page range according to CSL page-range-format
 ///
 /// - page-str: Page string (may be a range like "123-456")

@@ -45,7 +45,9 @@
   has-inline-markup, inline-markup-plain-text, prepare-inline-markup,
   render-inline-markup, should-defer-inline-value, strip-inline-markup,
 )
-#import "../text/ranges.typ": format-number-range, format-page-range
+#import "../text/ranges.typ": (
+  format-number-range, format-page-range, locator-range-format,
+)
 #import "../text/quotes.typ": apply-quotes, transform-quotes-at-level
 #import "../output/punctuation.typ": get-punctuation-in-quote
 
@@ -190,7 +192,7 @@
           let page-format = ctx.style.at("page-range-format", default: none)
           format-page-range(val, format: page-format, ctx: ctx)
         } else if var-name == "locator" {
-          format-page-range(val, format: "expanded", ctx: ctx)
+          format-page-range(val, format: locator-range-format(ctx), ctx: ctx)
         } else if var-name == "issue" {
           format-number-range(val, ctx: ctx)
         } else { val }
