@@ -218,6 +218,13 @@
     return ""
   }
 
+  if name == "title-short" {
+    // CSL-JSON uses title-short; BibLaTeX uses shorttitle
+    let short = fields.at("title-short", default: "")
+    if short != "" { return short }
+    return fields.at("shorttitle", default: "")
+  }
+
   if name == "container-title-short" {
     let short = fields.at("container-title-short", default: "")
     if short != "" { return short }
