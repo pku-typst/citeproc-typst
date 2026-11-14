@@ -355,7 +355,7 @@ The following CSL-M (Juris-M/Multilingual Zotero) extensions are **not supported
 | --------------------------------------------- | ------------------------------------------------- |
 | `parallel-first` / `parallel-last`            | Parallel citation suppression for legal documents |
 | `form="imperial"`                             | Japanese Imperial calendar date format            |
-| `commenter` / `contributor`                   | Additional name variables                         |
+| `commenter`                                   | Additional name variable                          |
 | `cs:court-class`                              | Court classification element                      |
 | `track-containers` / `consolidate-containers` | Container tracking for legal citations            |
 | `subgroup-delimiter`                          | Publisher/publisher-place grouping                |

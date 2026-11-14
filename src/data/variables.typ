@@ -26,6 +26,21 @@
   "original-editor",
   "recipient",
   "reviewed-author",
+  // Remaining CSL 1.0.2 name variables
+  "chair",
+  "compiler",
+  "contributor",
+  "curator",
+  "editorial-director",
+  "executive-producer",
+  "guest",
+  "host",
+  "narrator",
+  "organizer",
+  "performer",
+  "producer",
+  "script-writer",
+  "series-creator",
 )
 
 // Direct field mappings (including CSL-M legal variables)
